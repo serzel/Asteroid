@@ -67,41 +67,51 @@ export class Game {
   }
 
   #spawnLevel() {
-  // progression :
-  // - + astéroïdes par niveau
-  // - vitesse augmente légèrement
-  // - tailles mixées (plus de gros au début, plus de petits ensuite)
-  const count = 4 + this.level; // 5 au lvl1, 6 au lvl2, etc.
+    // progression :
+    // - + astéroïdes par niveau
+    // - vitesse augmente légèrement
+    // - tailles mixées (plus de gros au début, plus de petits ensuite)
+    const count = 4 + this.level; // 5 au lvl1, 6 au lvl2, etc.
 
-  for (let i = 0; i < count; i++) {
-    let x, y;
-    do {
-      x = rand(0, this.world.w);
-      y = rand(0, this.world.h);
-    } while (dist2(x, y, this.ship.x, this.ship.y) < 240 * 240);
+    const minSpawnDistance = Math.max(
+      120,
+      Math.min(240, Math.min(this.world.w, this.world.h) * 0.35),
+    );
+    const minSpawnDistance2 = minSpawnDistance * minSpawnDistance;
+    const maxSpawnAttempts = 40;
 
-    // distribution de taille selon niveau
-    // lvl 1-2 : surtout gros, lvl 3+ : mix
-    const roll = Math.random();
-    let size = 3;
-    if (this.level >= 3 && roll < 0.25) size = 2;
-    if (this.level >= 5 && roll < 0.12) size = 1;
+    for (let i = 0; i < count; i++) {
+      let x = rand(0, this.world.w);
+      let y = rand(0, this.world.h);
 
-    const a = new Asteroid(x, y, size);
+      for (let attempt = 0; attempt < maxSpawnAttempts; attempt++) {
+        x = rand(0, this.world.w);
+        y = rand(0, this.world.h);
+        if (dist2(x, y, this.ship.x, this.ship.y) >= minSpawnDistance2) break;
+      }
 
-    // difficulté : boost léger de la vitesse
-    const boost = 1 + Math.min(0.6, (this.level - 1) * 0.08);
-    a.vx *= boost;
-    a.vy *= boost;
+      // distribution de taille selon niveau
+      // lvl 1-2 : surtout gros, lvl 3+ : mix
+      const roll = Math.random();
+      let size = 3;
+      if (this.level >= 3 && roll < 0.25) size = 2;
+      if (this.level >= 5 && roll < 0.12) size = 1;
 
-    this.asteroids.push(a);
+      const a = new Asteroid(x, y, size);
+
+      // difficulté : boost léger de la vitesse
+      const boost = 1 + Math.min(0.6, (this.level - 1) * 0.08);
+      a.vx *= boost;
+      a.vy *= boost;
+
+      this.asteroids.push(a);
+    }
   }
-}
 
   #nextLevel() {
-  this.level += 1;
-  this.#spawnLevel();
-}
+    this.level += 1;
+    this.#spawnLevel();
+  }
 
   #loop(t) {
     if (!this.running) return;
@@ -206,9 +216,9 @@ export class Game {
 
 
     // nouvelle vague
- if (this.asteroids.length === 0) {
-  this.#nextLevel();
-}
+    if (this.asteroids.length === 0) {
+      this.#nextLevel();
+    }
   }
 
   #draw() {

@@ -11,6 +11,11 @@ export class Input {
     target.addEventListener("keyup", (e) => {
       this.down.delete(e.code);
     });
+
+    target.addEventListener("blur", () => {
+      this.down.clear();
+      this.pressed.clear();
+    });
   }
 
   isDown(code) {
