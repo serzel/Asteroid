@@ -29,15 +29,18 @@ export class Particle {
   }
 
   draw(ctx) {
-    const t = Math.max(0, this.life / this.maxLife);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+  const t = Math.max(0, this.life / this.maxLife);
+  const rr = this.radius * (0.6 + 0.4 * t);
+
+  ctx.save();
+  ctx.globalAlpha = t;
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(this.x, this.y, rr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 
   static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax) {
     const out = [];
