@@ -382,13 +382,8 @@ export class Game {
   }
 
   #updateGameplay(dt) {
-    if (this.comboTimer > 0) this.comboTimer -= dt;
-    if (this.comboTimer <= 0) {
-      this.comboTimer = this.COMBO_WINDOW;
-      this.applyComboBreak();
-    }
+    const dtSec = dt > 1 ? dt / 1000 : dt;
 
-    // Timer cyclique: toutes les 5s, on applique un combo break puis on relance la fenêtre.
     if (this.comboTimer > 0) this.comboTimer -= dt;
     if (this.comboTimer <= 0) {
       this.comboTimer = this.COMBO_WINDOW;
@@ -533,6 +528,12 @@ export class Game {
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
     }
+
+    if (this.combo === 1) {
+      const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
+      this.score -= difficulty.scoreDrainCombo1PerSec * dtSec;
+      this.score = Math.max(0, this.score);
+    }
   }
 
   #update(dt) {
@@ -622,7 +623,14 @@ export class Game {
       ? `TIMER: ${this.comboTimer.toFixed(1)}s !`
       : `TIMER: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
-    drawText(ctx, `WEAPON: ${this.ship.weaponLevel}`, 16, 122, 18);
+    const weaponNames = {
+      1: "Blaster",
+      2: "Sniper",
+      3: "Double Blaster",
+      4: "Shotgun",
+    };
+    const weaponName = weaponNames[this.ship.weaponLevel] ?? `Weapon ${this.ship.weaponLevel}`;
+    drawText(ctx, `WEAPON: ${weaponName}`, 16, 122, 18);
   }
 
   #drawGameOverOverlay() {
