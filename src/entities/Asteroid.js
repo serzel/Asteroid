@@ -3,7 +3,7 @@ import { wrap, rand } from "../engine/math.js";
 export class Asteroid {
   static TYPE = {
     normal:   { speedMul: 1.0,  hpMul: 1, splitCount: 2, dashed: false, lineWidth: 1, points: 10, jitterMin: 0.75, jitterMax: 1.25, scoreMul: 1.0, tint: "rgba(180,180,180,1)" },
-    dense:    { speedMul: 0.75, hpMul: 2, splitCount: 2, dashed: false, lineWidth: 3, points: 11, jitterMin: 0.80, jitterMax: 1.20, scoreMul: 1.4, tint: "rgba(140,140,160,1)" },
+    dense:    { speedMul: 0.75, hpMul: 2, splitCount: 2, dashed: false, lineWidth: 3, points: 11, jitterMin: 0.80, jitterMax: 1.20, scoreMul: 1.4, tint: "rgba(90, 110, 160, 1)", highlight: "rgba(160, 180, 230, 1)", shadow: "rgba(50, 65, 110, 1)" },
     fast:     { speedMul: 2.2,  hpMul: 1, splitCount: 0, dashed: true,  lineWidth: 1, points: 9,  jitterMin: 0.85, jitterMax: 1.15, scoreMul: 1.3, tint: "rgba(150,190,210,1)" },
     splitter: { speedMul: 1.05, hpMul: 1, splitCount: 3, dashed: false, lineWidth: 2, points: 13, jitterMin: 0.70, jitterMax: 1.30, scoreMul: 1.6, tint: "rgba(190,150,220,1)" },
   };
@@ -189,7 +189,11 @@ export class Asteroid {
 
 draw(ctx) {
   const cfg = Asteroid.TYPE[this.type] ?? Asteroid.TYPE.normal;
-  const { highlightColor, baseColor, shadowColor, outlineColor } = this.#tintShades(cfg.tint);
+  const shades = this.#tintShades(cfg.tint);
+  const highlightColor = cfg.highlight ?? shades.highlightColor;
+  const baseColor = cfg.tint;
+  const shadowColor = cfg.shadow ?? shades.shadowColor;
+  const outlineColor = shades.outlineColor;
   const lightX = -0.35 * this.radius;
   const lightY = -0.35 * this.radius;
 

@@ -180,7 +180,7 @@ export class Ship {
       const bulletSpeed = baseSpeed * speedMul;
       const bvx = dirX * bulletSpeed + this.vx;
       const bvy = dirY * bulletSpeed + this.vy;
-      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor));
+      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel));
     };
 
     if (this.weaponLevel >= 4) {
