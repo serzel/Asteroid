@@ -15,6 +15,8 @@ Pilotez votre vaisseau spatial dans un champ d'astéroïdes dangereux ! Détruis
 
 ## 🕹️ Contrôles
 
+**Note** : Ce jeu est configuré pour un clavier AZERTY français.
+
 - **Z** : Avancer (propulsion)
 - **Q** : Tourner à gauche
 - **D** : Tourner à droite
