@@ -96,34 +96,38 @@ export class Ship {
   tryShoot(bullets) {
     if (this.cooldown > 0) return;
 
-    const speed = 520;
+    const baseSpeed = 520;
     const nx = Math.cos(this.angle);
     const ny = Math.sin(this.angle);
     const tx = -ny;
     const ty = nx;
 
-    const spawn = (angleOffset = 0, sideOffset = 0) => {
+    const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
       const dirY = Math.sin(ang);
       const bx = this.x + nx * (this.radius + 2) + tx * sideOffset;
       const by = this.y + ny * (this.radius + 2) + ty * sideOffset;
-      const bvx = dirX * speed + this.vx;
-      const bvy = dirY * speed + this.vy;
+      const bulletSpeed = baseSpeed * speedMul;
+      const bvx = dirX * bulletSpeed + this.vx;
+      const bvy = dirY * bulletSpeed + this.vy;
       bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife));
     };
 
     if (this.weaponLevel >= 4) {
       // Triple tir courte portée avec léger éventail.
-      spawn(-0.1, -6);
-      spawn(0, 0);
-      spawn(0.1, 6);
+      spawn(-0.1, -6, 0.85);
+      spawn(0, 0, 0.85);
+      spawn(0.1, 6, 0.85);
     } else if (this.weaponLevel >= 3) {
       // Double tir parallèle portée standard.
       spawn(0, -5);
       spawn(0, 5);
+    } else if (this.weaponLevel >= 2) {
+      // Tir simple rapide (sniper).
+      spawn(0, 0, 1.3);
     } else {
-      // Tir simple (normal ou longue portée selon palier).
+      // Tir simple normal.
       spawn(0, 0);
     }
 

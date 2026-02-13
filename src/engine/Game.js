@@ -61,20 +61,17 @@ export class Game {
     this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
   }
 
-  getWeaponLevelFromCombo(combo) {
-    if (combo >= 45) return 4;
-    if (combo >= 25) return 3;
-    if (combo >= 10) return 2;
-    return 1;
-  }
-
   applyComboBreak() {
     // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
     const oldCombo = this.combo;
-    const oldLevel = this.getWeaponLevelFromCombo(this.combo);
+    const oldLevel = this.ship.weaponLevel;
     let c = this.combo / 2;
 
-    while (c > 1 && this.getWeaponLevelFromCombo(c) >= oldLevel) c /= 2;
+    while (c > 1) {
+      this.ship.updateWeaponLevel(c);
+      if (this.ship.weaponLevel < oldLevel) break;
+      c /= 2;
+    }
 
     this.combo = Math.max(1, c);
     this.ship.updateWeaponLevel(this.combo);
@@ -167,26 +164,6 @@ export class Game {
     this.#newGame();
     this.state = "PLAY";
     this.logDebug(`Start game difficulty=${id}`);
-  }
-
-  getWeaponLevelFromCombo(combo) {
-    if (combo >= 45) return 4;
-    if (combo >= 25) return 3;
-    if (combo >= 10) return 2;
-    return 1;
-  }
-
-  applyComboBreak() {
-    // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
-    const oldCombo = this.combo;
-    const oldLevel = this.getWeaponLevelFromCombo(this.combo);
-    let c = this.combo / 2;
-
-    while (c > 1 && this.getWeaponLevelFromCombo(c) >= oldLevel) c /= 2;
-
-    this.combo = Math.max(1, c);
-    this.ship.updateWeaponLevel(this.combo);
-    this.logDebug(`Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
   }
 
   start() {
@@ -492,13 +469,15 @@ export class Game {
           b.dead = true;
 
           const destroyed = a.hit();
+          this.comboTimer = Math.min(this.comboTimer + 0.5, this.getCurrentComboWindow());
 
           if (destroyed) {
             this.combo += a.comboValue;
             this.ship.updateWeaponLevel(this.combo);
             this.comboTimer = this.getCurrentComboWindow();
 
-            this.score += Math.round(100 * a.size * this.combo);
+            const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
+            this.score += Math.round(100 * a.size * cfg.scoreMul * this.combo);
 
             const kids = a.split();
             this.asteroids.push(...kids);
@@ -556,7 +535,8 @@ export class Game {
     }
 
     if (this.combo === 1) {
-      this.score -= 12000 * dtSec;
+      const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
+      this.score -= difficulty.scoreDrainCombo1PerSec * dtSec;
       this.score = Math.max(0, this.score);
     }
   }
