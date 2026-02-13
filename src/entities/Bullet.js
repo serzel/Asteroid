@@ -9,7 +9,7 @@ export class Bullet {
     this.radius = 2;
     this.life = life; // secondes
     this.dead = false;
-    this.color = color;
+    this.color = `${color}`;
   }
 
   update(dt, world) {
