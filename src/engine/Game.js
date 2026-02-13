@@ -25,10 +25,11 @@ export class Game {
 
     this.score = 0;
     this.combo = 1;
-    this.comboTimeout = 3;
     this.comboTimer = 0;
     this.lives = 3;
     this.gameOver = false;
+
+    this.COMBO_WINDOW = 5.0;
 
     this.level = 1;
     this.particles = [];
@@ -67,6 +68,7 @@ export class Game {
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
+    this.ship.updateWeaponLevel(this.combo);
 
     this.#spawnLevel();
 
@@ -177,11 +179,6 @@ export class Game {
     this.#spawnLevel();
   }
 
-  #comboGainForSize(size) {
-    if (size >= 3) return 1;
-    if (size === 2) return 0.5;
-    return 0.25;
-  }
 
   #loop(t) {
     if (!this.running) return;
@@ -211,12 +208,13 @@ export class Game {
       return;
     }
 
-    // actions
-    if (this.combo > 1) {
-      this.comboTimer += dt;
-      if (this.comboTimer >= this.comboTimeout) {
-        this.combo = Math.max(1, this.combo / 2);
-        this.comboTimer = 0;
+    // Le timer de combo ne décroît que s'il reste des astéroïdes actifs.
+    const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
+    if (this.combo > 1 && hasActiveAsteroid) {
+      this.comboTimer = Math.max(0, this.comboTimer - dt);
+      if (this.comboTimer <= 0) {
+        this.combo = 1;
+        this.ship.updateWeaponLevel(this.combo);
       }
     }
 
@@ -306,9 +304,9 @@ export class Game {
           const destroyed = a.hit();
 
           if (destroyed) {
-            const gain = this.#comboGainForSize(a.size);
-            this.combo += gain;
-            this.comboTimer = 0;
+            this.combo += a.comboValue;
+            this.comboTimer = this.COMBO_WINDOW;
+            this.ship.updateWeaponLevel(this.combo);
 
             this.score += Math.round(100 * a.size * this.combo);
 
@@ -340,6 +338,7 @@ export class Game {
           this.lives -= 1;
           this.combo = 1;
           this.comboTimer = 0;
+          this.ship.updateWeaponLevel(this.combo);
 
           this.explosions.push(new Explosion(this.ship.x, this.ship.y, 0.45, 70));
           this.particles.push(
@@ -365,8 +364,8 @@ export class Game {
     this.explosions = this.explosions.filter(e => !e.dead);
 
 
-    // nouvelle vague
-    if (this.asteroids.length === 0) {
+    // nouvelle vague déclenchée dès qu'il reste 1 astéroïde ou moins.
+    if (this.asteroids.length <= 1) {
       this.#nextLevel();
     }
   }
