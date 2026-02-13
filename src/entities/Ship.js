@@ -19,6 +19,16 @@ export class Ship {
 
     this.cooldown = 0;
     this.fireRate = 0.18;
+    this.thrusting = false;
+
+    this.sprite = new Image();
+    this.sprite.src = "assets/ship.png";
+    this.spriteSize = 80; // ajuster selon la résolution
+    this.spriteLoaded = false;
+
+    this.sprite.onload = () => {
+      this.spriteLoaded = true;
+    };
 
     // Palier d'arme piloté par le combo.
     this.weaponLevel = 1;
@@ -45,7 +55,9 @@ export class Ship {
     if (input.isDown("left")) this.angle -= this.turnSpeed * dt;
     if (input.isDown("right")) this.angle += this.turnSpeed * dt;
 
-    if (input.isDown("up")) {
+    this.thrusting = input.isDown("up");
+
+    if (this.thrusting) {
       this.vx += Math.cos(this.angle) * this.thrust * dt;
       this.vy += Math.sin(this.angle) * this.thrust * dt;
     }
@@ -134,35 +146,64 @@ export class Ship {
     this.cooldown = this.fireRate;
   }
 
-  draw(ctx) {
+  render(ctx, combo = 1) {
+    if (!this.spriteLoaded) return;
+
     ctx.save();
+
+    // Translation au centre du vaisseau
     ctx.translate(this.x, this.y);
+
+    // Rotation autour du centre
     ctx.rotate(this.angle);
 
-    // Invincibilité : blink + halo
-    if (this.invincible > 0) {
-      const blink = Math.floor(this.invincible * 12) % 2 === 0;
-      ctx.globalAlpha = blink ? 1 : 0.25;
+    // Glow dynamique selon combo
+    const glowIntensity = Math.min(combo * 0.8, 25);
+    ctx.shadowBlur = glowIntensity;
+    ctx.shadowColor = "rgba(0, 180, 255, 0.8)";
 
-      // halo
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 2;
+    // Dessin du sprite centré
+    const size = this.spriteSize;
+    ctx.drawImage(
+      this.sprite,
+      -size / 2,
+      -size / 2,
+      size,
+      size
+    );
+
+    // Reset du glow
+    ctx.shadowBlur = 0;
+
+    // Flammes dynamiques générées par code (si thrusting)
+    if (this.thrusting) {
+      const flameLength = 15 + Math.random() * 10;
+
+      const grad = ctx.createRadialGradient(
+        0, size * 0.35,
+        0,
+        0, size * 0.35,
+        flameLength
+      );
+
+      grad.addColorStop(0, "rgba(0, 200, 255, 1)");
+      grad.addColorStop(0.4, "rgba(0, 120, 255, 0.8)");
+      grad.addColorStop(1, "rgba(0, 0, 255, 0)");
+
+      ctx.fillStyle = grad;
+
       ctx.beginPath();
-      ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+      ctx.ellipse(
+        0,
+        size * 0.35,
+        8,
+        flameLength,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
     }
-
-    ctx.strokeStyle = "white";
-    ctx.beginPath();
-    ctx.moveTo(16, 0);
-    ctx.lineTo(-10, 10);
-    ctx.lineTo(-6, 0);
-    ctx.lineTo(-10, -10);
-    ctx.closePath();
-    ctx.stroke();
 
     ctx.restore();
   }

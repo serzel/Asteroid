@@ -631,7 +631,7 @@ export class Game {
   #drawPlayScene() {
     const ctx = this.ctx;
     this.starfield.draw(ctx);
-    this.ship.draw(ctx);
+    this.ship.render(ctx, this.combo);
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
