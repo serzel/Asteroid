@@ -41,6 +41,24 @@ export class Game {
 
   }
 
+  getWeaponLevelFromCombo(combo) {
+    if (combo >= 45) return 4;
+    if (combo >= 25) return 3;
+    if (combo >= 10) return 2;
+    return 1;
+  }
+
+  applyComboBreak() {
+    // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
+    const oldLevel = this.getWeaponLevelFromCombo(this.combo);
+    let c = this.combo / 2;
+
+    while (c > 1 && this.getWeaponLevelFromCombo(c) >= oldLevel) c /= 2;
+
+    this.combo = Math.max(1, c);
+    this.ship.updateWeaponLevel(this.combo);
+  }
+
   start() {
     const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
     this.world.w = r.cssW;
@@ -280,15 +298,11 @@ export class Game {
       return;
     }
 
-    // Le timer de combo ne décroît que s'il reste des astéroïdes actifs.
-    const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
-    if (this.combo > 1 && hasActiveAsteroid && this.comboTimer > 0) {
-      this.comboTimer -= dt;
-      if (this.comboTimer <= 0) {
-        this.comboTimer = 0;
-        this.combo = Math.max(1, this.combo / 2);
-        this.ship.updateWeaponLevel(this.combo);
-      }
+    // Timer cyclique: toutes les 5s, on applique un combo break puis on relance la fenêtre.
+    if (this.comboTimer > 0) this.comboTimer -= dt;
+    if (this.comboTimer <= 0) {
+      this.comboTimer = this.COMBO_WINDOW;
+      this.applyComboBreak();
     }
 
     this.ship.update(dt, this.input, this.world);
@@ -455,11 +469,12 @@ export class Game {
     drawText(ctx, `Score: ${this.score}`, 16, 12, 18);
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
-    drawText(ctx, `Combo: x${this.combo.toFixed(2)}`, 16, 78, 18);
+    drawText(ctx, `COMBO x${this.combo.toFixed(2)}`, 16, 78, 18);
     const timerText = this.comboTimer < 1 && this.comboTimer > 0
-      ? `Combo timer: ${this.comboTimer.toFixed(1)}s !`
-      : `Combo timer: ${this.comboTimer.toFixed(1)}s`;
+      ? `TIMER: ${this.comboTimer.toFixed(1)}s !`
+      : `TIMER: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
+    drawText(ctx, `WEAPON: ${this.ship.weaponLevel}`, 16, 122, 18);
 
 
     if (this.gameOver) {
