@@ -7,6 +7,7 @@ import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Starfield } from "./Starfield.js";
+import { Background } from "./Background.js";
 
 export class Game {
   constructor(canvas) {
@@ -41,6 +42,7 @@ export class Game {
     this.maxExplosions = 80;
 
     this.starfield = new Starfield();
+    this.background = new Background(canvas.width, canvas.height);
     this.fastTrailAcc = 0;
     this.waveQueued = false;
 
@@ -178,6 +180,8 @@ export class Game {
     this.world.h = r.cssH;
 
     this.starfield.resize(this.world.w, this.world.h);
+    this.background.w = this.world.w;
+    this.background.h = this.world.h;
     this.#rebuildMenuButtons();
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -411,6 +415,8 @@ export class Game {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
       this.starfield.resize(this.world.w, this.world.h);
+      this.background.w = this.world.w;
+      this.background.h = this.world.h;
       this.#rebuildMenuButtons();
     }
 
@@ -597,6 +603,8 @@ export class Game {
       );
     }
 
+    this.background.update(dt);
+
     if (this.state === "TITLE") {
       if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
       if (this.input.wasPressed("Digit2")) this.#startWithDifficulty("NORMAL");
@@ -663,7 +671,7 @@ export class Game {
 
   #drawTitleScreen() {
     const ctx = this.ctx;
-    this.starfield.draw(ctx);
+    this.background.render(ctx);
     drawText(ctx, "ASTEROID", this.world.w * 0.5 - 110, this.world.h * 0.22, 54);
     drawText(ctx, "Choisissez une difficulté", this.world.w * 0.5 - 130, this.world.h * 0.34, 24);
 
@@ -674,7 +682,7 @@ export class Game {
 
   #drawPlayScene() {
     const ctx = this.ctx;
-    this.starfield.draw(ctx);
+    this.background.render(ctx);
     this.ship.render(ctx, this.combo);
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
