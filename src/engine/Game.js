@@ -24,6 +24,9 @@ export class Game {
     this.bullets = [];
 
     this.score = 0;
+    this.combo = 1;
+    this.comboTimeout = 3;
+    this.comboTimer = 0;
     this.lives = 3;
     this.gameOver = false;
 
@@ -50,6 +53,8 @@ export class Game {
 
   #newGame() {
     this.score = 0;
+    this.combo = 1;
+    this.comboTimer = 0;
     this.lives = 3;
     this.gameOver = false;
 
@@ -172,6 +177,12 @@ export class Game {
     this.#spawnLevel();
   }
 
+  #comboGainForSize(size) {
+    if (size >= 3) return 1;
+    if (size === 2) return 0.5;
+    return 0.25;
+  }
+
   #loop(t) {
     if (!this.running) return;
 
@@ -201,6 +212,14 @@ export class Game {
     }
 
     // actions
+    if (this.combo > 1) {
+      this.comboTimer += dt;
+      if (this.comboTimer >= this.comboTimeout) {
+        this.combo = Math.max(1, this.combo / 2);
+        this.comboTimer = 0;
+      }
+    }
+
     this.ship.update(dt, this.input, this.world);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
@@ -287,7 +306,11 @@ export class Game {
           const destroyed = a.hit();
 
           if (destroyed) {
-            this.score += 100 * a.size;
+            const gain = this.#comboGainForSize(a.size);
+            this.combo += gain;
+            this.comboTimer = 0;
+
+            this.score += Math.round(100 * a.size * this.combo);
 
             const kids = a.split();
             this.asteroids.push(...kids);
@@ -315,6 +338,8 @@ export class Game {
         const r = this.ship.radius + a.radius;
         if (dist2(this.ship.x, this.ship.y, a.x, a.y) <= r * r) {
           this.lives -= 1;
+          this.combo = 1;
+          this.comboTimer = 0;
 
           this.explosions.push(new Explosion(this.ship.x, this.ship.y, 0.45, 70));
           this.particles.push(
@@ -358,6 +383,7 @@ export class Game {
     drawText(ctx, `Score: ${this.score}`, 16, 12, 18);
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
+    drawText(ctx, `Combo: x${this.combo.toFixed(2)}`, 16, 78, 18);
 
 
     if (this.gameOver) {
