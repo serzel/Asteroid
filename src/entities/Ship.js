@@ -30,11 +30,16 @@ export class Ship {
     this.invincible = 2.0;
   }
 
-  update(dt, input, world) {
-    if (input.isDown("ArrowLeft") || input.isDown("KeyQ")) this.angle -= this.turnSpeed * dt;
-    if (input.isDown("ArrowRight") || input.isDown("KeyD")) this.angle += this.turnSpeed * dt;
+  update(dt, input, world, keyboardLayout = 'ZQSD') {
+    // Determine which keys to use based on layout
+    const leftKey = keyboardLayout === 'WASD' ? 'KeyA' : 'KeyQ';
+    const rightKey = 'KeyD'; // Same for both layouts
+    const upKey = keyboardLayout === 'WASD' ? 'KeyW' : 'KeyZ';
 
-    if (input.isDown("ArrowUp") || input.isDown("KeyZ")) {
+    if (input.isDown("ArrowLeft") || input.isDown(leftKey)) this.angle -= this.turnSpeed * dt;
+    if (input.isDown("ArrowRight") || input.isDown(rightKey)) this.angle += this.turnSpeed * dt;
+
+    if (input.isDown("ArrowUp") || input.isDown(upKey)) {
       this.vx += Math.cos(this.angle) * this.thrust * dt;
       this.vy += Math.sin(this.angle) * this.thrust * dt;
     }

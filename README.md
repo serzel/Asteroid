@@ -17,20 +17,29 @@ Pilotez votre vaisseau spatial dans un champ d'astéroïdes dangereux ! Détruis
 
 **Note** : Ce jeu supporte deux systèmes de contrôle - utilisez celui qui vous convient !
 
+Vous pouvez basculer entre les deux layouts en appuyant sur **P** pendant le jeu.
+
 ### Option 1 : Flèches directionnelles (QWERTY/AZERTY)
 - **↑ (Flèche haut)** : Avancer (propulsion)
 - **← (Flèche gauche)** : Tourner à gauche
 - **→ (Flèche droite)** : Tourner à droite
 - **ESPACE** : Tirer
 
-### Option 2 : ZQSD (clavier AZERTY)
+### Option 2 : ZQSD (clavier AZERTY) - Par défaut
 - **Z** : Avancer (propulsion)
 - **Q** : Tourner à gauche
 - **D** : Tourner à droite
 - **ESPACE** : Tirer
 
+### Option 3 : WASD (clavier QWERTY)
+- **W** : Avancer (propulsion)
+- **A** : Tourner à gauche
+- **D** : Tourner à droite
+- **ESPACE** : Tirer
+
 ### Autres commandes
 
+- **P** : Basculer entre les layouts ZQSD et WASD
 - **Entrée** : Rejouer après un Game Over
 
 ## 🚀 Comment jouer

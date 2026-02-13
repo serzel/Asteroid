@@ -34,6 +34,11 @@ export class Game {
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
 
+    // Keyboard layout: 'ZQSD' (AZERTY) or 'WASD' (QWERTY)
+    this.keyboardLayout = 'ZQSD';
+    this.layoutMessage = '';
+    this.layoutMessageTimer = 0;
+
   }
 
   start() {
@@ -200,8 +205,20 @@ export class Game {
       return;
     }
 
+    // Toggle keyboard layout with P key
+    if (this.input.wasPressed("KeyP")) {
+      this.keyboardLayout = this.keyboardLayout === 'ZQSD' ? 'WASD' : 'ZQSD';
+      this.layoutMessage = `Layout: ${this.keyboardLayout}`;
+      this.layoutMessageTimer = 2.5; // Display for 2.5 seconds
+    }
+
+    // Update layout message timer
+    if (this.layoutMessageTimer > 0) {
+      this.layoutMessageTimer = Math.max(0, this.layoutMessageTimer - dt);
+    }
+
     // actions
-    this.ship.update(dt, this.input, this.world);
+    this.ship.update(dt, this.input, this.world, this.keyboardLayout);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
     if (this.input.wasPressed("Space")) {
@@ -359,6 +376,14 @@ export class Game {
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
 
+    // Display layout change message
+    if (this.layoutMessageTimer > 0) {
+      const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out in last 0.5s
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      drawText(ctx, this.layoutMessage, this.world.w * 0.5 - 60, this.world.h * 0.15, 24);
+      ctx.restore();
+    }
 
     if (this.gameOver) {
       drawText(ctx, `GAME OVER`, this.world.w * 0.5 - 70, this.world.h * 0.45, 28);
