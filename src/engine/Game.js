@@ -1,5 +1,5 @@
 import { Input } from "./Input.js";
-import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
+import { resizeCanvasToDisplaySize, drawText, drawCenteredText } from "./utils.js";
 import { dist2, rand, dot } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Asteroid } from "../entities/Asteroid.js";
@@ -381,7 +381,7 @@ export class Game {
       const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out in last 0.5s
       ctx.save();
       ctx.globalAlpha = alpha;
-      drawText(ctx, this.layoutMessage, this.world.w * 0.5 - 60, this.world.h * 0.15, 24);
+      drawCenteredText(ctx, this.layoutMessage, this.world.w * 0.5, this.world.h * 0.15, 24);
       ctx.restore();
     }
 
