@@ -130,36 +130,36 @@ export class Asteroid {
   }
 
   #traceRoundedPath(ctx) {
-    if (this.points.length < 2) return;
+    const len = this.points.length;
+    if (len < 2) return;
 
-    const verts = this.points.map((p) => {
-      const rr = this.radius * p.r;
-      return {
-        x: Math.cos(p.ang) * rr,
-        y: Math.sin(p.ang) * rr,
-      };
-    });
-
-    const firstMid = {
-      x: (verts[0].x + verts[1].x) * 0.5,
-      y: (verts[0].y + verts[1].y) * 0.5,
-    };
+    const p0 = this.points[0];
+    const p1 = this.points[1];
+    const r0 = this.radius * p0.r;
+    const r1 = this.radius * p1.r;
+    const p0x = Math.cos(p0.ang) * r0;
+    const p0y = Math.sin(p0.ang) * r0;
+    const p1x = Math.cos(p1.ang) * r1;
+    const p1y = Math.sin(p1.ang) * r1;
+    const firstMidX = (p0x + p1x) * 0.5;
+    const firstMidY = (p0y + p1y) * 0.5;
 
     ctx.beginPath();
-    ctx.moveTo(firstMid.x, firstMid.y);
+    ctx.moveTo(firstMidX, firstMidY);
 
-    for (let i = 1; i < verts.length; i++) {
-      const curr = verts[i];
-      const next = verts[(i + 1) % verts.length];
-      const mid = {
-        x: (curr.x + next.x) * 0.5,
-        y: (curr.y + next.y) * 0.5,
-      };
-      ctx.quadraticCurveTo(curr.x, curr.y, mid.x, mid.y);
+    for (let i = 1; i < len; i++) {
+      const curr = this.points[i];
+      const next = this.points[(i + 1) % len];
+      const currR = this.radius * curr.r;
+      const nextR = this.radius * next.r;
+      const currX = Math.cos(curr.ang) * currR;
+      const currY = Math.sin(curr.ang) * currR;
+      const nextX = Math.cos(next.ang) * nextR;
+      const nextY = Math.sin(next.ang) * nextR;
+      ctx.quadraticCurveTo(currX, currY, (currX + nextX) * 0.5, (currY + nextY) * 0.5);
     }
 
-    const last = verts[0];
-    ctx.quadraticCurveTo(last.x, last.y, firstMid.x, firstMid.y);
+    ctx.quadraticCurveTo(p0x, p0y, firstMidX, firstMidY);
     ctx.closePath();
   }
 
