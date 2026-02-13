@@ -44,6 +44,8 @@ export class Game {
     // Audio
     this.audio = new AudioManager();
     this.audio.loadSound('shoot', './datapack/pew.ogg');
+    this.audio.loadMusic('./datapack/loop.ogg');
+    this.musicStarted = false;
 
   }
 
@@ -56,6 +58,7 @@ export class Game {
 
     this.#newGame();
     this.running = true;
+    
     requestAnimationFrame((t) => this.#loop(t));
   }
 
@@ -209,6 +212,12 @@ export class Game {
     if (this.gameOver) {
       if (this.input.wasPressed("Enter")) this.#newGame();
       return;
+    }
+
+    // Start music on first user interaction
+    if (!this.musicStarted && (this.input.down.size > 0 || this.input.pressed.size > 0)) {
+      this.audio.playMusic();
+      this.musicStarted = true;
     }
 
     // Toggle keyboard layout with P key

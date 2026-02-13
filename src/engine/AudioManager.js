@@ -1,6 +1,7 @@
 export class AudioManager {
   constructor() {
     this.sounds = {};
+    this.music = null;
     this.enabled = true;
   }
 
@@ -9,6 +10,30 @@ export class AudioManager {
     audio.preload = 'auto';
     this.sounds[name] = audio;
     return audio;
+  }
+
+  loadMusic(path) {
+    this.music = new Audio(path);
+    this.music.preload = 'auto';
+    this.music.loop = true;
+    this.music.volume = 0.2; // Lower volume for background music
+    return this.music;
+  }
+
+  playMusic() {
+    if (!this.enabled || !this.music) return;
+    
+    this.music.play().catch(err => {
+      // Ignore errors (e.g., user hasn't interacted with page yet)
+      console.debug('Music play failed:', err);
+    });
+  }
+
+  stopMusic() {
+    if (this.music) {
+      this.music.pause();
+      this.music.currentTime = 0;
+    }
   }
 
   play(name) {
