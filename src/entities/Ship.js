@@ -69,7 +69,7 @@ export class Ship {
   }
 
   tryShoot(bullets) {
-    if (this.cooldown > 0) return;
+    if (this.cooldown > 0) return false;
 
     const speed = 520;
     const bx = this.x + Math.cos(this.angle) * (this.radius + 2);
@@ -79,6 +79,7 @@ export class Ship {
 
     bullets.push(new Bullet(bx, by, bvx, bvy));
     this.cooldown = this.fireRate;
+    return true;
   }
 
  draw(ctx) {
