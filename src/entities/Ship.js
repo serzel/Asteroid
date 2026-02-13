@@ -31,10 +31,10 @@ export class Ship {
   }
 
   update(dt, input, world) {
-    if (input.isDown("ArrowLeft")) this.angle -= this.turnSpeed * dt;
-    if (input.isDown("ArrowRight")) this.angle += this.turnSpeed * dt;
+    if (input.isDown("KeyQ")) this.angle -= this.turnSpeed * dt;
+    if (input.isDown("KeyD")) this.angle += this.turnSpeed * dt;
 
-    if (input.isDown("ArrowUp")) {
+    if (input.isDown("KeyZ")) {
       this.vx += Math.cos(this.angle) * this.thrust * dt;
       this.vy += Math.sin(this.angle) * this.thrust * dt;
     }
