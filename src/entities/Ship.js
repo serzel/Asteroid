@@ -67,11 +67,17 @@ export class Ship {
     this._trailAcc = 0;
   }
 
+  resetTrail() {
+    this.trail = [];
+    this._trailAcc = 0;
+  }
+
   respawn(x, y) {
     this.x = x; this.y = y;
     this.vx = 0; this.vy = 0;
     this.angle = -Math.PI / 2;
     this.invincible = 2.0;
+    this.resetTrail();
   }
 
   update(dt, input, world) {
@@ -101,11 +107,22 @@ export class Ship {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
+    const oldX = this.x;
+    const oldY = this.y;
+
     this.x = wrap(this.x, world.w);
     this.y = wrap(this.y, world.h);
 
+    const wrapped = Math.abs(this.x - oldX) > world.w * 0.5
+      || Math.abs(this.y - oldY) > world.h * 0.5;
+
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.invincible = Math.max(0, this.invincible - dt);
+
+    if (wrapped) {
+      this.resetTrail();
+      return;
+    }
 
     this._trailAcc += dt;
     while (this._trailAcc >= this.trailSpacing) {
@@ -144,7 +161,7 @@ export class Ship {
     const tx = -ny;
     const ty = nx;
 
-    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const weaponColor = `${WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]}`;
 
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
