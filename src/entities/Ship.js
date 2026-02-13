@@ -1,4 +1,4 @@
-import { wrap, clamp } from "../engine/math.js";
+import { wrap } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
 
 export class Ship {
@@ -19,6 +19,10 @@ export class Ship {
 
     this.cooldown = 0;
     this.fireRate = 0.18;
+
+    // Palier d'arme piloté par le combo.
+    this.weaponLevel = 1;
+    this.bulletLife = 1.2;
 
     this.invincible = 0; // secondes (respawn)
   }
@@ -62,50 +66,89 @@ export class Ship {
     this.invincible = Math.max(0, this.invincible - dt);
   }
 
+  updateWeaponLevel(combo) {
+    if (combo >= 45) {
+      this.weaponLevel = 4;
+      this.bulletLife = 1.9;
+    } else if (combo >= 25) {
+      this.weaponLevel = 3;
+      this.bulletLife = 1.9;
+    } else if (combo >= 10) {
+      this.weaponLevel = 2;
+      this.bulletLife = 1.9;
+    } else {
+      this.weaponLevel = 1;
+      this.bulletLife = 1.2;
+    }
+  }
+
   tryShoot(bullets) {
     if (this.cooldown > 0) return;
 
     const speed = 520;
-    const bx = this.x + Math.cos(this.angle) * (this.radius + 2);
-    const by = this.y + Math.sin(this.angle) * (this.radius + 2);
-    const bvx = Math.cos(this.angle) * speed + this.vx;
-    const bvy = Math.sin(this.angle) * speed + this.vy;
+    const nx = Math.cos(this.angle);
+    const ny = Math.sin(this.angle);
+    const tx = -ny;
+    const ty = nx;
 
-    bullets.push(new Bullet(bx, by, bvx, bvy));
+    const spawn = (angleOffset = 0, sideOffset = 0) => {
+      const ang = this.angle + angleOffset;
+      const dirX = Math.cos(ang);
+      const dirY = Math.sin(ang);
+      const bx = this.x + nx * (this.radius + 2) + tx * sideOffset;
+      const by = this.y + ny * (this.radius + 2) + ty * sideOffset;
+      const bvx = dirX * speed + this.vx;
+      const bvy = dirY * speed + this.vy;
+      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife));
+    };
+
+    if (this.weaponLevel >= 4) {
+      // Triple tir longue portée avec léger éventail.
+      spawn(-0.1, -6);
+      spawn(0, 0);
+      spawn(0.1, 6);
+    } else if (this.weaponLevel >= 3) {
+      // Double tir parallèle longue portée.
+      spawn(0, -5);
+      spawn(0, 5);
+    } else {
+      // Tir simple (normal ou longue portée selon palier).
+      spawn(0, 0);
+    }
+
     this.cooldown = this.fireRate;
   }
 
- draw(ctx) {
-  ctx.save();
-  ctx.translate(this.x, this.y);
-  ctx.rotate(this.angle);
-
-  // Invincibilité : blink + halo
-  if (this.invincible > 0) {
-    const blink = Math.floor(this.invincible * 12) % 2 === 0;
-    ctx.globalAlpha = blink ? 1 : 0.25;
-
-    // halo
+  draw(ctx) {
     ctx.save();
-    ctx.globalAlpha = 0.22;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+
+    // Invincibilité : blink + halo
+    if (this.invincible > 0) {
+      const blink = Math.floor(this.invincible * 12) % 2 === 0;
+      ctx.globalAlpha = blink ? 1 : 0.25;
+
+      // halo
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, 10);
+    ctx.lineTo(-6, 0);
+    ctx.lineTo(-10, -10);
+    ctx.closePath();
     ctx.stroke();
+
     ctx.restore();
   }
-
-  ctx.strokeStyle = "white";
-  ctx.beginPath();
-  ctx.moveTo(16, 0);
-  ctx.lineTo(-10, 10);
-  ctx.lineTo(-6, 0);
-  ctx.lineTo(-10, -10);
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.restore();
-}
-
 }
