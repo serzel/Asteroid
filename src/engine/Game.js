@@ -177,7 +177,7 @@ export class Game {
     this.world.w = r.cssW;
     this.world.h = r.cssH;
 
-    this.background.resize(this.world.w, this.world.h);
+    this.background.resize(this.canvas.width, this.canvas.height);
     this.#rebuildMenuButtons();
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -410,7 +410,7 @@ export class Game {
     if (r.changed) {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
-      this.background.resize(this.world.w, this.world.h);
+      this.background.resize(this.canvas.width, this.canvas.height);
       this.#rebuildMenuButtons();
     }
 
