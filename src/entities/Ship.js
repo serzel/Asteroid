@@ -9,10 +9,10 @@ const WEAPON_COLORS = {
 };
 
 const WEAPON_TRAIL_COLORS = {
-  1: "rgba(0, 200, 255, 0.20)",
-  2: "rgba(0, 255, 120, 0.20)",
-  3: "rgba(180, 0, 255, 0.20)",
-  4: "rgba(255, 60, 0, 0.20)",
+  1: "rgb(0, 200, 255)",
+  2: "rgb(0, 255, 120)",
+  3: "rgb(180, 0, 255)",
+  4: "rgb(255, 60, 0)",
 };
 
 function weaponTrailColor(level) {
@@ -65,6 +65,8 @@ export class Ship {
     this.trailMax = 12;
     this.trailSpacing = 0.015;
     this._trailAcc = 0;
+    this._flameJitter = 1;
+    this._flameJitterTimer = 0;
   }
 
   resetTrail() {
@@ -119,6 +121,12 @@ export class Ship {
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.invincible = Math.max(0, this.invincible - dt);
 
+    this._flameJitterTimer += dt;
+    if (this._flameJitterTimer >= 1 / 30) {
+      this._flameJitterTimer = 0;
+      this._flameJitter = 0.75 + Math.random() * 0.5;
+    }
+
     if (wrapped) {
       this.resetTrail();
       return;
@@ -161,7 +169,7 @@ export class Ship {
     const tx = -ny;
     const ty = nx;
 
-    const weaponColor = `${WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]}`;
+    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
 
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
@@ -203,11 +211,11 @@ export class Ship {
 
     if (this.trail.length > 0) {
       ctx.save();
+      ctx.fillStyle = trailColor;
       for (let i = 0; i < this.trail.length; i++) {
         const point = this.trail[i];
         const t = (i + 1) / this.trail.length;
-        const alpha = (this.thrusting ? 0.5 : 0.3) * t;
-        ctx.fillStyle = trailColor.replace(/\d?\.\d+\)$/, `${alpha.toFixed(2)})`);
+        ctx.globalAlpha = (this.thrusting ? 0.5 : 0.3) * t;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 2 + t * 1.5, 0, Math.PI * 2);
         ctx.fill();
@@ -243,7 +251,7 @@ export class Ship {
 
     // Flammes dynamiques générées par code (si thrusting)
     if (this.thrusting) {
-      const flameLength = 15 + Math.random() * 10;
+      const flameLength = 15 + this._flameJitter * 10;
       const baseX = -size * 0.35;
       const baseY = 0;
       const weaponColorHalf = weaponColor.replace(/\d?\.\d+\)$/, "0.50)");

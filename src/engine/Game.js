@@ -36,6 +36,9 @@ export class Game {
     this.explosions = [];
     this.debris = [];
     this.maxDebris = 250;
+    this.maxBullets = 120;
+    this.maxParticles = 900;
+    this.maxExplosions = 80;
 
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
@@ -257,6 +260,24 @@ export class Game {
     this.buildWave(this.level);
   }
 
+  #pushCapped(list, items, max) {
+    if (Array.isArray(items)) list.push(...items);
+    else list.push(items);
+    if (list.length > max) list.splice(0, list.length - max);
+  }
+
+  #compactAlive(items) {
+    let write = 0;
+    for (let read = 0; read < items.length; read++) {
+      const item = items[read];
+      if (!item.dead) {
+        items[write] = item;
+        write += 1;
+      }
+    }
+    items.length = write;
+  }
+
   #debrisColorFor(type) {
     const cfg = Asteroid.TYPE[type] ?? Asteroid.TYPE.normal;
     return cfg.tint;
@@ -414,6 +435,9 @@ export class Game {
 
     if (this.input.wasPressed("Space")) {
       this.ship.tryShoot(this.bullets);
+      if (this.bullets.length > this.maxBullets) {
+        this.bullets.splice(0, this.bullets.length - this.maxBullets);
+      }
     }
 
     for (const b of this.bullets) b.update(dt, this.world);
@@ -501,16 +525,12 @@ export class Game {
             const kids = a.split();
             this.asteroids.push(...kids);
 
-            this.explosions.push(new Explosion(a.x, a.y, 0.28, a.radius * 1.1));
+            this.#pushCapped(this.explosions, new Explosion(a.x, a.y, 0.28, a.radius * 1.1), this.maxExplosions);
             this.#spawnDebris(a.x, a.y, Math.round(rand(12, 25)), a.type, 70, 230);
-            this.particles.push(
-              ...Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6)
-            );
+            this.#pushCapped(this.particles, Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6), this.maxParticles);
           } else {
             this.#spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
-            this.particles.push(
-              ...Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2)
-            );
+            this.#pushCapped(this.particles, Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2), this.maxParticles);
           }
 
           break;
@@ -528,10 +548,8 @@ export class Game {
           this.comboTimer = 0;
           this.ship.updateWeaponLevel(this.combo);
 
-          this.explosions.push(new Explosion(this.ship.x, this.ship.y, 0.45, 70));
-          this.particles.push(
-            ...Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3)
-          );
+          this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, 0.45, 70), this.maxExplosions);
+          this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3), this.maxParticles);
 
           if (this.lives <= 0) {
             this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
@@ -546,11 +564,11 @@ export class Game {
       }
     }
 
-    this.bullets = this.bullets.filter((b) => !b.dead);
-    this.asteroids = this.asteroids.filter((a) => !a.dead);
-    this.particles = this.particles.filter((p) => !p.dead);
-    this.explosions = this.explosions.filter((e) => !e.dead);
-    this.debris = this.debris.filter((d) => !d.dead);
+    this.#compactAlive(this.bullets);
+    this.#compactAlive(this.asteroids);
+    this.#compactAlive(this.particles);
+    this.#compactAlive(this.explosions);
+    this.#compactAlive(this.debris);
 
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
@@ -597,9 +615,9 @@ export class Game {
       for (const p of this.particles) p.update(dt, this.world);
       for (const e of this.explosions) e.update(dt);
       for (const d of this.debris) d.update(dt, this.world);
-      this.particles = this.particles.filter((p) => !p.dead);
-      this.explosions = this.explosions.filter((e) => !e.dead);
-      this.debris = this.debris.filter((d) => !d.dead);
+      this.#compactAlive(this.particles);
+      this.#compactAlive(this.explosions);
+      this.#compactAlive(this.debris);
       this.gameOverDelay -= dt;
       if (this.gameOverDelay <= 0) {
         this.state = "GAME_OVER_READY";
@@ -612,9 +630,9 @@ export class Game {
       for (const p of this.particles) p.update(dt, this.world);
       for (const e of this.explosions) e.update(dt);
       for (const d of this.debris) d.update(dt, this.world);
-      this.particles = this.particles.filter((p) => !p.dead);
-      this.explosions = this.explosions.filter((e) => !e.dead);
-      this.debris = this.debris.filter((d) => !d.dead);
+      this.#compactAlive(this.particles);
+      this.#compactAlive(this.explosions);
+      this.#compactAlive(this.debris);
 
       if (this.input.wasPressed("KeyR") || this.input.wasPressed("Enter")) {
         this.#newGame();
