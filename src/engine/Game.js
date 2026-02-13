@@ -5,6 +5,7 @@ import { Ship } from "../entities/Ship.js";
 import { Asteroid } from "../entities/Asteroid.js";
 import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
+import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Starfield } from "./Starfield.js";
 
 export class Game {
@@ -33,6 +34,8 @@ export class Game {
     this.level = 1;
     this.particles = [];
     this.explosions = [];
+    this.debris = [];
+    this.maxDebris = 250;
 
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
@@ -191,6 +194,7 @@ export class Game {
     this.level = 1;
     this.particles = [];
     this.explosions = [];
+    this.debris = [];
 
     this.bullets = [];
     this.asteroids = [];
@@ -251,6 +255,19 @@ export class Game {
 
   #spawnLevel() {
     this.buildWave(this.level);
+  }
+
+  #debrisColorFor(type) {
+    const cfg = Asteroid.TYPE[type] ?? Asteroid.TYPE.normal;
+    return cfg.tint;
+  }
+
+  #spawnDebris(x, y, count, type, speedMin, speedMax) {
+    const color = this.#debrisColorFor(type);
+    this.debris.push(...DebrisParticle.spray(x, y, count, color, speedMin, speedMax));
+    if (this.debris.length > this.maxDebris) {
+      this.debris.splice(0, this.debris.length - this.maxDebris);
+    }
   }
 
   #nextLevel() {
@@ -459,6 +476,7 @@ export class Game {
 
     for (const p of this.particles) p.update(dt, this.world);
     for (const e of this.explosions) e.update(dt);
+    for (const d of this.debris) d.update(dt, this.world);
 
     for (const b of this.bullets) {
       if (b.dead) continue;
@@ -468,6 +486,7 @@ export class Game {
         if (dist2(b.x, b.y, a.x, a.y) <= r * r) {
           b.dead = true;
 
+          a.hitFlash = 1;
           const destroyed = a.hit();
           this.comboTimer = Math.min(this.comboTimer + 0.5, this.getCurrentComboWindow());
 
@@ -483,10 +502,12 @@ export class Game {
             this.asteroids.push(...kids);
 
             this.explosions.push(new Explosion(a.x, a.y, 0.28, a.radius * 1.1));
+            this.#spawnDebris(a.x, a.y, Math.round(rand(12, 25)), a.type, 70, 230);
             this.particles.push(
               ...Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6)
             );
           } else {
+            this.#spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
             this.particles.push(
               ...Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2)
             );
@@ -529,6 +550,7 @@ export class Game {
     this.asteroids = this.asteroids.filter((a) => !a.dead);
     this.particles = this.particles.filter((p) => !p.dead);
     this.explosions = this.explosions.filter((e) => !e.dead);
+    this.debris = this.debris.filter((d) => !d.dead);
 
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
@@ -574,8 +596,10 @@ export class Game {
       this.starfield.update(dt, this.ship.vx, this.ship.vy);
       for (const p of this.particles) p.update(dt, this.world);
       for (const e of this.explosions) e.update(dt);
+      for (const d of this.debris) d.update(dt, this.world);
       this.particles = this.particles.filter((p) => !p.dead);
       this.explosions = this.explosions.filter((e) => !e.dead);
+      this.debris = this.debris.filter((d) => !d.dead);
       this.gameOverDelay -= dt;
       if (this.gameOverDelay <= 0) {
         this.state = "GAME_OVER_READY";
@@ -587,8 +611,10 @@ export class Game {
     if (this.state === "GAME_OVER_READY") {
       for (const p of this.particles) p.update(dt, this.world);
       for (const e of this.explosions) e.update(dt);
+      for (const d of this.debris) d.update(dt, this.world);
       this.particles = this.particles.filter((p) => !p.dead);
       this.explosions = this.explosions.filter((e) => !e.dead);
+      this.debris = this.debris.filter((d) => !d.dead);
 
       if (this.input.wasPressed("KeyR") || this.input.wasPressed("Enter")) {
         this.#newGame();
@@ -634,6 +660,7 @@ export class Game {
     this.ship.render(ctx, this.combo);
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
+    for (const d of this.debris) d.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
 
