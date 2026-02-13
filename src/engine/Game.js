@@ -7,6 +7,7 @@ import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { Starfield } from "./Starfield.js";
 import { DEFAULT_KEYBOARD_LAYOUT } from "./constants.js";
+import { AudioManager } from "./AudioManager.js";
 
 export class Game {
   constructor(canvas) {
@@ -39,6 +40,10 @@ export class Game {
     this.keyboardLayout = DEFAULT_KEYBOARD_LAYOUT;
     this.layoutMessage = '';
     this.layoutMessageTimer = 0;
+
+    // Audio
+    this.audio = new AudioManager();
+    this.audio.loadSound('shoot', './datapack/pew.ogg');
 
   }
 
@@ -223,7 +228,10 @@ export class Game {
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
     if (this.input.wasPressed("Space")) {
-      this.ship.tryShoot(this.bullets);
+      const didShoot = this.ship.tryShoot(this.bullets);
+      if (didShoot) {
+        this.audio.play('shoot');
+      }
     }
 
     // update entities
