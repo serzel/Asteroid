@@ -282,9 +282,11 @@ export class Game {
 
     // Le timer de combo ne décroît que s'il reste des astéroïdes actifs.
     const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
-      if (this.combo > 1 && hasActiveAsteroid && this.comboTimer > 0) {
-        this.comboTimer -= dt;
-              this.comboTimer = 0;
+    if (this.combo > 1 && hasActiveAsteroid && this.comboTimer > 0) {
+      this.comboTimer -= dt;
+
+      if (this.comboTimer <= 0) {
+        this.comboTimer = 0;
         this.combo = Math.max(1, this.combo / 2);
         this.ship.updateWeaponLevel(this.combo);
       }
