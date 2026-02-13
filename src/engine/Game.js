@@ -58,7 +58,7 @@ export class Game {
 
     this.#newGame();
     this.running = true;
-    
+
     requestAnimationFrame((t) => this.#loop(t));
   }
 
