@@ -6,6 +6,7 @@ import { Asteroid } from "../entities/Asteroid.js";
 import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { Starfield } from "./Starfield.js";
+import { DEFAULT_KEYBOARD_LAYOUT } from "./constants.js";
 
 export class Game {
   constructor(canvas) {
@@ -35,7 +36,7 @@ export class Game {
     this.fastTrailAcc = 0;
 
     // Keyboard layout: 'ZQSD' (AZERTY) or 'WASD' (QWERTY)
-    this.keyboardLayout = 'ZQSD';
+    this.keyboardLayout = DEFAULT_KEYBOARD_LAYOUT;
     this.layoutMessage = '';
     this.layoutMessageTimer = 0;
 
@@ -378,7 +379,7 @@ export class Game {
 
     // Display layout change message
     if (this.layoutMessageTimer > 0) {
-      const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out in last 0.5s
+      const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out gradually
       ctx.save();
       ctx.globalAlpha = alpha;
       drawCenteredText(ctx, this.layoutMessage, this.world.w * 0.5, this.world.h * 0.15, 24);

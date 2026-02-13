@@ -1,5 +1,6 @@
 import { wrap, clamp } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
+import { DEFAULT_KEYBOARD_LAYOUT } from "../engine/constants.js";
 
 export class Ship {
   constructor(x, y) {
@@ -30,7 +31,7 @@ export class Ship {
     this.invincible = 2.0;
   }
 
-  update(dt, input, world, keyboardLayout = 'ZQSD') {
+  update(dt, input, world, keyboardLayout = DEFAULT_KEYBOARD_LAYOUT) {
     // Determine which keys to use based on layout
     const leftKey = keyboardLayout === 'WASD' ? 'KeyA' : 'KeyQ';
     const rightKey = 'KeyD'; // Same for both layouts
