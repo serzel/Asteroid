@@ -21,11 +21,16 @@ export class AudioManager {
   }
 
   playMusic() {
-    if (!this.enabled || !this.music) return;
+    if (!this.enabled || !this.music) {
+      console.log('Music not playing - enabled:', this.enabled, 'music loaded:', !!this.music);
+      return;
+    }
     
-    this.music.play().catch(err => {
-      // Ignore errors (e.g., user hasn't interacted with page yet)
-      console.debug('Music play failed:', err);
+    console.log('Attempting to play music...');
+    this.music.play().then(() => {
+      console.log('Music started successfully!');
+    }).catch(err => {
+      console.error('Music play failed:', err);
     });
   }
 

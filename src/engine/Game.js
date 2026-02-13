@@ -209,15 +209,16 @@ export class Game {
   }
 
   #update(dt) {
+    // Start music on first user interaction (before gameOver check)
+    if (!this.musicStarted && (this.input.down.size > 0 || this.input.pressed.size > 0)) {
+      console.log('Starting background music...');
+      this.audio.playMusic();
+      this.musicStarted = true;
+    }
+
     if (this.gameOver) {
       if (this.input.wasPressed("Enter")) this.#newGame();
       return;
-    }
-
-    // Start music on first user interaction
-    if (!this.musicStarted && (this.input.down.size > 0 || this.input.pressed.size > 0)) {
-      this.audio.playMusic();
-      this.musicStarted = true;
     }
 
     // Toggle keyboard layout with P key
