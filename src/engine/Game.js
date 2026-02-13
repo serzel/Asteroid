@@ -53,6 +53,9 @@ export class Game {
     this.titleButtons = [];
     this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
 
+    this.debugEnabled = false;
+    this.debugLogAccum = 0;
+
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
     this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
@@ -67,6 +70,7 @@ export class Game {
 
   applyComboBreak() {
     // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
+    const oldCombo = this.combo;
     const oldLevel = this.getWeaponLevelFromCombo(this.combo);
     let c = this.combo / 2;
 
@@ -74,6 +78,22 @@ export class Game {
 
     this.combo = Math.max(1, c);
     this.ship.updateWeaponLevel(this.combo);
+    this.logDebug(`Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
+  }
+
+
+
+  getComboWindowForWeaponLevel(level) {
+    return Math.max(1, 5.0 - (level - 1) * 0.5);
+  }
+
+  getCurrentComboWindow() {
+    return this.getComboWindowForWeaponLevel(this.ship?.weaponLevel ?? 1);
+  }
+
+  logDebug(message) {
+    if (!this.debugEnabled) return;
+    console.log(`[DEBUG] ${message}`);
   }
 
   #pointInRect(mx, my, rect) {
@@ -146,6 +166,7 @@ export class Game {
     this.difficultyPreset = id;
     this.#newGame();
     this.state = "PLAY";
+    this.logDebug(`Start game difficulty=${id}`);
   }
 
   getWeaponLevelFromCombo(combo) {
@@ -157,6 +178,7 @@ export class Game {
 
   applyComboBreak() {
     // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
+    const oldCombo = this.combo;
     const oldLevel = this.getWeaponLevelFromCombo(this.combo);
     let c = this.combo / 2;
 
@@ -164,6 +186,7 @@ export class Game {
 
     this.combo = Math.max(1, c);
     this.ship.updateWeaponLevel(this.combo);
+    this.logDebug(`Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
   }
 
   start() {
@@ -185,7 +208,7 @@ export class Game {
   #newGame() {
     this.score = 0;
     this.combo = 1;
-    this.comboTimer = this.COMBO_WINDOW;
+    this.comboTimer = 0;
     this.lives = 3;
 
     this.level = 1;
@@ -200,6 +223,7 @@ export class Game {
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
+    this.comboTimer = this.getCurrentComboWindow();
 
     this.#spawnLevel();
   }
@@ -289,6 +313,7 @@ export class Game {
     const maxFrag3 = 1 + cycle;
     const budget = this.getWaveBudget(wave);
     const weights = this.getWaveWeights(wave);
+    this.logDebug(`Spawn wave=${wave} budget=${budget}`);
 
     const picks = [];
     let remainingBudget = budget;
@@ -386,8 +411,8 @@ export class Game {
 
     if (this.comboTimer > 0) this.comboTimer -= dt;
     if (this.comboTimer <= 0) {
-      this.comboTimer = this.COMBO_WINDOW;
       this.applyComboBreak();
+      this.comboTimer = this.getCurrentComboWindow();
     }
 
     this.ship.update(dt, this.input, this.world);
@@ -470,8 +495,8 @@ export class Game {
 
           if (destroyed) {
             this.combo += a.comboValue;
-            this.comboTimer = this.COMBO_WINDOW;
             this.ship.updateWeaponLevel(this.combo);
+            this.comboTimer = this.getCurrentComboWindow();
 
             this.score += Math.round(100 * a.size * this.combo);
 
@@ -509,6 +534,7 @@ export class Game {
           );
 
           if (this.lives <= 0) {
+            this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
             this.state = "GAME_OVER_ANIM";
             this.gameOverDelay = 2.0;
           } else {
@@ -530,13 +556,27 @@ export class Game {
     }
 
     if (this.combo === 1) {
-      const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
-      this.score -= difficulty.scoreDrainCombo1PerSec * dtSec;
+      this.score -= 12000 * dtSec;
       this.score = Math.max(0, this.score);
     }
   }
 
   #update(dt) {
+    if (this.input.wasPressed("KeyL")) {
+      this.debugEnabled = !this.debugEnabled;
+      console.log(`[DEBUG] ${this.debugEnabled ? "Enabled" : "Disabled"}`);
+    }
+
+    const dtSec = dt > 1 ? dt / 1000 : dt;
+    this.debugLogAccum += dtSec;
+    if (this.debugEnabled && this.debugLogAccum >= 1.0) {
+      this.debugLogAccum = 0;
+      const difficulty = this.difficultyPreset ?? "NORMAL";
+      console.log(
+        `[DEBUG] state=${this.state} wave=${this.level} asteroidCount=${this.asteroids.length} score=${Math.floor(this.score)} combo=${this.combo.toFixed(2)} comboTimer=${this.comboTimer.toFixed(2)} weaponLevel=${this.ship?.weaponLevel ?? 1} difficulty=${difficulty}`
+      );
+    }
+
     if (this.state === "TITLE") {
       if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
       if (this.input.wasPressed("Digit2")) this.#startWithDifficulty("NORMAL");
@@ -557,7 +597,10 @@ export class Game {
       this.particles = this.particles.filter((p) => !p.dead);
       this.explosions = this.explosions.filter((e) => !e.dead);
       this.gameOverDelay -= dt;
-      if (this.gameOverDelay <= 0) this.state = "GAME_OVER_READY";
+      if (this.gameOverDelay <= 0) {
+        this.state = "GAME_OVER_READY";
+        this.logDebug("State transition -> GAME_OVER_READY");
+      }
       return;
     }
 
