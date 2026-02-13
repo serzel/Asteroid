@@ -302,11 +302,12 @@ export class Game {
 
     // Timer cyclique: toutes les 5s sans kill, on applique un combo break puis on relance le cycle.
     const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
-    if (hasActiveAsteroid) {
+    if (this.combo > 1 && hasActiveAsteroid && this.comboTimer > 0) {
       this.comboTimer -= dt;
-      while (this.comboTimer <= 0) {
-        this.#applyComboBreak();
-        this.comboTimer += this.COMBO_WINDOW;
+      if (this.comboTimer <= 0) {
+        this.comboTimer = 0;
+        this.combo = Math.max(1, this.combo / 2);
+        this.ship.updateWeaponLevel(this.combo);
       }
     }
 
