@@ -37,15 +37,26 @@ export class Background {
       },
     ];
 
+    this.starPalette = [
+      { color: "rgba(255,255,255,1)", weight: 30 },
+      { color: "rgba(255,250,220,1)", weight: 20 },
+      { color: "rgba(255,238,180,1)", weight: 18 },
+      { color: "rgba(255,220,130,1)", weight: 12 },
+      { color: "rgba(255,190,90,1)", weight: 12 },
+      { color: "rgba(255,160,70,1)", weight: 8 },
+    ];
+    this.totalPaletteWeight = this.starPalette.reduce((sum, p) => sum + p.weight, 0);
+
     for (const layer of this.starLayers) {
       for (let i = 0; i < layer.count; i++) {
         layer.stars.push({
           x: Math.random() * this.w,
           y: Math.random() * this.h,
-          size: layer.sizeMin + Math.random() * (layer.sizeMax - layer.sizeMin),
+          size: this.#pickStarSize(),
+          color: this.#pickStarColor(),
           baseAlpha: layer.alphaMin + Math.random() * (layer.alphaMax - layer.alphaMin),
           twinklePhase: Math.random() * Math.PI * 2,
-          twinkleSpeed: 0.5 + Math.random(),
+          twinkleSpeed: 0.4 + Math.random(),
           driftX: (Math.random() * 2 - 1) * 0.015,
           driftY: (Math.random() * 2 - 1) * 0.02,
         });
@@ -68,6 +79,22 @@ export class Background {
         alpha: 0.05 + Math.random() * 0.07,
       });
     }
+  }
+
+  #pickStarSize() {
+    const r = Math.random();
+    if (r < 0.7) return 1.0 + Math.random() * 0.6;
+    if (r < 0.95) return 1.7 + Math.random() * 0.5;
+    return 2.3 + Math.random() * 0.7;
+  }
+
+  #pickStarColor() {
+    let roll = Math.random() * this.totalPaletteWeight;
+    for (const entry of this.starPalette) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.color;
+    }
+    return this.starPalette[0].color;
   }
 
   resize(w, h) {
@@ -150,16 +177,25 @@ export class Background {
 
     ctx.restore();
 
-    ctx.fillStyle = "white";
     for (const layer of this.starLayers) {
       for (const star of layer.stars) {
         const tw = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(this.time * star.twinkleSpeed + star.twinklePhase));
         const a = star.baseAlpha * (0.65 + 0.35 * tw);
         ctx.globalAlpha = a;
+        ctx.fillStyle = star.color;
+
+        if (star.size >= 2.3) {
+          ctx.shadowBlur = 6 + ((star.size - 2.3) / 0.7) * 4;
+          ctx.shadowColor = star.color;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
         ctx.fillRect(star.x, star.y, star.size, star.size);
       }
     }
 
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
   }
 }

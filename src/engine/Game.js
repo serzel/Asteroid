@@ -6,7 +6,6 @@ import { Asteroid } from "../entities/Asteroid.js";
 import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
-import { Starfield } from "./Starfield.js";
 import { Background } from "./Background.js";
 
 export class Game {
@@ -41,7 +40,6 @@ export class Game {
     this.maxParticles = 900;
     this.maxExplosions = 80;
 
-    this.starfield = new Starfield();
     this.background = new Background(canvas.width, canvas.height);
     this.fastTrailAcc = 0;
     this.waveQueued = false;
@@ -179,7 +177,6 @@ export class Game {
     this.world.w = r.cssW;
     this.world.h = r.cssH;
 
-    this.starfield.resize(this.world.w, this.world.h);
     this.background.resize(this.world.w, this.world.h);
     this.#rebuildMenuButtons();
 
@@ -413,7 +410,6 @@ export class Game {
     if (r.changed) {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
-      this.starfield.resize(this.world.w, this.world.h);
       this.background.resize(this.world.w, this.world.h);
       this.#rebuildMenuButtons();
     }
@@ -435,7 +431,6 @@ export class Game {
     }
 
     this.ship.update(dt, this.input, this.world);
-    this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
     if (this.input.wasPressed("Space")) {
       this.ship.tryShoot(this.bullets);
@@ -617,7 +612,6 @@ export class Game {
 
     // GAME_OVER_ANIM: on laisse tourner effets/anim 2s avant prompt restart.
     if (this.state === "GAME_OVER_ANIM") {
-      this.starfield.update(dt, this.ship.vx, this.ship.vy);
       for (const p of this.particles) p.update(dt, this.world);
       for (const e of this.explosions) e.update(dt);
       for (const d of this.debris) d.update(dt, this.world);
