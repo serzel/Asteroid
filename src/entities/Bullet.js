@@ -1,13 +1,13 @@
 import { wrap } from "../engine/math.js";
 
 export class Bullet {
-  constructor(x, y, vx, vy) {
+  constructor(x, y, vx, vy, life = 1.2) {
     this.x = x;
     this.y = y;
     this.vx = vx;
     this.vy = vy;
     this.radius = 2;
-    this.life = 1.2; // secondes
+    this.life = life; // secondes
     this.dead = false;
   }
 

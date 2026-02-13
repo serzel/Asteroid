@@ -18,8 +18,12 @@ export class Asteroid {
 
     this.radius = size * 18 + 14;
     if (this.type === "fast") {
-  this.radius *= 0.75; // 25% plus petit
-}
+      this.radius *= 0.75; // 25% plus petit
+    }
+
+    // Valeur de combo selon la taille (gros/moyen/petit).
+    this.comboValue = size >= 3 ? 1.0 : size === 2 ? 0.5 : 0.25;
+
     this.maxHp = Math.max(1, Math.round(size * cfg.hpMul));
     this.hp = this.maxHp;
 
