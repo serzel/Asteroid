@@ -1,7 +1,7 @@
 import { wrap } from "../engine/math.js";
 
 export class Bullet {
-  constructor(x, y, vx, vy, life = 1.2) {
+  constructor(x, y, vx, vy, life = 1.2, color = "white") {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -9,6 +9,7 @@ export class Bullet {
     this.radius = 2;
     this.life = life; // secondes
     this.dead = false;
+    this.color = color;
   }
 
   update(dt, world) {
@@ -24,7 +25,8 @@ export class Bullet {
 
   draw(ctx) {
     ctx.save();
-    ctx.fillStyle = "white";
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = this.color;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fill();

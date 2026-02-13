@@ -1,6 +1,24 @@
 import { wrap } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
 
+const WEAPON_COLORS = {
+  1: "rgba(0, 200, 255, 0.90)",
+  2: "rgba(0, 255, 120, 0.95)",
+  3: "rgba(180, 0, 255, 0.95)",
+  4: "rgba(255, 60, 0, 0.95)",
+};
+
+const WEAPON_TRAIL_COLORS = {
+  1: "rgba(0, 200, 255, 0.20)",
+  2: "rgba(0, 255, 120, 0.20)",
+  3: "rgba(180, 0, 255, 0.20)",
+  4: "rgba(255, 60, 0, 0.20)",
+};
+
+function weaponTrailColor(level) {
+  return WEAPON_TRAIL_COLORS[level] ?? WEAPON_TRAIL_COLORS[1];
+}
+
 export class Ship {
   constructor(x, y) {
     this.x = x;
@@ -42,6 +60,11 @@ export class Ship {
       3: "Double Blaster",
       4: "Shotgun",
     };
+
+    this.trail = [];
+    this.trailMax = 12;
+    this.trailSpacing = 0.015;
+    this._trailAcc = 0;
   }
 
   respawn(x, y) {
@@ -83,6 +106,13 @@ export class Ship {
 
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.invincible = Math.max(0, this.invincible - dt);
+
+    this._trailAcc += dt;
+    while (this._trailAcc >= this.trailSpacing) {
+      this.trail.push({ x: this.x, y: this.y, a: this.angle });
+      if (this.trail.length > this.trailMax) this.trail.shift();
+      this._trailAcc -= this.trailSpacing;
+    }
   }
 
   updateWeaponLevel(combo) {
@@ -114,6 +144,8 @@ export class Ship {
     const tx = -ny;
     const ty = nx;
 
+    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
@@ -123,7 +155,7 @@ export class Ship {
       const bulletSpeed = baseSpeed * speedMul;
       const bvx = dirX * bulletSpeed + this.vx;
       const bvy = dirY * bulletSpeed + this.vy;
-      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife));
+      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor));
     };
 
     if (this.weaponLevel >= 4) {
@@ -149,6 +181,23 @@ export class Ship {
   render(ctx, combo = 1) {
     if (!this.spriteLoaded) return;
 
+    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const trailColor = weaponTrailColor(this.weaponLevel);
+
+    if (this.trail.length > 0) {
+      ctx.save();
+      for (let i = 0; i < this.trail.length; i++) {
+        const point = this.trail[i];
+        const t = (i + 1) / this.trail.length;
+        const alpha = (this.thrusting ? 0.5 : 0.3) * t;
+        ctx.fillStyle = trailColor.replace(/\d?\.\d+\)$/, `${alpha.toFixed(2)})`);
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2 + t * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     ctx.save();
 
     // Translation au centre du vaisseau
@@ -160,7 +209,7 @@ export class Ship {
     // Glow dynamique selon combo
     const glowIntensity = Math.min(combo * 0.8, 25);
     ctx.shadowBlur = glowIntensity;
-    ctx.shadowColor = "rgba(0, 180, 255, 0.8)";
+    ctx.shadowColor = weaponColor;
 
     // Dessin du sprite centré
     const size = this.spriteSize;
@@ -178,31 +227,63 @@ export class Ship {
     // Flammes dynamiques générées par code (si thrusting)
     if (this.thrusting) {
       const flameLength = 15 + Math.random() * 10;
+      const baseX = -size * 0.35;
+      const baseY = 0;
+      const weaponColorHalf = weaponColor.replace(/\d?\.\d+\)$/, "0.50)");
 
       const grad = ctx.createRadialGradient(
-        0, size * 0.35,
+        baseX,
+        baseY,
         0,
-        0, size * 0.35,
+        baseX,
+        baseY,
         flameLength
       );
 
-      grad.addColorStop(0, "rgba(0, 200, 255, 1)");
-      grad.addColorStop(0.4, "rgba(0, 120, 255, 0.8)");
-      grad.addColorStop(1, "rgba(0, 0, 255, 0)");
+      grad.addColorStop(0, weaponColor);
+      grad.addColorStop(0.5, weaponColorHalf);
+      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
       ctx.fillStyle = grad;
 
       ctx.beginPath();
       ctx.ellipse(
-        0,
-        size * 0.35,
-        8,
+        baseX,
+        baseY,
         flameLength,
+        8,
         0,
         0,
         Math.PI * 2
       );
       ctx.fill();
+    }
+
+    if (this.weaponLevel >= 3) {
+      const radiusX = size * 0.42;
+      const radiusY = size * 0.34;
+      const segments = 26;
+      const jitter = this.weaponLevel >= 4 ? 3 : 2;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = weaponColor;
+      ctx.lineWidth = this.weaponLevel >= 4 ? 2 : 1;
+      ctx.shadowColor = weaponColor;
+      ctx.shadowBlur = this.weaponLevel >= 4 ? 12 : 6;
+      ctx.beginPath();
+      for (let i = 0; i <= segments; i++) {
+        const t = (i / segments) * Math.PI * 2;
+        const rx = radiusX + (Math.random() - 0.5) * jitter * 2;
+        const ry = radiusY + (Math.random() - 0.5) * jitter * 2;
+        const px = Math.cos(t) * rx;
+        const py = Math.sin(t) * ry;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.restore();
     }
 
     ctx.restore();
