@@ -148,6 +148,24 @@ export class Game {
     this.state = "PLAY";
   }
 
+  getWeaponLevelFromCombo(combo) {
+    if (combo >= 45) return 4;
+    if (combo >= 25) return 3;
+    if (combo >= 10) return 2;
+    return 1;
+  }
+
+  applyComboBreak() {
+    // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
+    const oldLevel = this.getWeaponLevelFromCombo(this.combo);
+    let c = this.combo / 2;
+
+    while (c > 1 && this.getWeaponLevelFromCombo(c) >= oldLevel) c /= 2;
+
+    this.combo = Math.max(1, c);
+    this.ship.updateWeaponLevel(this.combo);
+  }
+
   start() {
     const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
     this.world.w = r.cssW;
@@ -370,8 +388,12 @@ export class Game {
       this.applyComboBreak();
     }
 
-    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
-    if (this.combo === 1) this.score = Math.max(0, this.score - difficulty.scoreDrainCombo1PerSec * dt);
+    // Timer cyclique: toutes les 5s, on applique un combo break puis on relance la fenêtre.
+    if (this.comboTimer > 0) this.comboTimer -= dt;
+    if (this.comboTimer <= 0) {
+      this.comboTimer = this.COMBO_WINDOW;
+      this.applyComboBreak();
+    }
 
     this.ship.update(dt, this.input, this.world);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
@@ -600,28 +622,7 @@ export class Game {
       ? `TIMER: ${this.comboTimer.toFixed(1)}s !`
       : `TIMER: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
-    drawText(ctx, `Weapon: ${this.ship.getWeaponName()}`, 16, 122, 18);
-    drawText(ctx, `Difficulty: ${difficultyLabel}`, 16, 144, 18);
-  }
-
-  #drawGameOverOverlay() {
-    const ctx = this.ctx;
-    if (this.state === "GAME_OVER_ANIM") {
-      drawText(ctx, "GAME OVER", this.world.w * 0.5 - 80, this.world.h * 0.42, 32);
-      return;
-    }
-
-    drawText(ctx, "GAME OVER", this.world.w * 0.5 - 80, this.world.h * 0.42, 32);
-    drawText(ctx, "Press R or Enter to Restart", this.world.w * 0.5 - 140, this.world.h * 0.50, 20);
-    drawText(ctx, "Press M for Menu", this.world.w * 0.5 - 85, this.world.h * 0.54, 18);
-    this.#drawButton(this.menuButton);
-  }
-
-  #draw() {
-    if (this.state === "TITLE") {
-      this.#drawTitleScreen();
-      return;
-    }
+    drawText(ctx, `WEAPON: ${this.ship.weaponLevel}`, 16, 122, 18);
 
     this.#drawPlayScene();
 
