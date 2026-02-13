@@ -2,10 +2,31 @@ export class Input {
   constructor(target = window) {
     this.down = new Set();
     this.pressed = new Set();
+    this.keyboardLayout = "AZERTY";
+
+    this.layouts = {
+      AZERTY: {
+        up: "KeyZ",
+        left: "KeyQ",
+        down: "KeyS",
+        right: "KeyD",
+      },
+      QWERTY: {
+        up: "KeyW",
+        left: "KeyA",
+        down: "KeyS",
+        right: "KeyD",
+      },
+    };
 
     target.addEventListener("keydown", (e) => {
       if (!this.down.has(e.code)) this.pressed.add(e.code);
       this.down.add(e.code);
+
+      if (e.code === "KeyP" && !e.repeat) {
+        this.keyboardLayout = this.keyboardLayout === "AZERTY" ? "QWERTY" : "AZERTY";
+        console.info(`Layout: ${this.keyboardLayout}`);
+      }
     });
 
     target.addEventListener("keyup", (e) => {
@@ -13,11 +34,33 @@ export class Input {
     });
   }
 
+  #directionCodes(action) {
+    const layoutCodes = this.layouts[this.keyboardLayout];
+    const arrowCodes = {
+      up: "ArrowUp",
+      down: "ArrowDown",
+      left: "ArrowLeft",
+      right: "ArrowRight",
+    };
+    const arrowCode = arrowCodes[action];
+    const layoutCode = layoutCodes[action];
+    if (!arrowCode || !layoutCode) return null;
+    return [arrowCode, layoutCode];
+  }
+
   isDown(code) {
+    const directionCodes = this.#directionCodes(code);
+    if (directionCodes) return directionCodes.some((c) => this.down.has(c));
+    if (code === "shoot") return this.down.has("Space");
+
     return this.down.has(code);
   }
 
   wasPressed(code) {
+    const directionCodes = this.#directionCodes(code);
+    if (directionCodes) return directionCodes.some((c) => this.pressed.has(c));
+    if (code === "shoot") return this.pressed.has("Space");
+
     return this.pressed.has(code);
   }
 
