@@ -27,7 +27,6 @@ export class Game {
     this.combo = 1;
     this.comboTimer = 0;
     this.lives = 3;
-    this.gameOver = false;
 
     this.COMBO_WINDOW = 5.0;
 
@@ -39,6 +38,114 @@ export class Game {
     this.fastTrailAcc = 0;
     this.waveQueued = false;
 
+    // États principaux: TITLE -> PLAY -> GAME_OVER_ANIM -> GAME_OVER_READY.
+    this.state = "TITLE";
+    this.gameOverDelay = 0;
+
+    this.difficultyPreset = null;
+    this.difficultyPresets = {
+      EASY: { waveBudgetMult: 0.85, asteroidSpeedMult: 0.9, scoreDrainCombo1PerSec: 800 },
+      NORMAL: { waveBudgetMult: 1.0, asteroidSpeedMult: 1.0, scoreDrainCombo1PerSec: 1200 },
+      HARD: { waveBudgetMult: 1.15, asteroidSpeedMult: 1.1, scoreDrainCombo1PerSec: 1600 },
+    };
+
+    this.hoveredButtonId = null;
+    this.titleButtons = [];
+    this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
+
+    // Listener souris unique: on ignore selon l'état courant.
+    this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
+    this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
+  }
+
+  getWeaponLevelFromCombo(combo) {
+    if (combo >= 45) return 4;
+    if (combo >= 25) return 3;
+    if (combo >= 10) return 2;
+    return 1;
+  }
+
+  applyComboBreak() {
+    // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
+    const oldLevel = this.getWeaponLevelFromCombo(this.combo);
+    let c = this.combo / 2;
+
+    while (c > 1 && this.getWeaponLevelFromCombo(c) >= oldLevel) c /= 2;
+
+    this.combo = Math.max(1, c);
+    this.ship.updateWeaponLevel(this.combo);
+  }
+
+  #pointInRect(mx, my, rect) {
+    return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
+  }
+
+  #mouseToCanvas(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+    const my = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+    const scaleX = this.canvas.width / this.world.w;
+    const scaleY = this.canvas.height / this.world.h;
+    return { mx: mx / scaleX, my: my / scaleY };
+  }
+
+  #rebuildMenuButtons() {
+    const w = 220;
+    const h = 56;
+    const gap = 16;
+    const x = this.world.w * 0.5 - w * 0.5;
+    const startY = this.world.h * 0.5 - (h * 3 + gap * 2) * 0.5 + 30;
+
+    this.titleButtons = [
+      { id: "EASY", label: "EASY", x, y: startY, w, h },
+      { id: "NORMAL", label: "NORMAL", x, y: startY + (h + gap), w, h },
+      { id: "HARD", label: "HARD", x, y: startY + 2 * (h + gap), w, h },
+    ];
+
+    this.menuButton.x = this.world.w * 0.5 - this.menuButton.w * 0.5;
+    this.menuButton.y = this.world.h * 0.6;
+  }
+
+  #onPointerMove(e) {
+    const { mx, my } = this.#mouseToCanvas(e);
+    this.hoveredButtonId = null;
+
+    if (this.state === "TITLE") {
+      for (const button of this.titleButtons) {
+        if (this.#pointInRect(mx, my, button)) {
+          this.hoveredButtonId = button.id;
+          break;
+        }
+      }
+    } else if (this.state === "GAME_OVER_READY") {
+      if (this.#pointInRect(mx, my, this.menuButton)) this.hoveredButtonId = this.menuButton.id;
+    }
+
+    this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
+  }
+
+  #onPointerDown(e) {
+    const { mx, my } = this.#mouseToCanvas(e);
+
+    if (this.state === "TITLE") {
+      for (const button of this.titleButtons) {
+        if (this.#pointInRect(mx, my, button)) {
+          this.#startWithDifficulty(button.id);
+          return;
+        }
+      }
+    }
+
+    if (this.state === "GAME_OVER_READY" && this.#pointInRect(mx, my, this.menuButton)) {
+      this.state = "TITLE";
+      this.hoveredButtonId = null;
+    }
+  }
+
+  #startWithDifficulty(id) {
+    this.difficultyPreset = id;
+    this.#newGame();
+    this.state = "PLAY";
   }
 
   start() {
@@ -47,8 +154,12 @@ export class Game {
     this.world.h = r.cssH;
 
     this.starfield.resize(this.world.w, this.world.h);
+    this.#rebuildMenuButtons();
 
-    this.#newGame();
+    this.ship = new Ship(this.world.w / 2, this.world.h / 2);
+    this.ship.respawn(this.world.w / 2, this.world.h / 2);
+    this.ship.updateWeaponLevel(this.combo);
+
     this.running = true;
     requestAnimationFrame((t) => this.#loop(t));
   }
@@ -56,9 +167,8 @@ export class Game {
   #newGame() {
     this.score = 0;
     this.combo = 1;
-    this.comboTimer = 0;
+    this.comboTimer = this.COMBO_WINDOW;
     this.lives = 3;
-    this.gameOver = false;
 
     this.level = 1;
     this.particles = [];
@@ -67,13 +177,13 @@ export class Game {
     this.bullets = [];
     this.asteroids = [];
     this.waveQueued = false;
+    this.fastTrailAcc = 0;
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
 
     this.#spawnLevel();
-
   }
 
   #resolveAsteroidCollisions() {
@@ -93,16 +203,12 @@ export class Game {
         const dy = b.y - a.y;
         const d2 = dx * dx + dy * dy;
 
-        // pas en contact
         if (d2 > r * r || d2 === 0) continue;
 
         const d = Math.sqrt(d2);
-
-        // normale (a -> b)
         const nx = dx / d;
         const ny = dy / d;
 
-        // 1) Séparer pour éviter qu’ils se “collent”
         const overlap = r - d;
         const sep = overlap * 0.5;
         a.x -= nx * sep;
@@ -110,20 +216,12 @@ export class Game {
         b.x += nx * sep;
         b.y += ny * sep;
 
-        // 2) Rebonds élastiques (masses égales)
-        // vitesse relative
         const rvx = a.vx - b.vx;
         const rvy = a.vy - b.vy;
-
-        // composante sur la normale
         const velAlongNormal = dot(rvx, rvy, nx, ny);
-
-        // si déjà en train de s’éloigner, on ne fait rien
         if (velAlongNormal <= 0) continue;
 
-        // impulse (masses égales => échange de composante normale)
         const impulse = velAlongNormal;
-
         a.vx -= impulse * nx;
         a.vy -= impulse * ny;
         b.vx += impulse * nx;
@@ -144,13 +242,13 @@ export class Game {
     this.waveQueued = false;
   }
 
-  // Budget de vague en cycles de 6 avec pic sur le step 5.
   getWaveBudget(wave) {
     const cycle = Math.floor((wave - 1) / 6);
     const step = (wave - 1) % 6;
     const baseBudget = 8 + wave * 2 + cycle * 4;
     const stepMult = [0.92, 1.00, 1.08, 1.16, 1.24, 1.45][step];
-    return Math.floor(baseBudget * stepMult);
+    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
+    return Math.floor(baseBudget * stepMult * difficulty.waveBudgetMult);
   }
 
   getWaveWeights(wave) {
@@ -179,7 +277,6 @@ export class Game {
     let normalCount = 0;
     let frag3Count = 0;
 
-    // step 5 (vague 6/12/18...) : tenter de garantir un 3-fragmentation.
     if (step === 5 && wave >= 6 && remainingBudget >= costs.splitter && frag3Count < maxFrag3) {
       picks.push("splitter");
       remainingBudget -= costs.splitter;
@@ -200,7 +297,6 @@ export class Game {
     while (remainingBudget >= 1) {
       let type = weightedPick(weights);
 
-      // À partir de la vague 6, quelques 3-fragmentation peuvent apparaître (avec cap).
       if (wave >= 6 && frag3Count < maxFrag3 && remainingBudget >= costs.splitter && Math.random() < (0.08 + cycle * 0.03)) {
         type = "splitter";
       }
@@ -214,18 +310,16 @@ export class Game {
       if (type === "splitter") frag3Count += 1;
     }
 
-    // Toujours garder au moins 1 normal.
     if (normalCount === 0) {
       if (remainingBudget >= costs.normal) {
         picks.push("normal");
-        remainingBudget -= costs.normal;
       } else if (picks.length > 0) {
         const idx = picks.findIndex((type) => type !== "splitter");
-        if (idx >= 0) {
-          picks[idx] = "normal";
-        }
+        if (idx >= 0) picks[idx] = "normal";
       }
     }
+
+    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
 
     for (const type of picks) {
       let x;
@@ -235,22 +329,18 @@ export class Game {
         y = rand(0, this.world.h);
       } while (dist2(x, y, this.ship.x, this.ship.y) < 240 * 240);
 
-      // On garde un mélange de tailles pour préserver le rythme.
       const sizeRoll = Math.random();
       let size = 3;
       if (wave >= 4 && sizeRoll < 0.28) size = 2;
       if (wave >= 9 && sizeRoll < 0.10) size = 1;
 
       const a = new Asteroid(x, y, size, type);
-
-      // Difficulté globale en hausse à chaque cycle.
       const boost = 1 + Math.min(1.2, wave * 0.03 + cycle * 0.05);
-      a.vx *= boost;
-      a.vy *= boost;
+      a.vx *= boost * difficulty.asteroidSpeedMult;
+      a.vy *= boost * difficulty.asteroidSpeedMult;
       this.asteroids.push(a);
     }
   }
-
 
   #loop(t) {
     if (!this.running) return;
@@ -258,14 +348,13 @@ export class Game {
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
     this.last = t;
 
-    // resize + world
     const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
     if (r.changed) {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
       this.starfield.resize(this.world.w, this.world.h);
+      this.#rebuildMenuButtons();
     }
-
 
     this.#update(dt);
     this.#draw();
@@ -274,22 +363,15 @@ export class Game {
     requestAnimationFrame((tt) => this.#loop(tt));
   }
 
-  #update(dt) {
-    if (this.gameOver) {
-      if (this.input.wasPressed("Enter")) this.#newGame();
-      return;
+  #updateGameplay(dt) {
+    if (this.comboTimer > 0) this.comboTimer -= dt;
+    if (this.comboTimer <= 0) {
+      this.comboTimer = this.COMBO_WINDOW;
+      this.applyComboBreak();
     }
 
-    // Le timer de combo ne décroît que s'il reste des astéroïdes actifs.
-    const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
-    if (this.combo > 1 && hasActiveAsteroid && this.comboTimer > 0) {
-      this.comboTimer -= dt;
-      if (this.comboTimer <= 0) {
-        this.comboTimer = 0;
-        this.combo = Math.max(1, this.combo / 2);
-        this.ship.updateWeaponLevel(this.combo);
-      }
-    }
+    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
+    if (this.combo === 1) this.score = Math.max(0, this.score - difficulty.scoreDrainCombo1PerSec * dt);
 
     this.ship.update(dt, this.input, this.world);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
@@ -298,13 +380,11 @@ export class Game {
       this.ship.tryShoot(this.bullets);
     }
 
-    // update entities
     for (const b of this.bullets) b.update(dt, this.world);
 
     for (const a of this.asteroids) {
       a.update(dt, this.world);
 
-      // Traînée poussière pour les Fast (directionnelle, proportionnelle, FPS-indépendante)
       if (a.type === "fast") {
         const speed = Math.hypot(a.vx, a.vy);
         if (speed > 10) {
@@ -356,16 +436,11 @@ export class Game {
       }
     }
 
-    // collisions asteroid <-> asteroid
     this.#resolveAsteroidCollisions();
 
-    // effets
     for (const p of this.particles) p.update(dt, this.world);
     for (const e of this.explosions) e.update(dt);
 
-
-
-    // collisions bullet <-> asteroid
     for (const b of this.bullets) {
       if (b.dead) continue;
       for (const a of this.asteroids) {
@@ -391,7 +466,6 @@ export class Game {
               ...Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6)
             );
           } else {
-            // petit feedback quand ça tape un dense non détruit
             this.particles.push(
               ...Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2)
             );
@@ -402,7 +476,6 @@ export class Game {
       }
     }
 
-    // collision ship <-> asteroid (si pas invincible)
     if (this.ship.invincible <= 0) {
       for (const a of this.asteroids) {
         if (a.dead) continue;
@@ -419,31 +492,97 @@ export class Game {
           );
 
           if (this.lives <= 0) {
-            this.gameOver = true;
+            this.state = "GAME_OVER_ANIM";
+            this.gameOverDelay = 2.0;
           } else {
             this.ship.respawn(this.world.w / 2, this.world.h / 2);
           }
 
           return;
-
         }
       }
     }
 
-    // cleanup
-    this.bullets = this.bullets.filter(b => !b.dead);
-    this.asteroids = this.asteroids.filter(a => !a.dead);
-    this.particles = this.particles.filter(p => !p.dead);
-    this.explosions = this.explosions.filter(e => !e.dead);
+    this.bullets = this.bullets.filter((b) => !b.dead);
+    this.asteroids = this.asteroids.filter((a) => !a.dead);
+    this.particles = this.particles.filter((p) => !p.dead);
+    this.explosions = this.explosions.filter((e) => !e.dead);
 
-
-    // nouvelle vague déclenchée dès qu'il reste 1 astéroïde ou moins.
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
     }
   }
 
-  #draw() {
+  #update(dt) {
+    if (this.state === "TITLE") {
+      if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
+      if (this.input.wasPressed("Digit2")) this.#startWithDifficulty("NORMAL");
+      if (this.input.wasPressed("Digit3")) this.#startWithDifficulty("HARD");
+      return;
+    }
+
+    if (this.state === "PLAY") {
+      this.#updateGameplay(dt);
+      return;
+    }
+
+    // GAME_OVER_ANIM: on laisse tourner effets/anim 2s avant prompt restart.
+    if (this.state === "GAME_OVER_ANIM") {
+      this.starfield.update(dt, this.ship.vx, this.ship.vy);
+      for (const p of this.particles) p.update(dt, this.world);
+      for (const e of this.explosions) e.update(dt);
+      this.particles = this.particles.filter((p) => !p.dead);
+      this.explosions = this.explosions.filter((e) => !e.dead);
+      this.gameOverDelay -= dt;
+      if (this.gameOverDelay <= 0) this.state = "GAME_OVER_READY";
+      return;
+    }
+
+    if (this.state === "GAME_OVER_READY") {
+      for (const p of this.particles) p.update(dt, this.world);
+      for (const e of this.explosions) e.update(dt);
+      this.particles = this.particles.filter((p) => !p.dead);
+      this.explosions = this.explosions.filter((e) => !e.dead);
+
+      if (this.input.wasPressed("KeyR") || this.input.wasPressed("Enter")) {
+        this.#newGame();
+        this.state = "PLAY";
+      }
+      if (this.input.wasPressed("KeyM")) {
+        this.state = "TITLE";
+      }
+    }
+  }
+
+  #drawButton(button) {
+    const ctx = this.ctx;
+    const hovered = this.hoveredButtonId === button.id;
+    ctx.save();
+    ctx.fillStyle = hovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.10)";
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.fillRect(button.x, button.y, button.w, button.h);
+    ctx.strokeRect(button.x, button.y, button.w, button.h);
+    ctx.fillStyle = "white";
+    ctx.font = "24px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(button.label, button.x + button.w * 0.5, button.y + button.h * 0.5);
+    ctx.restore();
+  }
+
+  #drawTitleScreen() {
+    const ctx = this.ctx;
+    this.starfield.draw(ctx);
+    drawText(ctx, "ASTEROID", this.world.w * 0.5 - 110, this.world.h * 0.22, 54);
+    drawText(ctx, "Choisissez une difficulté", this.world.w * 0.5 - 130, this.world.h * 0.34, 24);
+
+    for (const button of this.titleButtons) this.#drawButton(button);
+
+    drawText(ctx, "[1] EASY  [2] NORMAL  [3] HARD", this.world.w * 0.5 - 155, this.world.h * 0.78, 18);
+  }
+
+  #drawPlayScene() {
     const ctx = this.ctx;
     this.starfield.draw(ctx);
     this.ship.draw(ctx);
@@ -452,19 +591,42 @@ export class Game {
     for (const p of this.particles) p.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
 
-    drawText(ctx, `Score: ${this.score}`, 16, 12, 18);
+    const difficultyLabel = this.difficultyPreset ?? "NORMAL";
+    drawText(ctx, `Score: ${Math.floor(this.score)}`, 16, 12, 18);
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
-    drawText(ctx, `Combo: x${this.combo.toFixed(2)}`, 16, 78, 18);
+    drawText(ctx, `COMBO x${this.combo.toFixed(2)}`, 16, 78, 18);
     const timerText = this.comboTimer < 1 && this.comboTimer > 0
-      ? `Combo timer: ${this.comboTimer.toFixed(1)}s !`
-      : `Combo timer: ${this.comboTimer.toFixed(1)}s`;
+      ? `TIMER: ${this.comboTimer.toFixed(1)}s !`
+      : `TIMER: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
+    drawText(ctx, `Weapon: ${this.ship.getWeaponName()}`, 16, 122, 18);
+    drawText(ctx, `Difficulty: ${difficultyLabel}`, 16, 144, 18);
+  }
 
+  #drawGameOverOverlay() {
+    const ctx = this.ctx;
+    if (this.state === "GAME_OVER_ANIM") {
+      drawText(ctx, "GAME OVER", this.world.w * 0.5 - 80, this.world.h * 0.42, 32);
+      return;
+    }
 
-    if (this.gameOver) {
-      drawText(ctx, `GAME OVER`, this.world.w * 0.5 - 70, this.world.h * 0.45, 28);
-      drawText(ctx, `Entrée pour rejouer`, this.world.w * 0.5 - 110, this.world.h * 0.52, 18);
+    drawText(ctx, "GAME OVER", this.world.w * 0.5 - 80, this.world.h * 0.42, 32);
+    drawText(ctx, "Press R or Enter to Restart", this.world.w * 0.5 - 140, this.world.h * 0.50, 20);
+    drawText(ctx, "Press M for Menu", this.world.w * 0.5 - 85, this.world.h * 0.54, 18);
+    this.#drawButton(this.menuButton);
+  }
+
+  #draw() {
+    if (this.state === "TITLE") {
+      this.#drawTitleScreen();
+      return;
+    }
+
+    this.#drawPlayScene();
+
+    if (this.state === "GAME_OVER_ANIM" || this.state === "GAME_OVER_READY") {
+      this.#drawGameOverOverlay();
     }
   }
 }

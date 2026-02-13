@@ -25,6 +25,13 @@ export class Ship {
     this.bulletLife = 1.2;
 
     this.invincible = 0; // secondes (respawn)
+
+    this.weaponNames = {
+      1: "Blaster",
+      2: "Sniper",
+      3: "Double Blaster",
+      4: "Shotgun",
+    };
   }
 
   respawn(x, y) {
@@ -69,10 +76,10 @@ export class Ship {
   updateWeaponLevel(combo) {
     if (combo >= 45) {
       this.weaponLevel = 4;
-      this.bulletLife = 1.9;
+      this.bulletLife = 0.95;
     } else if (combo >= 25) {
       this.weaponLevel = 3;
-      this.bulletLife = 1.9;
+      this.bulletLife = 1.2;
     } else if (combo >= 10) {
       this.weaponLevel = 2;
       this.bulletLife = 1.9;
@@ -80,6 +87,10 @@ export class Ship {
       this.weaponLevel = 1;
       this.bulletLife = 1.2;
     }
+  }
+
+  getWeaponName() {
+    return this.weaponNames[this.weaponLevel] ?? "Blaster";
   }
 
   tryShoot(bullets) {
@@ -103,12 +114,12 @@ export class Ship {
     };
 
     if (this.weaponLevel >= 4) {
-      // Triple tir longue portée avec léger éventail.
+      // Triple tir courte portée avec léger éventail.
       spawn(-0.1, -6);
       spawn(0, 0);
       spawn(0.1, 6);
     } else if (this.weaponLevel >= 3) {
-      // Double tir parallèle longue portée.
+      // Double tir parallèle portée standard.
       spawn(0, -5);
       spawn(0, 5);
     } else {
