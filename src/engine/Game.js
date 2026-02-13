@@ -285,7 +285,7 @@ export class Game {
     if (this.combo > 1 && hasActiveAsteroid) {
       this.comboTimer = Math.max(0, this.comboTimer - dt);
       if (this.comboTimer <= 0) {
-        this.combo = 1;
+        this.combo = Math.max(1, this.combo / 2);
         this.ship.updateWeaponLevel(this.combo);
       }
     }
