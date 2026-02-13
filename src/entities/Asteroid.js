@@ -2,10 +2,10 @@ import { wrap, rand } from "../engine/math.js";
 
 export class Asteroid {
   static TYPE = {
-    normal:   { speedMul: 1.0,  hpMul: 1, splitCount: 2, dashed: false, lineWidth: 1, points: 10, jitterMin: 0.75, jitterMax: 1.25, scoreMul: 1.0 },
-    dense:    { speedMul: 0.75, hpMul: 2, splitCount: 2, dashed: false, lineWidth: 3, points: 11, jitterMin: 0.80, jitterMax: 1.20, scoreMul: 1.4 },
-    fast:     { speedMul: 2.2,  hpMul: 1, splitCount: 0, dashed: true,  lineWidth: 1, points: 9,  jitterMin: 0.85, jitterMax: 1.15, scoreMul: 1.3 },
-    splitter: { speedMul: 1.05, hpMul: 1, splitCount: 3, dashed: false, lineWidth: 2, points: 13, jitterMin: 0.70, jitterMax: 1.30, scoreMul: 1.6 },
+    normal:   { speedMul: 1.0,  hpMul: 1, splitCount: 2, dashed: false, lineWidth: 1, points: 10, jitterMin: 0.75, jitterMax: 1.25, scoreMul: 1.0, tint: "rgba(180,180,180,1)" },
+    dense:    { speedMul: 0.75, hpMul: 2, splitCount: 2, dashed: false, lineWidth: 3, points: 11, jitterMin: 0.80, jitterMax: 1.20, scoreMul: 1.4, tint: "rgba(140,140,160,1)" },
+    fast:     { speedMul: 2.2,  hpMul: 1, splitCount: 0, dashed: true,  lineWidth: 1, points: 9,  jitterMin: 0.85, jitterMax: 1.15, scoreMul: 1.3, tint: "rgba(150,190,210,1)" },
+    splitter: { speedMul: 1.05, hpMul: 1, splitCount: 3, dashed: false, lineWidth: 2, points: 13, jitterMin: 0.70, jitterMax: 1.30, scoreMul: 1.6, tint: "rgba(190,150,220,1)" },
   };
 
   constructor(x, y, size = 3, type = "normal") {
@@ -33,6 +33,9 @@ export class Asteroid {
     this.vy = Math.sin(ang) * speed;
 
     this.points = this.#makeShape(cfg.points, cfg.jitterMin, cfg.jitterMax);
+    this.seed = Math.random();
+    this.craters = this.#makeCraters();
+    this.grain = this.#makeGrain();
 
     this.rot = rand(0, Math.PI * 2);
     this.rotSpeed = rand(-1.2, 1.2);
@@ -48,6 +51,65 @@ export class Asteroid {
       pts.push({ ang, r: jitter });
     }
     return pts;
+  }
+
+  #rand01(i) {
+    const v = Math.sin((this.seed + i * 0.6180339887) * 43758.5453123) * 10000;
+    return v - Math.floor(v);
+  }
+
+  #makeCraters() {
+    const count = this.size >= 3 ? 12 : this.size === 2 ? 9 : 6;
+    return Array.from({ length: count }, (_, i) => ({
+      a: this.#rand01(i * 4 + 1) * Math.PI * 2,
+      d: this.#rand01(i * 4 + 2) * 0.75,
+      r: 0.06 + this.#rand01(i * 4 + 3) * 0.10,
+      depth: 0.4 + this.#rand01(i * 4 + 4) * 0.6,
+    }));
+  }
+
+  #makeGrain() {
+    const count = 20 + this.size * 7;
+    const points = [];
+    let i = 0;
+    while (points.length < count && i < count * 5) {
+      const x = (this.#rand01(1000 + i * 5 + 1) * 2 - 1) * this.radius;
+      const y = (this.#rand01(1000 + i * 5 + 2) * 2 - 1) * this.radius;
+      if (x * x + y * y <= this.radius * this.radius) {
+        points.push({
+          x,
+          y,
+          alpha: 0.02 + this.#rand01(1000 + i * 5 + 3) * 0.02,
+          bright: this.#rand01(1000 + i * 5 + 4) > 0.5,
+        });
+      }
+      i += 1;
+    }
+    return points;
+  }
+
+  #tintShades(tint) {
+    const match = tint.match(/rgba?\((\d+),(\d+),(\d+)(?:,[^)]+)?\)/);
+    if (!match) {
+      return {
+        highlightColor: "rgba(230,230,230,1)",
+        baseColor: tint,
+        shadowColor: "rgba(60,60,60,1)",
+        outlineColor: "rgba(45,45,45,0.95)",
+      };
+    }
+    const toNum = (v) => Number(v);
+    const r = toNum(match[1]);
+    const g = toNum(match[2]);
+    const b = toNum(match[3]);
+    const lift = (v) => Math.round(v + (230 - v) * 0.7);
+    const dark = (v) => Math.round(v * 0.35);
+    return {
+      highlightColor: `rgba(${lift(r)},${lift(g)},${lift(b)},1)`,
+      baseColor: tint,
+      shadowColor: `rgba(${dark(r)},${dark(g)},${dark(b)},1)`,
+      outlineColor: `rgba(${Math.round(dark(r) * 0.8)},${Math.round(dark(g) * 0.8)},${Math.round(dark(b) * 0.8)},0.95)`,
+    };
   }
 
   update(dt, world) {
@@ -86,17 +148,17 @@ export class Asteroid {
 
 draw(ctx) {
   const cfg = Asteroid.TYPE[this.type] ?? Asteroid.TYPE.normal;
+  const { highlightColor, baseColor, shadowColor, outlineColor } = this.#tintShades(cfg.tint);
+  const lightX = -0.35 * this.radius;
+  const lightY = -0.35 * this.radius;
 
   ctx.save();
   ctx.translate(this.x, this.y);
   ctx.rotate(this.rot);
 
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = cfg.lineWidth;
-
   if (cfg.dashed) ctx.setLineDash([6, 6]);
 
-  // contour principal
+  // contour principal (forme procédurale)
   ctx.beginPath();
   for (let i = 0; i < this.points.length; i++) {
     const p = this.points[i];
@@ -107,7 +169,50 @@ draw(ctx) {
     else ctx.lineTo(px, py);
   }
   ctx.closePath();
+
+  const gradient = ctx.createRadialGradient(lightX, lightY, this.radius * 0.2, 0, 0, this.radius);
+  gradient.addColorStop(0, highlightColor);
+  gradient.addColorStop(0.55, baseColor);
+  gradient.addColorStop(1, shadowColor);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // cratères subtils
+  for (const crater of this.craters) {
+    const cx = Math.cos(crater.a) * crater.d * this.radius * 0.9;
+    const cy = Math.sin(crater.a) * crater.d * this.radius * 0.9;
+    const cr = crater.r * this.radius;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,0,0,${0.12 + crater.depth * 0.12})`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx - cr * 0.15, cy - cr * 0.15, cr * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${0.05 + crater.depth * 0.08})`;
+    ctx.fill();
+  }
+
+  // grain léger stable
+  for (const dot of this.grain) {
+    ctx.fillStyle = dot.bright
+      ? `rgba(255,255,255,${dot.alpha})`
+      : `rgba(0,0,0,${dot.alpha})`;
+    ctx.fillRect(dot.x, dot.y, 1, 1);
+  }
+
+  ctx.strokeStyle = outlineColor;
+  ctx.lineWidth = this.size >= 3 ? 2 : 1;
   ctx.stroke();
+
+  // rim light discret côté lumière
+  ctx.shadowColor = highlightColor;
+  ctx.shadowBlur = this.size >= 3 ? 6 : 4;
+  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
 
   // reset dash pour ne pas impacter le reste
   ctx.setLineDash([]);
