@@ -38,11 +38,6 @@ export class Game {
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
     this.waveQueued = false;
-   
-    // Keyboard layout: 'ZQSD' (AZERTY) or 'WASD' (QWERTY)
-    this.keyboardLayout = 'ZQSD';
-    this.layoutMessage = '';
-    this.layoutMessageTimer = 0;
 
   }
 
@@ -284,19 +279,7 @@ export class Game {
       if (this.input.wasPressed("Enter")) this.#newGame();
       return;
     }
-    
-    // Toggle keyboard layout with P key
-    if (this.input.wasPressed("KeyP")) {
-      this.keyboardLayout = this.keyboardLayout === 'ZQSD' ? 'WASD' : 'ZQSD';
-      this.layoutMessage = `Layout: ${this.keyboardLayout}`;
-      this.layoutMessageTimer = 2.5; // Display for 2.5 seconds
-    }
 
-    // Update layout message timer
-    if (this.layoutMessageTimer > 0) {
-      this.layoutMessageTimer = Math.max(0, this.layoutMessageTimer - dt);
-    }
-    
     // Le timer de combo ne décroît que s'il reste des astéroïdes actifs.
     const hasActiveAsteroid = this.asteroids.some((a) => !a.dead);
     if (this.combo > 1 && hasActiveAsteroid) {
@@ -307,7 +290,7 @@ export class Game {
       }
     }
 
-    this.ship.update(dt, this.input, this.world, this.keyboardLayout);
+    this.ship.update(dt, this.input, this.world);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
     if (this.input.wasPressed("Space")) {
@@ -476,16 +459,8 @@ export class Game {
       ? `Combo timer: ${this.comboTimer.toFixed(1)}s !`
       : `Combo timer: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
-  
-   // Display layout change message
-    if (this.layoutMessageTimer > 0) {
-      const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out in last 0.5s
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      drawText(ctx, this.layoutMessage, this.world.w * 0.5 - 60, this.world.h * 0.15, 24);
-      ctx.restore();
-    }
-    
+
+
     if (this.gameOver) {
       drawText(ctx, `GAME OVER`, this.world.w * 0.5 - 70, this.world.h * 0.45, 28);
       drawText(ctx, `Entrée pour rejouer`, this.world.w * 0.5 - 110, this.world.h * 0.52, 18);
