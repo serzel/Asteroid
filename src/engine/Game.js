@@ -37,6 +37,7 @@ export class Game {
 
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
+    this.waveQueued = false;
 
   }
 
@@ -65,6 +66,7 @@ export class Game {
 
     this.bullets = [];
     this.asteroids = [];
+    this.waveQueued = false;
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
@@ -131,52 +133,122 @@ export class Game {
   }
 
   #spawnLevel() {
-    // progression :
-    // - + astéroïdes par niveau
-    // - vitesse augmente légèrement
-    // - tailles mixées (plus de gros au début, plus de petits ensuite)
-    const count = 4 + this.level; // 5 au lvl1, 6 au lvl2, etc.
+    this.buildWave(this.level);
+  }
 
-    for (let i = 0; i < count; i++) {
-      let x, y;
+  #nextLevel() {
+    if (this.waveQueued) return;
+    this.waveQueued = true;
+    this.level += 1;
+    this.#spawnLevel();
+    this.waveQueued = false;
+  }
+
+  // Budget de vague en cycles de 6 avec pic sur le step 5.
+  getWaveBudget(wave) {
+    const cycle = Math.floor((wave - 1) / 6);
+    const step = (wave - 1) % 6;
+    const baseBudget = 8 + wave * 2 + cycle * 4;
+    const stepMult = [0.92, 1.00, 1.08, 1.16, 1.24, 1.45][step];
+    return Math.floor(baseBudget * stepMult);
+  }
+
+  getWaveWeights(wave) {
+    const step = (wave - 1) % 6;
+    const weightsByStep = [
+      { normal: 0.60, dense: 0.30, fast: 0.10 },
+      { normal: 0.50, dense: 0.35, fast: 0.15 },
+      { dense: 0.55, normal: 0.35, fast: 0.10 },
+      { fast: 0.45, normal: 0.35, dense: 0.20 },
+      { dense: 0.40, fast: 0.35, normal: 0.25 },
+      { fast: 0.45, dense: 0.35, normal: 0.20 },
+    ];
+    return weightsByStep[step];
+  }
+
+  buildWave(wave) {
+    const cycle = Math.floor((wave - 1) / 6);
+    const step = (wave - 1) % 6;
+    const costs = { normal: 1, dense: 2, fast: 3, splitter: 4 };
+    const maxFrag3 = 1 + cycle;
+    const budget = this.getWaveBudget(wave);
+    const weights = this.getWaveWeights(wave);
+
+    const picks = [];
+    let remainingBudget = budget;
+    let normalCount = 0;
+    let frag3Count = 0;
+
+    // step 5 (vague 6/12/18...) : tenter de garantir un 3-fragmentation.
+    if (step === 5 && wave >= 6 && remainingBudget >= costs.splitter && frag3Count < maxFrag3) {
+      picks.push("splitter");
+      remainingBudget -= costs.splitter;
+      frag3Count += 1;
+    }
+
+    const weightedPick = (poolWeights) => {
+      const entries = Object.entries(poolWeights);
+      const total = entries.reduce((acc, [, w]) => acc + w, 0);
+      let roll = Math.random() * total;
+      for (const [type, weight] of entries) {
+        roll -= weight;
+        if (roll <= 0) return type;
+      }
+      return entries[entries.length - 1][0];
+    };
+
+    while (remainingBudget >= 1) {
+      let type = weightedPick(weights);
+
+      // À partir de la vague 6, quelques 3-fragmentation peuvent apparaître (avec cap).
+      if (wave >= 6 && frag3Count < maxFrag3 && remainingBudget >= costs.splitter && Math.random() < (0.08 + cycle * 0.03)) {
+        type = "splitter";
+      }
+
+      const cost = costs[type] ?? 1;
+      if (cost > remainingBudget) break;
+
+      picks.push(type);
+      remainingBudget -= cost;
+      if (type === "normal") normalCount += 1;
+      if (type === "splitter") frag3Count += 1;
+    }
+
+    // Toujours garder au moins 1 normal.
+    if (normalCount === 0) {
+      if (remainingBudget >= costs.normal) {
+        picks.push("normal");
+        remainingBudget -= costs.normal;
+      } else if (picks.length > 0) {
+        const idx = picks.findIndex((type) => type !== "splitter");
+        if (idx >= 0) {
+          picks[idx] = "normal";
+        }
+      }
+    }
+
+    for (const type of picks) {
+      let x;
+      let y;
       do {
         x = rand(0, this.world.w);
         y = rand(0, this.world.h);
       } while (dist2(x, y, this.ship.x, this.ship.y) < 240 * 240);
 
-      // distribution de taille selon niveau
-      // lvl 1-2 : surtout gros, lvl 3+ : mix
-      const roll = Math.random();
+      // On garde un mélange de tailles pour préserver le rythme.
+      const sizeRoll = Math.random();
       let size = 3;
-      if (this.level >= 3 && roll < 0.25) size = 2;
-      if (this.level >= 5 && roll < 0.12) size = 1;
-
-      let type = "normal";
-
-      if (this.level >= 4 && Math.random() < 0.16) {
-        type = "splitter";
-      } else if (this.level >= 3 && Math.random() < 0.14) {
-        type = "fast";
-      } else if (this.level >= 2 && Math.random() < 0.18) {
-        type = "dense";
-      }
-
+      if (wave >= 4 && sizeRoll < 0.28) size = 2;
+      if (wave >= 9 && sizeRoll < 0.10) size = 1;
 
       const a = new Asteroid(x, y, size, type);
 
-
-      // difficulté : boost léger de la vitesse
-      const boost = 1 + Math.min(0.6, (this.level - 1) * 0.08);
+      // Difficulté globale en hausse à chaque cycle.
+      const boost = 1 + Math.min(1.2, wave * 0.03 + cycle * 0.05);
       a.vx *= boost;
       a.vy *= boost;
-
       this.asteroids.push(a);
     }
-  }
-
-  #nextLevel() {
-    this.level += 1;
-    this.#spawnLevel();
   }
 
 
@@ -365,7 +437,7 @@ export class Game {
 
 
     // nouvelle vague déclenchée dès qu'il reste 1 astéroïde ou moins.
-    if (this.asteroids.length <= 1) {
+    if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
     }
   }
@@ -383,6 +455,10 @@ export class Game {
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
     drawText(ctx, `Combo: x${this.combo.toFixed(2)}`, 16, 78, 18);
+    const timerText = this.comboTimer < 1 && this.comboTimer > 0
+      ? `Combo timer: ${this.comboTimer.toFixed(1)}s !`
+      : `Combo timer: ${this.comboTimer.toFixed(1)}s`;
+    drawText(ctx, timerText, 16, 100, 18);
 
 
     if (this.gameOver) {
