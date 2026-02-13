@@ -30,3 +30,13 @@ export function drawText(ctx, text, x, y, size = 18) {
   ctx.restore();
 }
 
+export function drawCenteredText(ctx, text, x, y, size = 18) {
+  ctx.save();
+  ctx.fillStyle = "white";
+  ctx.font = `${size}px system-ui, sans-serif`;
+  ctx.textBaseline = "top";
+  ctx.textAlign = "center";
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+

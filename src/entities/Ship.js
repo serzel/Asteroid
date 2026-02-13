@@ -1,5 +1,6 @@
 import { wrap, clamp } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
+import { DEFAULT_KEYBOARD_LAYOUT } from "../engine/constants.js";
 
 export class Ship {
   constructor(x, y) {
@@ -30,11 +31,16 @@ export class Ship {
     this.invincible = 2.0;
   }
 
-  update(dt, input, world) {
-    if (input.isDown("ArrowLeft")) this.angle -= this.turnSpeed * dt;
-    if (input.isDown("ArrowRight")) this.angle += this.turnSpeed * dt;
+  update(dt, input, world, keyboardLayout = DEFAULT_KEYBOARD_LAYOUT) {
+    // Determine which keys to use based on layout
+    const leftKey = keyboardLayout === 'WASD' ? 'KeyA' : 'KeyQ';
+    const rightKey = 'KeyD'; // Same for both layouts
+    const upKey = keyboardLayout === 'WASD' ? 'KeyW' : 'KeyZ';
 
-    if (input.isDown("ArrowUp")) {
+    if (input.isDown("ArrowLeft") || input.isDown(leftKey)) this.angle -= this.turnSpeed * dt;
+    if (input.isDown("ArrowRight") || input.isDown(rightKey)) this.angle += this.turnSpeed * dt;
+
+    if (input.isDown("ArrowUp") || input.isDown(upKey)) {
       this.vx += Math.cos(this.angle) * this.thrust * dt;
       this.vy += Math.sin(this.angle) * this.thrust * dt;
     }
@@ -63,7 +69,7 @@ export class Ship {
   }
 
   tryShoot(bullets) {
-    if (this.cooldown > 0) return;
+    if (this.cooldown > 0) return false;
 
     const speed = 520;
     const bx = this.x + Math.cos(this.angle) * (this.radius + 2);
@@ -73,6 +79,7 @@ export class Ship {
 
     bullets.push(new Bullet(bx, by, bvx, bvy));
     this.cooldown = this.fireRate;
+    return true;
   }
 
  draw(ctx) {

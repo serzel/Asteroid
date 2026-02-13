@@ -1,11 +1,13 @@
 import { Input } from "./Input.js";
-import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
+import { resizeCanvasToDisplaySize, drawText, drawCenteredText } from "./utils.js";
 import { dist2, rand, dot } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Asteroid } from "../entities/Asteroid.js";
 import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { Starfield } from "./Starfield.js";
+import { DEFAULT_KEYBOARD_LAYOUT } from "./constants.js";
+import { AudioManager } from "./AudioManager.js";
 
 export class Game {
   constructor(canvas) {
@@ -34,6 +36,17 @@ export class Game {
     this.starfield = new Starfield();
     this.fastTrailAcc = 0;
 
+    // Keyboard layout: 'ZQSD' (AZERTY) or 'WASD' (QWERTY)
+    this.keyboardLayout = DEFAULT_KEYBOARD_LAYOUT;
+    this.layoutMessage = '';
+    this.layoutMessageTimer = 0;
+
+    // Audio
+    this.audio = new AudioManager();
+    this.audio.loadSound('shoot', './datapack/pew.ogg');
+    this.audio.loadMusic('./datapack/loop.ogg');
+    this.musicStarted = false;
+
   }
 
   start() {
@@ -45,6 +58,7 @@ export class Game {
 
     this.#newGame();
     this.running = true;
+
     requestAnimationFrame((t) => this.#loop(t));
   }
 
@@ -195,17 +209,39 @@ export class Game {
   }
 
   #update(dt) {
+    // Start music on first user interaction (before gameOver check)
+    if (!this.musicStarted && (this.input.down.size > 0 || this.input.pressed.size > 0)) {
+      console.log('Starting background music...');
+      this.audio.playMusic();
+      this.musicStarted = true;
+    }
+
     if (this.gameOver) {
       if (this.input.wasPressed("Enter")) this.#newGame();
       return;
     }
 
+    // Toggle keyboard layout with P key
+    if (this.input.wasPressed("KeyP")) {
+      this.keyboardLayout = this.keyboardLayout === 'ZQSD' ? 'WASD' : 'ZQSD';
+      this.layoutMessage = `Layout: ${this.keyboardLayout}`;
+      this.layoutMessageTimer = 2.5; // Display for 2.5 seconds
+    }
+
+    // Update layout message timer
+    if (this.layoutMessageTimer > 0) {
+      this.layoutMessageTimer = Math.max(0, this.layoutMessageTimer - dt);
+    }
+
     // actions
-    this.ship.update(dt, this.input, this.world);
+    this.ship.update(dt, this.input, this.world, this.keyboardLayout);
     this.starfield.update(dt, this.ship.vx, this.ship.vy);
 
     if (this.input.wasPressed("Space")) {
-      this.ship.tryShoot(this.bullets);
+      const didShoot = this.ship.tryShoot(this.bullets);
+      if (didShoot) {
+        this.audio.play('shoot');
+      }
     }
 
     // update entities
@@ -359,6 +395,14 @@ export class Game {
     drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
     drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
 
+    // Display layout change message
+    if (this.layoutMessageTimer > 0) {
+      const alpha = Math.min(1, this.layoutMessageTimer * 2); // Fade out gradually
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      drawCenteredText(ctx, this.layoutMessage, this.world.w * 0.5, this.world.h * 0.15, 24);
+      ctx.restore();
+    }
 
     if (this.gameOver) {
       drawText(ctx, `GAME OVER`, this.world.w * 0.5 - 70, this.world.h * 0.45, 28);
