@@ -15,8 +15,15 @@ Pilotez votre vaisseau spatial dans un champ d'astéroïdes dangereux ! Détruis
 
 ## 🕹️ Contrôles
 
-**Note** : Ce jeu est configuré pour un clavier AZERTY français.
+**Note** : Ce jeu supporte deux systèmes de contrôle - utilisez celui qui vous convient !
 
+### Option 1 : Flèches directionnelles (QWERTY/AZERTY)
+- **↑ (Flèche haut)** : Avancer (propulsion)
+- **← (Flèche gauche)** : Tourner à gauche
+- **→ (Flèche droite)** : Tourner à droite
+- **ESPACE** : Tirer
+
+### Option 2 : ZQSD (clavier AZERTY)
 - **Z** : Avancer (propulsion)
 - **Q** : Tourner à gauche
 - **D** : Tourner à droite
