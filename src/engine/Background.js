@@ -37,24 +37,18 @@ export class Background {
       },
     ];
 
-    this.starPalette = [
-      { color: "rgba(255,255,255,1)", weight: 30 },
-      { color: "rgba(255,250,220,1)", weight: 20 },
-      { color: "rgba(255,238,180,1)", weight: 18 },
-      { color: "rgba(255,220,130,1)", weight: 12 },
-      { color: "rgba(255,190,90,1)", weight: 12 },
-      { color: "rgba(255,160,70,1)", weight: 8 },
-    ];
-    this.totalPaletteWeight = this.starPalette.reduce((sum, p) => sum + p.weight, 0);
 
     for (const layer of this.starLayers) {
       for (let i = 0; i < layer.count; i++) {
+        const type = this.#pickStarType();
         layer.stars.push({
           x: Math.random() * this.w,
           y: Math.random() * this.h,
-          size: this.#pickStarSize(),
-          color: this.#pickStarColor(),
-          baseAlpha: layer.alphaMin + Math.random() * (layer.alphaMax - layer.alphaMin),
+          type,
+          size: this.#pickStarSize(type),
+          colorVariant: Math.floor(Math.random() * 3),
+          color: type === "hero" ? this.#pickHeroStarColor() : null,
+          baseAlpha: this.#pickStarBaseAlpha(layer, type),
           twinklePhase: Math.random() * Math.PI * 2,
           twinkleSpeed: 0.4 + Math.random(),
           driftX: (Math.random() * 2 - 1) * 0.015,
@@ -64,37 +58,45 @@ export class Background {
     }
 
     this.clouds = [];
-    const cloudCount = 8 + Math.floor(Math.random() * 7);
+    const cloudCount = 8 + Math.floor(Math.random() * 5);
     const minSize = Math.min(this.w, this.h);
+    const radiusFloor = Math.max(220, minSize * 0.24);
+    const radiusCeil = Math.min(650, Math.max(radiusFloor + 1, minSize * 0.68));
 
     for (let i = 0; i < cloudCount; i++) {
       this.clouds.push({
         x: Math.random() * this.w,
         y: Math.random() * this.h,
-        r: minSize * (0.2 + Math.random() * 0.5),
+        r: radiusFloor + Math.random() * (radiusCeil - radiusFloor),
         phase: Math.random() * Math.PI * 2,
-        driftX: (Math.random() * 2 - 1) * 0.003,
-        driftY: (Math.random() * 2 - 1) * 0.003,
-        hueOffset: -20 + Math.random() * 60,
-        alpha: 0.05 + Math.random() * 0.07,
+        driftX: (Math.random() * 2 - 1) * 0.01,
+        driftY: (Math.random() * 2 - 1) * 0.01,
+        hueOffset: -10 + Math.random() * 35,
+        alpha: 0.04 + Math.random() * 0.05,
       });
     }
   }
 
-  #pickStarSize() {
-    const r = Math.random();
-    if (r < 0.7) return 1.0 + Math.random() * 0.6;
-    if (r < 0.95) return 1.7 + Math.random() * 0.5;
-    return 2.3 + Math.random() * 0.7;
+  #pickStarType() {
+    const roll = Math.random();
+    if (roll < 0.8) return "small";
+    if (roll < 0.97) return "medium";
+    return "hero";
   }
 
-  #pickStarColor() {
-    let roll = Math.random() * this.totalPaletteWeight;
-    for (const entry of this.starPalette) {
-      roll -= entry.weight;
-      if (roll <= 0) return entry.color;
-    }
-    return this.starPalette[0].color;
+  #pickStarSize(type) {
+    if (type === "small") return 1.0 + Math.random() * 0.6;
+    if (type === "medium") return 1.7 + Math.random() * 0.6;
+    return 2.4 + Math.random() * 0.8;
+  }
+
+  #pickStarBaseAlpha(layer, type) {
+    if (type === "hero") return 0.75 + Math.random() * 0.25;
+    return layer.alphaMin + Math.random() * (layer.alphaMax - layer.alphaMin);
+  }
+
+  #pickHeroStarColor() {
+    return Math.random() < 0.55 ? "rgba(255,250,232,1)" : "rgba(255,245,215,1)";
   }
 
   resize(w, h) {
@@ -115,10 +117,12 @@ export class Background {
 
     if (this.clouds) {
       const minSize = Math.min(this.w, this.h);
+      const radiusFloor = Math.max(220, minSize * 0.24);
+      const radiusCeil = Math.min(650, Math.max(radiusFloor + 1, minSize * 0.68));
       for (const c of this.clouds) {
         c.x = Math.random() * this.w;
         c.y = Math.random() * this.h;
-        c.r = minSize * (0.2 + Math.random() * 0.5);
+        c.r = radiusFloor + Math.random() * (radiusCeil - radiusFloor);
       }
     }
   }
@@ -150,12 +154,13 @@ export class Background {
   }
 
   render(ctx) {
-    const baseHue = 220 + Math.sin(this.time * 0.2) * 20;
+    const baseHue = 215 + Math.sin(this.time * 0.18) * 18;
+    const accentHue = (baseHue + 35) % 360;
 
     const grad = ctx.createLinearGradient(0, 0, this.w, this.h);
-    grad.addColorStop(0, `hsl(${baseHue}, 60%, 18%)`);
-    grad.addColorStop(0.5, `hsl(${baseHue + 20}, 70%, 14%)`);
-    grad.addColorStop(1, `hsl(${baseHue + 40}, 60%, 10%)`);
+    grad.addColorStop(0, `hsl(${baseHue}, 65%, 18%)`);
+    grad.addColorStop(0.5, `hsl(${baseHue + 15}, 70%, 14%)`);
+    grad.addColorStop(1, `hsl(${baseHue + 30}, 65%, 10%)`);
 
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.w, this.h);
@@ -164,9 +169,9 @@ export class Background {
     ctx.globalCompositeOperation = "lighter";
 
     for (const cloud of this.clouds) {
-      const pulse = 0.85 + 0.15 * Math.sin(this.time * 0.2 + cloud.phase);
+      const pulse = 0.9 + 0.1 * Math.sin(this.time * 0.2 + cloud.phase);
       const cloudGrad = ctx.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, cloud.r);
-      cloudGrad.addColorStop(0, `hsla(${baseHue + cloud.hueOffset}, 80%, 45%, ${cloud.alpha * pulse})`);
+      cloudGrad.addColorStop(0, `hsla(${baseHue + cloud.hueOffset}, 85%, 45%, ${cloud.alpha * pulse})`);
       cloudGrad.addColorStop(1, "rgba(0,0,0,0)");
 
       ctx.beginPath();
@@ -177,21 +182,47 @@ export class Background {
 
     ctx.restore();
 
+    const starCool = `hsla(${baseHue}, 90%, 82%, 1)`;
+    const starCyan = `hsla(${accentHue}, 92%, 86%, 1)`;
+    const starViolet = `hsla(${(baseHue + 18) % 360}, 90%, 84%, 1)`;
+
     for (const layer of this.starLayers) {
       for (const star of layer.stars) {
         const tw = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(this.time * star.twinkleSpeed + star.twinklePhase));
-        const a = star.baseAlpha * (0.65 + 0.35 * tw);
-        ctx.globalAlpha = a;
-        ctx.fillStyle = star.color;
+        const alphaFinal = star.baseAlpha * (0.65 + 0.35 * tw);
+        ctx.globalAlpha = alphaFinal;
 
-        if (star.size >= 2.3) {
-          ctx.shadowBlur = 6 + ((star.size - 2.3) / 0.7) * 4;
+        if (star.type === "hero") {
+          ctx.fillStyle = star.color;
+          ctx.shadowBlur = 5;
           ctx.shadowColor = star.color;
         } else {
           ctx.shadowBlur = 0;
+          if (star.colorVariant === 0) ctx.fillStyle = starCool;
+          else if (star.colorVariant === 1) ctx.fillStyle = starCyan;
+          else ctx.fillStyle = starViolet;
         }
 
         ctx.fillRect(star.x, star.y, star.size, star.size);
+
+        if (star.type === "hero") {
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.strokeStyle = star.color;
+          ctx.globalAlpha = 0.25 * alphaFinal;
+          ctx.lineWidth = 1;
+
+          ctx.beginPath();
+          ctx.moveTo(star.x - 6, star.y + 0.5);
+          ctx.lineTo(star.x + 6, star.y + 0.5);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(star.x + 0.5, star.y - 6);
+          ctx.lineTo(star.x + 0.5, star.y + 6);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
     }
 
