@@ -40,6 +40,9 @@ export class Asteroid {
     this.rot = rand(0, Math.PI * 2);
     this.rotSpeed = rand(-1.2, 1.2);
 
+    this.hitFlash = 0;
+    this.hitFlashDecay = 6.0;
+
     this.dead = false;
   }
 
@@ -120,6 +123,44 @@ export class Asteroid {
     this.y = wrap(this.y, world.h);
 
     this.rot += this.rotSpeed * dt;
+
+    if (this.hitFlash > 0) {
+      this.hitFlash = Math.max(0, this.hitFlash - this.hitFlashDecay * dt);
+    }
+  }
+
+  #traceRoundedPath(ctx) {
+    if (this.points.length < 2) return;
+
+    const verts = this.points.map((p) => {
+      const rr = this.radius * p.r;
+      return {
+        x: Math.cos(p.ang) * rr,
+        y: Math.sin(p.ang) * rr,
+      };
+    });
+
+    const firstMid = {
+      x: (verts[0].x + verts[1].x) * 0.5,
+      y: (verts[0].y + verts[1].y) * 0.5,
+    };
+
+    ctx.beginPath();
+    ctx.moveTo(firstMid.x, firstMid.y);
+
+    for (let i = 1; i < verts.length; i++) {
+      const curr = verts[i];
+      const next = verts[(i + 1) % verts.length];
+      const mid = {
+        x: (curr.x + next.x) * 0.5,
+        y: (curr.y + next.y) * 0.5,
+      };
+      ctx.quadraticCurveTo(curr.x, curr.y, mid.x, mid.y);
+    }
+
+    const last = verts[0];
+    ctx.quadraticCurveTo(last.x, last.y, firstMid.x, firstMid.y);
+    ctx.closePath();
   }
 
   hit() {
@@ -158,17 +199,8 @@ draw(ctx) {
 
   if (cfg.dashed) ctx.setLineDash([6, 6]);
 
-  // contour principal (forme procédurale)
-  ctx.beginPath();
-  for (let i = 0; i < this.points.length; i++) {
-    const p = this.points[i];
-    const rr = this.radius * p.r;
-    const px = Math.cos(p.ang) * rr;
-    const py = Math.sin(p.ang) * rr;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
+  // contour principal (forme procédurale lissée)
+  this.#traceRoundedPath(ctx);
 
   const gradient = ctx.createRadialGradient(lightX, lightY, this.radius * 0.2, 0, 0, this.radius);
   gradient.addColorStop(0, highlightColor);
@@ -176,6 +208,18 @@ draw(ctx) {
   gradient.addColorStop(1, shadowColor);
   ctx.fillStyle = gradient;
   ctx.fill();
+
+  if (this.hitFlash > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = `rgba(255,255,255,${0.25 * this.hitFlash})`;
+    this.#traceRoundedPath(ctx);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.18 * this.hitFlash})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // cratères subtils
   for (const crater of this.craters) {
