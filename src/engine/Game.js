@@ -623,6 +623,29 @@ export class Game {
       : `TIMER: ${this.comboTimer.toFixed(1)}s`;
     drawText(ctx, timerText, 16, 100, 18);
     drawText(ctx, `WEAPON: ${this.ship.weaponLevel}`, 16, 122, 18);
+  }
+
+  #drawGameOverOverlay() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillRect(0, 0, this.world.w, this.world.h);
+    ctx.restore();
+
+    drawText(ctx, "GAME OVER", this.world.w * 0.5 - 120, this.world.h * 0.38, 52);
+    drawText(ctx, `Score: ${Math.floor(this.score)}`, this.world.w * 0.5 - 80, this.world.h * 0.50, 24);
+    drawText(ctx, "[R] Rejouer", this.world.w * 0.5 - 65, this.world.h * 0.58, 20);
+    drawText(ctx, "[M] Menu", this.world.w * 0.5 - 52, this.world.h * 0.64, 20);
+  }
+
+  #draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.world.w, this.world.h);
+
+    if (this.state === "TITLE") {
+      this.#drawTitleScreen();
+      return;
+    }
 
     this.#drawPlayScene();
 
