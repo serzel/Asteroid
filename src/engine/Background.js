@@ -1,67 +1,54 @@
 const BG_LAYER_CONFIG = [
-  { density: 0.00022, speedMul: 0.18, alphaMin: 0.18, alphaMax: 0.45, radiusMin: 0.7, radiusMax: 1.5 },
-  { density: 0.00016, speedMul: 0.42, alphaMin: 0.26, alphaMax: 0.62, radiusMin: 1.0, radiusMax: 2.2 },
-  { density: 0.00009, speedMul: 0.8, alphaMin: 0.4, alphaMax: 0.92, radiusMin: 1.4, radiusMax: 3.1 },
+  { density: 0.00022, speedMul: 0.18, alphaMin: 0.16, alphaMax: 0.4, radiusMin: 0.65, radiusMax: 1.35 },
+  { density: 0.00016, speedMul: 0.42, alphaMin: 0.22, alphaMax: 0.56, radiusMin: 0.95, radiusMax: 2.0 },
+  { density: 0.00009, speedMul: 0.8, alphaMin: 0.34, alphaMax: 0.86, radiusMin: 1.2, radiusMax: 2.9 },
 ];
 
 const BG_DRIFT_X = 9;
 const BG_DRIFT_Y = 5;
-const DUST_DRIFT_X = 2.2;
-const DUST_DRIFT_Y = 1.2;
+const DEFAULT_PLANET_SIZE = 256;
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
-const pickWarmTint = () => {
-  const roll = Math.random();
-
-  if (roll < 0.6) {
-    return {
-      h: randomRange(40, 55),
-      s: randomRange(0, 10),
-      l: randomRange(85, 95),
-    };
-  }
-
-  if (roll < 0.85) {
-    return {
-      h: randomRange(40, 55),
-      s: randomRange(30, 55),
-      l: randomRange(80, 92),
-    };
-  }
-
-  if (roll < 0.95) {
-    return {
-      h: randomRange(25, 40),
-      s: randomRange(45, 70),
-      l: randomRange(75, 88),
-    };
-  }
-
-  return {
-    h: randomRange(0, 15),
-    s: randomRange(55, 80),
-    l: randomRange(70, 85),
-  };
+const circleIntersectsRect = (x, y, radius, rect) => {
+  const nearestX = Math.max(rect.x, Math.min(x, rect.x + rect.w));
+  const nearestY = Math.max(rect.y, Math.min(y, rect.y + rect.h));
+  const dx = x - nearestX;
+  const dy = y - nearestY;
+  return (dx * dx + dy * dy) <= radius * radius;
 };
 
-const pickStarSizeMultiplier = () => {
+const pickStarTint = () => {
   const roll = Math.random();
-  if (roll < 0.7) return randomRange(0.7, 1.0);
-  if (roll < 0.95) return randomRange(1.0, 1.35);
-  return randomRange(1.35, 1.85);
+  if (roll < 0.68) {
+    return { h: randomRange(36, 52), s: randomRange(4, 14), l: randomRange(88, 97) };
+  }
+  if (roll < 0.9) {
+    return { h: randomRange(186, 205), s: randomRange(34, 64), l: randomRange(82, 95) };
+  }
+  if (roll < 0.97) {
+    return { h: randomRange(292, 315), s: randomRange(36, 68), l: randomRange(78, 90) };
+  }
+  return { h: randomRange(12, 28), s: randomRange(45, 72), l: randomRange(74, 88) };
+};
+
+const pickStarSize = () => {
+  const roll = Math.random();
+  if (roll < 0.7) return { mul: randomRange(0.68, 1), large: false };
+  if (roll < 0.95) return { mul: randomRange(1, 1.35), large: false };
+  return { mul: randomRange(1.35, 1.85), large: true };
 };
 
 const buildStarTwinkle = () => {
-  if (Math.random() > randomRange(0.1, 0.15)) {
+  if (Math.random() > randomRange(0.12, 0.18)) {
     return { twinkle: false, phase: 0, speed: 0, amplitude: 0 };
   }
 
   return {
     twinkle: true,
     phase: randomRange(0, Math.PI * 2),
-    speed: randomRange(0.6, 1.6),
-    amplitude: randomRange(0.08, 0.18),
+    speed: randomRange(0.25, 0.75),
+    amplitude: randomRange(0.08, 0.16),
   };
 };
 
@@ -75,8 +62,23 @@ export class Background {
     this.planetImgs = [];
     this.planets = [];
     this.shootingStars = [];
-    this.shootTimer = randomRange(8, 14);
-    this.dust = [];
+    this.shootTimer = randomRange(7, 13);
+    this.nebula = null;
+
+    this.glowImg = new Image();
+    this.glowImg.src = new URL("../../assets/glow_soft.png", import.meta.url);
+
+    this.nebulaImgs = [];
+    for (const path of ["../../assets/nebula_neon_01.png", "../../assets/nebula_neon_02.png"]) {
+      const img = new Image();
+      img.src = new URL(path, import.meta.url);
+      this.nebulaImgs.push(img);
+    }
+
+    this.noiseGrainImg = new Image();
+    this.noiseGrainImg.src = new URL("../../assets/noise_grain.png", import.meta.url);
+    this.noiseScanlinesImg = new Image();
+    this.noiseScanlinesImg.src = new URL("../../assets/noise_scanlines.png", import.meta.url);
 
     for (let i = 1; i <= 6; i++) {
       const img = new Image();
@@ -87,19 +89,32 @@ export class Background {
     this.resize(width, height);
   }
 
+  #isImageReady(img) {
+    return !!img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+  }
+
+  #planetRadiusFor(img, scale) {
+    const base = this.#isImageReady(img) ? Math.max(img.naturalWidth, img.naturalHeight) : DEFAULT_PLANET_SIZE;
+    return base * scale * 0.5;
+  }
+
   #buildLayer(config) {
     const area = this.w * this.h;
     const count = Math.max(35, Math.floor(area * config.density));
     const stars = [];
 
     for (let i = 0; i < count; i++) {
+      const size = pickStarSize();
       stars.push({
         x: Math.random() * this.w,
         y: Math.random() * this.h,
-        r: (config.radiusMin + Math.random() * (config.radiusMax - config.radiusMin)) * pickStarSizeMultiplier(),
+        r: (config.radiusMin + Math.random() * (config.radiusMax - config.radiusMin)) * size.mul,
         a: config.alphaMin + Math.random() * (config.alphaMax - config.alphaMin),
         speedMul: config.speedMul * (0.65 + Math.random() * 0.7),
-        ...pickWarmTint(),
+        large: size.large,
+        glowMul: size.large ? randomRange(2, 3.5) : 0,
+        glowAlpha: size.large ? randomRange(0.05, 0.1) : 0,
+        ...pickStarTint(),
         ...buildStarTwinkle(),
       });
     }
@@ -107,12 +122,41 @@ export class Background {
     return { ...config, stars };
   }
 
+  #pickNebulaStart() {
+    const forbidden = {
+      x: this.w * 0.2,
+      y: this.h * 0.2,
+      w: this.w * 0.6,
+      h: this.h * 0.6,
+    };
+    const size = Math.max(this.w, this.h) * randomRange(1.7, 2.4);
+
+    let x = randomRange(this.w * 0.1, this.w * 0.9);
+    let y = randomRange(this.h * 0.1, this.h * 0.9);
+    for (let tries = 0; tries < 30; tries++) {
+      if (!circleIntersectsRect(x, y, size * 0.18, forbidden)) break;
+      x = randomRange(this.w * 0.04, this.w * 0.96);
+      y = randomRange(this.h * 0.04, this.h * 0.96);
+    }
+
+    return {
+      img: this.nebulaImgs[Math.floor(Math.random() * this.nebulaImgs.length)],
+      x,
+      y,
+      size,
+      alpha: randomRange(0.05, 0.1),
+      glowAlpha: randomRange(0.02, 0.04),
+      vx: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
+      vy: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
+    };
+  }
+
   resize(w, h) {
     this.w = w;
     this.h = h;
     this.layers = BG_LAYER_CONFIG.map((config) => this.#buildLayer(config));
+    this.nebula = this.#pickNebulaStart();
 
-    const planetCount = 3 + Math.floor(Math.random() * 3);
     const hudZones = [
       { x: 0, y: 0, w: this.w * 0.26, h: this.h * 0.17 },
       { x: this.w * 0.34, y: 0, w: this.w * 0.32, h: this.h * 0.15 },
@@ -126,59 +170,69 @@ export class Background {
       h: this.h * 0.6,
     };
 
-    const isInZone = (x, y, zone) => x >= zone.x && x <= zone.x + zone.w && y >= zone.y && y <= zone.y + zone.h;
-    const isBlocked = (x, y) => isInZone(x, y, gameplayForbidden) || hudZones.some((zone) => isInZone(x, y, zone));
+    const blockedZones = [gameplayForbidden, ...hudZones];
+    const isBlocked = (x, y, radius) => blockedZones.some((zone) => circleIntersectsRect(x, y, radius, zone));
+
+    const picks = [];
+    const bigCount = Math.floor(randomRange(1, 3));
+    for (let i = 0; i < bigCount; i++) picks.push({ scaleMin: 0.7, scaleMax: 0.92, layer: 0 });
+    if (Math.random() < 0.8) picks.push({ scaleMin: 0.5, scaleMax: 0.68, layer: 1 });
+    const smallCount = Math.floor(randomRange(1, 3));
+    for (let i = 0; i < smallCount; i++) picks.push({ scaleMin: 0.28, scaleMax: 0.45, layer: 2 });
 
     this.planets = [];
-    for (let i = 0; i < planetCount; i++) {
-      let x0 = Math.random() * this.w;
-      let y0 = randomRange(this.h * 0.08, this.h * 0.92);
-      for (let tries = 0; tries < 18 && isBlocked(x0, y0); tries++) {
-        x0 = Math.random() * this.w;
-        y0 = randomRange(this.h * 0.08, this.h * 0.92);
+    for (const pick of picks) {
+      const img = this.planetImgs[Math.floor(Math.random() * this.planetImgs.length)];
+      const scale = randomRange(pick.scaleMin, pick.scaleMax);
+      const radius = this.#planetRadiusFor(img, scale);
+
+      let x = Math.random() * this.w;
+      let y = randomRange(this.h * 0.08, this.h * 0.92);
+      let placed = false;
+
+      for (let tries = 0; tries < 40; tries++) {
+        const overlap = this.planets.some((other) => {
+          const dx = x - other.x;
+          const dy = y - other.y;
+          const minDist = 1.2 * Math.max(radius, other.radius);
+          return (dx * dx + dy * dy) < (minDist * minDist);
+        });
+
+        if (!isBlocked(x, y, radius) && !overlap) {
+          placed = true;
+          break;
+        }
+
+        x = Math.random() * this.w;
+        y = randomRange(this.h * 0.08, this.h * 0.92);
       }
 
-      const layer = i === planetCount - 1 && Math.random() > 0.6 ? 2 : Math.floor(Math.random() * 2);
-      const alpha = randomRange(0.18, 0.35);
-      const baseScale = randomRange(0.35, 0.95);
-      const scale = baseScale > 0.9 ? baseScale * randomRange(0.84, 0.93) : baseScale;
-      const tint = pickWarmTint();
+      if (!placed) continue;
 
       this.planets.push({
-        img: this.planetImgs[Math.floor(Math.random() * this.planetImgs.length)],
-        x0,
-        y0,
-        x: x0,
-        y: y0,
-        driftRange: randomRange(120, 280),
-        driftSpeed: randomRange(3, 12),
+        img,
+        x0: x,
+        y0: y,
+        x,
+        y,
+        radius,
+        driftRange: randomRange(90, 200),
+        driftSpeed: randomRange(2.5, 8),
         dir: Math.random() > 0.5 ? 1 : -1,
-        alpha,
+        alpha: randomRange(0.18, 0.35),
         scale,
-        layer,
-        floatFreq: randomRange(0.12, 0.24),
+        layer: pick.layer,
+        floatFreq: randomRange(0.09, 0.2),
         floatPhase: randomRange(0, Math.PI * 2),
-        tint,
-        haloRadiusMul: randomRange(1.3, 1.6),
-        haloAlpha: randomRange(0.08, 0.15),
-        shadeAlpha: randomRange(0.1, 0.22),
-      });
-    }
-
-    const dustCount = Math.max(120, Math.floor((this.w * this.h) * 0.00011));
-    this.dust = [];
-    for (let i = 0; i < dustCount; i++) {
-      this.dust.push({
-        x: Math.random() * this.w,
-        y: Math.random() * this.h,
-        r: randomRange(0.7, 2.2),
-        alpha: randomRange(0.03, 0.06),
-        speedMul: randomRange(0.45, 1.1),
+        haloTint: Math.random() < 0.65 ? "cyan" : "magenta",
+        haloRadiusMul: randomRange(1.3, 1.8),
+        haloAlpha: randomRange(0.06, 0.14),
+        haloSizeMul: randomRange(2.6, 3.6),
       });
     }
 
     this.shootingStars = [];
-    this.shootTimer = randomRange(8, 14);
+    this.shootTimer = randomRange(7, 13);
   }
 
   setAmbienceFactor(value) {
@@ -202,14 +256,14 @@ export class Background {
       }
     }
 
-    for (const mote of this.dust) {
-      mote.x += DUST_DRIFT_X * mote.speedMul * dt;
-      mote.y += DUST_DRIFT_Y * mote.speedMul * dt;
-
-      if (mote.x < 0) mote.x += this.w;
-      if (mote.x > this.w) mote.x -= this.w;
-      if (mote.y < 0) mote.y += this.h;
-      if (mote.y > this.h) mote.y -= this.h;
+    if (this.nebula) {
+      this.nebula.x += this.nebula.vx * dt;
+      this.nebula.y += this.nebula.vy * dt;
+      const margin = this.nebula.size * 0.2;
+      if (this.nebula.x < -margin) this.nebula.x = this.w + margin;
+      if (this.nebula.x > this.w + margin) this.nebula.x = -margin;
+      if (this.nebula.y < -margin) this.nebula.y = this.h + margin;
+      if (this.nebula.y > this.h + margin) this.nebula.y = -margin;
     }
 
     for (const planet of this.planets) {
@@ -228,11 +282,11 @@ export class Background {
     this.shootTimer -= dt;
     if (this.shootTimer <= 0) {
       const fromTop = Math.random() > 0.45;
-      const x = fromTop ? Math.random() * this.w : randomRange(-80, this.w * 0.18);
-      const y = fromTop ? randomRange(-80, this.h * 0.25) : randomRange(0, this.h * 0.25);
-      const tint = Math.random() < 0.7
-        ? { h: randomRange(40, 55), s: randomRange(0, 14), l: randomRange(84, 96) }
-        : { h: randomRange(40, 55), s: randomRange(30, 55), l: randomRange(80, 92) };
+      const x = fromTop ? Math.random() * this.w : randomRange(-80, this.w * 0.2);
+      const y = fromTop ? randomRange(-80, this.h * 0.2) : randomRange(0, this.h * 0.26);
+      const tone = Math.random() < 0.8
+        ? { r: 225, g: 250, b: 255 }
+        : { r: 190, g: 245, b: 255 };
 
       this.shootingStars.push({
         x,
@@ -241,14 +295,16 @@ export class Background {
         vy: randomRange(240, 520),
         maxLife: randomRange(0.35, 0.65),
         life: 0,
-        len: randomRange(200, 380),
-        width: randomRange(1, 3),
+        len: randomRange(190, 340),
+        width: randomRange(1.1, 2.8),
         baseAlpha: randomRange(0.45, 0.8),
-        ...tint,
+        offset: randomRange(1, 2),
+        headGlowAlpha: randomRange(0.06, 0.12),
+        ...tone,
       });
       this.shootingStars[this.shootingStars.length - 1].life = this.shootingStars[this.shootingStars.length - 1].maxLife;
 
-      this.shootTimer = randomRange(8, 14);
+      this.shootTimer = randomRange(7, 13);
     }
 
     this.shootingStars = this.shootingStars.filter((star) => {
@@ -260,91 +316,109 @@ export class Background {
     });
   }
 
-  #drawPlanets(ctx, targetLayer) {
-    for (const planet of this.planets) {
-      if (planet.layer !== targetLayer) continue;
-      const img = planet.img;
-      if (!img || !img.complete || img.naturalWidth === 0) continue;
+  #drawNebula(ctx) {
+    if (!this.nebula) return;
 
-      const drawW = img.naturalWidth * planet.scale;
-      const drawH = img.naturalHeight * planet.scale;
-      const radius = Math.max(drawW, drawH) * 0.5;
+    const { img, x, y, size, alpha, glowAlpha } = this.nebula;
+    ctx.save();
+    if (this.#isImageReady(img)) {
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
 
-      const halo = ctx.createRadialGradient(
-        planet.x,
-        planet.y,
-        radius * 0.08,
-        planet.x,
-        planet.y,
-        radius * planet.haloRadiusMul,
-      );
-      halo.addColorStop(0, `hsla(${planet.tint.h.toFixed(1)}, ${Math.max(5, planet.tint.s * 0.75).toFixed(1)}%, ${Math.min(95, planet.tint.l + 3).toFixed(1)}%, ${planet.haloAlpha.toFixed(3)})`);
-      halo.addColorStop(1, `hsla(${planet.tint.h.toFixed(1)}, ${Math.max(3, planet.tint.s * 0.4).toFixed(1)}%, ${planet.tint.l.toFixed(1)}%, 0)`);
-      ctx.fillStyle = halo;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = glowAlpha;
+      ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
+    } else {
+      const fallback = ctx.createRadialGradient(x, y, size * 0.12, x, y, size * 0.48);
+      fallback.addColorStop(0, "rgba(0,180,255,0.08)");
+      fallback.addColorStop(0.6, "rgba(192,0,255,0.04)");
+      fallback.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = fallback;
       ctx.beginPath();
-      ctx.arc(planet.x, planet.y, radius * planet.haloRadiusMul, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.globalAlpha = planet.alpha;
-      ctx.drawImage(img, planet.x - drawW * 0.5, planet.y - drawH * 0.5, drawW, drawH);
-
-      const shade = ctx.createRadialGradient(
-        planet.x + radius * 0.26,
-        planet.y + radius * 0.26,
-        radius * 0.08,
-        planet.x + radius * 0.26,
-        planet.y + radius * 0.26,
-        radius,
-      );
-      shade.addColorStop(0, `rgba(0, 0, 0, ${planet.shadeAlpha.toFixed(3)})`);
-      shade.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = shade;
-      ctx.beginPath();
-      ctx.arc(planet.x, planet.y, radius, 0, Math.PI * 2);
+      ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
   }
 
-  draw(ctx) {
-    const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
-    bg.addColorStop(0, "hsl(224, 62%, 14%)");
-    bg.addColorStop(0.45, "hsl(238, 65%, 10%)");
-    bg.addColorStop(1, "hsl(256, 70%, 8%)");
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, this.w, this.h);
+  #drawStarLayers(ctx, indices) {
+    const glowReady = this.#isImageReady(this.glowImg);
 
-    const glow = 1 + this.ambienceFactor * 0.35;
-
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-
-    const drawLayerStars = (i) => {
+    for (const i of indices) {
       const layer = this.layers[i];
       for (const star of layer.stars) {
         const twinkle = star.twinkle
           ? 1 + Math.sin(this.time * star.speed + star.phase) * star.amplitude
-          : 0.88 + 0.12 * Math.sin(this.time * (1.2 + i * 0.5) + (star.x + star.y) * 0.01);
-        const alpha = Math.min(1, star.a * twinkle * glow);
+          : 1;
+        const alpha = Math.min(1, star.a * twinkle);
+
+        if (star.large && glowReady) {
+          const glowSize = star.r * star.glowMul;
+          ctx.save();
+          ctx.globalAlpha = star.glowAlpha * alpha;
+          ctx.drawImage(this.glowImg, star.x - glowSize * 0.5, star.y - glowSize * 0.5, glowSize, glowSize);
+          ctx.restore();
+        }
+
         ctx.fillStyle = `hsla(${star.h.toFixed(1)}, ${star.s.toFixed(1)}%, ${star.l.toFixed(1)}%, ${alpha.toFixed(4)})`;
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
         ctx.fill();
       }
-    };
-
-    drawLayerStars(0);
-    for (const mote of this.dust) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${mote.alpha.toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(mote.x, mote.y, mote.r, 0, Math.PI * 2);
-      ctx.fill();
     }
-    this.#drawPlanets(ctx, 0);
-    drawLayerStars(1);
-    this.#drawPlanets(ctx, 1);
-    this.#drawPlanets(ctx, 2);
-    drawLayerStars(2);
+  }
+
+  #drawPlanets(ctx, layers) {
+    const glowReady = this.#isImageReady(this.glowImg);
+
+    for (const planet of this.planets) {
+      if (!layers.includes(planet.layer)) continue;
+
+      const img = planet.img;
+      const drawW = this.#isImageReady(img) ? img.naturalWidth * planet.scale : planet.radius * 2;
+      const drawH = this.#isImageReady(img) ? img.naturalHeight * planet.scale : planet.radius * 2;
+      const radius = Math.max(drawW, drawH) * 0.5;
+
+      if (glowReady) {
+        const haloSize = radius * planet.haloSizeMul;
+        ctx.save();
+        ctx.globalAlpha = planet.haloAlpha;
+        ctx.drawImage(this.glowImg, planet.x - haloSize * 0.5, planet.y - haloSize * 0.5, haloSize, haloSize);
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.fillStyle = planet.haloTint === "cyan" ? "rgba(0,180,255,0.9)" : "rgba(200,0,255,0.9)";
+        ctx.fillRect(planet.x - haloSize * 0.5, planet.y - haloSize * 0.5, haloSize, haloSize);
+        ctx.restore();
+      }
+
+      if (this.#isImageReady(img)) {
+        ctx.globalAlpha = planet.alpha;
+        ctx.drawImage(img, planet.x - drawW * 0.5, planet.y - drawH * 0.5, drawW, drawH);
+
+        ctx.globalAlpha = 0.04;
+        ctx.drawImage(img, planet.x - drawW * 0.51, planet.y - drawH * 0.51, drawW * 1.02, drawH * 1.02);
+        ctx.globalAlpha = 0.02;
+        ctx.drawImage(img, planet.x - drawW * 0.52, planet.y - drawH * 0.52, drawW * 1.04, drawH * 1.04);
+        ctx.globalAlpha = 1;
+      } else {
+        const fallback = ctx.createRadialGradient(planet.x, planet.y, radius * 0.2, planet.x, planet.y, radius);
+        fallback.addColorStop(0, "rgba(210,230,255,0.25)");
+        fallback.addColorStop(1, "rgba(40,58,90,0.02)");
+        ctx.fillStyle = fallback;
+        ctx.beginPath();
+        ctx.arc(planet.x, planet.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  #drawShootingStars(ctx) {
+    if (!this.shootingStars.length) return;
+
+    const glowReady = this.#isImageReady(this.glowImg);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
 
     for (const streak of this.shootingStars) {
       const t = streak.life / streak.maxLife;
@@ -352,18 +426,106 @@ export class Background {
       const mag = Math.hypot(streak.vx, streak.vy) || 1;
       const dx = streak.vx / mag;
       const dy = streak.vy / mag;
+      const nx = -dy;
+      const ny = dx;
 
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = `hsla(${streak.h.toFixed(1)}, ${streak.s.toFixed(1)}%, ${streak.l.toFixed(1)}%, ${alpha.toFixed(4)})`;
-      ctx.lineWidth = streak.width;
       ctx.lineCap = "round";
+      ctx.strokeStyle = `rgba(${streak.r}, ${streak.g}, ${streak.b}, ${alpha.toFixed(4)})`;
+      ctx.lineWidth = streak.width;
       ctx.beginPath();
       ctx.moveTo(streak.x, streak.y);
       ctx.lineTo(streak.x - dx * streak.len, streak.y - dy * streak.len);
       ctx.stroke();
+
+      const shiftedX = streak.x + nx * streak.offset;
+      const shiftedY = streak.y + ny * streak.offset;
+      ctx.strokeStyle = `rgba(210, 45, 255, ${(alpha * 0.5).toFixed(4)})`;
+      ctx.lineWidth = Math.max(1, streak.width * 0.75);
+      ctx.beginPath();
+      ctx.moveTo(shiftedX, shiftedY);
+      ctx.lineTo(shiftedX - dx * streak.len * 0.92, shiftedY - dy * streak.len * 0.92);
+      ctx.stroke();
+
+      if (glowReady) {
+        const glowSize = streak.width * 14;
+        ctx.globalAlpha = streak.headGlowAlpha * t;
+        ctx.drawImage(this.glowImg, streak.x - glowSize * 0.5, streak.y - glowSize * 0.5, glowSize, glowSize);
+        ctx.globalAlpha = 1;
+      }
     }
 
     ctx.restore();
+  }
+
+  #drawNeonGrade(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.045;
+    ctx.fillStyle = "rgba(0,180,255,1)";
+    ctx.fillRect(0, 0, this.w, this.h);
+    ctx.globalAlpha = 0.035;
+    ctx.fillStyle = "rgba(200,0,255,1)";
+    ctx.fillRect(0, 0, this.w, this.h);
+    ctx.restore();
+
+    const vignette = ctx.createRadialGradient(
+      this.w * 0.5,
+      this.h * 0.5,
+      Math.min(this.w, this.h) * 0.2,
+      this.w * 0.5,
+      this.h * 0.5,
+      Math.max(this.w, this.h) * 0.72,
+    );
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(0.6, "rgba(0,0,0,0)");
+    vignette.addColorStop(0.85, "rgba(0,120,255,0.05)");
+    vignette.addColorStop(1, "rgba(185,0,255,0.08)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, this.w, this.h);
+  }
+
+  #drawNoiseTile(ctx, img, alpha) {
+    if (!this.#isImageReady(img)) return;
+
+    ctx.save();
+    const desiredMode = "overlay";
+    ctx.globalCompositeOperation = desiredMode;
+
+    let effectiveAlpha = alpha;
+    if (ctx.globalCompositeOperation !== desiredMode) {
+      ctx.globalCompositeOperation = "source-over";
+      effectiveAlpha *= 0.5;
+    }
+
+    ctx.globalAlpha = effectiveAlpha;
+    const tileW = img.naturalWidth;
+    const tileH = img.naturalHeight;
+
+    for (let y = 0; y < this.h; y += tileH) {
+      for (let x = 0; x < this.w; x += tileW) {
+        ctx.drawImage(img, x, y, tileW, tileH);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  draw(ctx) {
+    const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
+    bg.addColorStop(0, "hsl(224, 72%, 6%)");
+    bg.addColorStop(0.5, "hsl(238, 70%, 5%)");
+    bg.addColorStop(1, "hsl(258, 78%, 4%)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, this.w, this.h);
+
+    this.#drawNebula(ctx);
+    this.#drawStarLayers(ctx, [0]);
+    this.#drawPlanets(ctx, [0, 1, 2]);
+    this.#drawStarLayers(ctx, [1, 2]);
+    this.#drawShootingStars(ctx);
+    this.#drawNeonGrade(ctx);
+    this.#drawNoiseTile(ctx, this.noiseGrainImg, 0.025);
+    this.#drawNoiseTile(ctx, this.noiseScanlinesImg, 0.018);
   }
 
   render(ctx) {
