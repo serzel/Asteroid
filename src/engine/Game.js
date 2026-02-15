@@ -664,32 +664,151 @@ export class Game {
     }
   }
 
-  #drawButton(button) {
+  #roundedRectPath(ctx, x, y, w, h, r = 10) {
+    const rr = Math.min(r, w * 0.5, h * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  #drawPanelGlow(x, y, w, h) {
     const ctx = this.ctx;
-    const hovered = this.hoveredButtonId === button.id;
+    const pad = 26;
+
     ctx.save();
-    ctx.fillStyle = hovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.10)";
-    ctx.strokeStyle = "white";
+    const panelGrad = ctx.createLinearGradient(x, y, x, y + h);
+    panelGrad.addColorStop(0, "rgba(34,12,66,0.45)");
+    panelGrad.addColorStop(0.5, "rgba(10,16,48,0.35)");
+    panelGrad.addColorStop(1, "rgba(4,20,34,0.42)");
+    this.#roundedRectPath(ctx, x, y, w, h, 20);
+    ctx.fillStyle = panelGrad;
+    ctx.fill();
+
+    const borderGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+    borderGrad.addColorStop(0, "rgba(255,87,239,0.45)");
+    borderGrad.addColorStop(1, "rgba(86,240,255,0.45)");
+    this.#roundedRectPath(ctx, x, y, w, h, 20);
     ctx.lineWidth = 2;
-    ctx.fillRect(button.x, button.y, button.w, button.h);
-    ctx.strokeRect(button.x, button.y, button.w, button.h);
-    ctx.fillStyle = "white";
-    ctx.font = "24px system-ui, sans-serif";
+    ctx.strokeStyle = borderGrad;
+    ctx.stroke();
+
+    const glowGrad = ctx.createRadialGradient(x + w * 0.5, y + h * 0.45, 20, x + w * 0.5, y + h * 0.5, Math.max(w, h) * 0.85);
+    glowGrad.addColorStop(0, "rgba(188,91,255,0.20)");
+    glowGrad.addColorStop(1, "rgba(86,240,255,0)");
+    ctx.fillStyle = glowGrad;
+    this.#roundedRectPath(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, 34);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  #drawNeonTitle(text, x, y) {
+    const ctx = this.ctx;
+    ctx.save();
+    const grad = ctx.createLinearGradient(x, y - 72, x, y + 10);
+    grad.addColorStop(0, "#ff8bff");
+    grad.addColorStop(0.52, "#c867ff");
+    grad.addColorStop(1, "#70efff");
+
+    ctx.font = "900 86px 'Audiowide', system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(button.label, button.x + button.w * 0.5, button.y + button.h * 0.5);
+    ctx.lineJoin = "round";
+
+    ctx.shadowColor = "rgba(255,84,238,0.95)";
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = grad;
+    ctx.fillText(text, x, y);
+
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = "rgba(224,245,255,0.75)";
+    ctx.strokeText(text, x, y);
+    ctx.restore();
+  }
+
+  #drawNeonButton(rect, label, state) {
+    const ctx = this.ctx;
+    const { x, y, w, h } = rect;
+    const radius = 9;
+    const pulse = state.hovered ? 0.5 + 0.5 * Math.sin(performance.now() * 0.006) : 0;
+    const glowBoost = state.hovered ? 1 : 0.35;
+    const pressBoost = state.pressed ? 0.35 : 0;
+
+    const borderGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+    borderGrad.addColorStop(0, "rgba(255,84,236,0.96)");
+    borderGrad.addColorStop(1, "rgba(82,237,255,0.96)");
+
+    ctx.save();
+    this.#roundedRectPath(ctx, x, y, w, h, radius);
+    ctx.fillStyle = "rgba(10,10,20,0.55)";
+    ctx.fill();
+
+    ctx.shadowColor = "rgba(244,103,255,0.95)";
+    ctx.shadowBlur = 10 + glowBoost * 14 + pulse * 4 + pressBoost * 10;
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = borderGrad;
+    this.#roundedRectPath(ctx, x, y, w, h, radius);
+    ctx.stroke();
+
+    if (state.hovered || state.pressed) {
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = `rgba(215,252,255,${0.55 + pulse * 0.3 + pressBoost})`;
+      this.#roundedRectPath(ctx, x + 4, y + 4, w - 8, h - 8, radius - 3);
+      ctx.stroke();
+    }
+
+    const textGrad = ctx.createLinearGradient(x, y, x, y + h);
+    textGrad.addColorStop(0, "#fff7ff");
+    textGrad.addColorStop(1, "#bff7ff");
+    ctx.fillStyle = textGrad;
+    ctx.font = "700 27px 'Audiowide', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(127,245,255,0.85)";
+    ctx.shadowBlur = 4 + glowBoost * 4 + pressBoost * 8;
+    ctx.fillText(label, x + w * 0.5, y + h * 0.5 + 1);
     ctx.restore();
   }
 
   #drawTitleScreen() {
     const ctx = this.ctx;
     this.background.render(ctx);
-    drawText(ctx, "ASTEROID", this.world.w * 0.5 - 110, this.world.h * 0.22, 54);
-    drawText(ctx, "Choisissez une difficulté", this.world.w * 0.5 - 130, this.world.h * 0.34, 24);
+    const panelW = 440;
+    const panelH = 330;
+    const panelX = this.world.w * 0.5 - panelW * 0.5;
+    const panelY = this.world.h * 0.5 - panelH * 0.5 + 40;
+    this.#drawPanelGlow(panelX, panelY, panelW, panelH);
 
-    for (const button of this.titleButtons) this.#drawButton(button);
+    this.#drawNeonTitle("ASTEROID", this.world.w * 0.5, this.world.h * 0.22);
+    ctx.save();
+    ctx.font = "600 19px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(212,236,255,0.92)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Choisissez une difficulté", this.world.w * 0.5, this.world.h * 0.34);
+    ctx.restore();
 
-    drawText(ctx, "[1] EASY  [2] NORMAL  [3] HARD", this.world.w * 0.5 - 155, this.world.h * 0.78, 18);
+    for (const button of this.titleButtons) {
+      this.#drawNeonButton(button, button.label, {
+        hovered: this.hoveredButtonId === button.id,
+        pressed: false,
+      });
+    }
+
+    ctx.save();
+    ctx.font = "600 16px 'Audiowide', system-ui, sans-serif";
+    ctx.fillStyle = "rgba(178,242,255,0.95)";
+    ctx.shadowColor = "rgba(112,233,255,0.55)";
+    ctx.shadowBlur = 4;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("[1] EASY   [2] NORMAL   [3] HARD", this.world.w * 0.5, this.world.h * 0.79);
+    ctx.restore();
   }
 
   #drawPlayScene() {
