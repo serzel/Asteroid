@@ -447,7 +447,7 @@ export class Game {
 
     this.ship.update(dt, this.input, this.world);
 
-    if (this.input.wasPressed("Space")) {
+    if (this.input.wasPressed("Space") || this.input.isDown("Space")) {
       this.ship.tryShoot(this.bullets);
       if (this.bullets.length > this.maxBullets) {
         this.bullets.splice(0, this.bullets.length - this.maxBullets);

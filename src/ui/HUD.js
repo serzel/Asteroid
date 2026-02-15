@@ -267,13 +267,15 @@ export function drawHUD(ctx, game) {
 
   // Bas gauche: vies (3 icônes fixes)
   const maxLives = 3;
-  const size = 48;
-  const spacing = size + 16;
-  const livesW = size * maxLives + spacing * (maxLives - 1) + 24;
-  const livesH = size + 22;
+  const size = 96;
+  const spacing = size + 18;
+  const bgPaddingX = 18;
+  const bgPaddingY = 16;
+  const livesW = size * maxLives + (spacing - size) * (maxLives - 1) + bgPaddingX * 2;
+  const livesH = size + bgPaddingY * 2;
   const baseX = M + 12;
-  const baseY = bottomY - 10;
-  drawPill(ctx, M, Math.round(baseY - size - 11), livesW, livesH, 0.33);
+  const baseY = bottomY - 16;
+  drawPill(ctx, M, Math.round(baseY - size - bgPaddingY), livesW, livesH, 0.33);
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
     const dx = Math.round(baseX + i * spacing);
