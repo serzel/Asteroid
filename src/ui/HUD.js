@@ -1,24 +1,30 @@
 const WEAPON_HUD_STYLES = {
   1: {
-    color: "rgba(0, 200, 255, 0.90)",
-    solid: "rgb(0, 200, 255)",
+    color: "#76e9ff",
+    glow: "rgba(118, 233, 255, 0.95)",
     label: "BLASTER",
   },
   2: {
-    color: "rgba(0, 255, 120, 0.95)",
-    solid: "rgb(0, 255, 120)",
+    color: "#7fffd4",
+    glow: "rgba(127, 255, 212, 0.95)",
     label: "SNIPER",
   },
   3: {
-    color: "rgba(180, 0, 255, 0.95)",
-    solid: "rgb(180, 0, 255)",
+    color: "#cda3ff",
+    glow: "rgba(205, 163, 255, 0.95)",
     label: "DOUBLE",
   },
   4: {
-    color: "rgba(255, 60, 0, 0.95)",
-    solid: "rgb(255, 60, 0)",
+    color: "#ff8dbb",
+    glow: "rgba(255, 141, 187, 0.95)",
     label: "SHOTGUN",
   },
+};
+
+const PALETTE = {
+  magenta: "#ff4fd8",
+  cyan: "#53d8ff",
+  connector: "rgba(220, 128, 255, 0.85)",
 };
 
 const lifeFullImg = new Image();
@@ -31,274 +37,275 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-export function getWeaponHUDStyle(level) {
-  return WEAPON_HUD_STYLES[level] ?? WEAPON_HUD_STYLES[1];
+function formatWave(level) {
+  return String(Math.max(1, Math.floor(level))).padStart(2, "0");
 }
 
-function drawOutlinedText(ctx, text, x, y, options = {}) {
+function formatCombo(combo) {
+  if (combo >= 10 || Math.abs(combo - Math.round(combo)) < 0.01) {
+    return String(Math.round(combo));
+  }
+  return combo.toFixed(1);
+}
+
+function formatScore(score) {
+  return Math.floor(score).toLocaleString("fr-FR");
+}
+
+function buildPanelPath(ctx, x, y, w, h, skew = 18) {
+  ctx.beginPath();
+  ctx.moveTo(x + skew, y);
+  ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w - skew, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+}
+
+function drawNeonPanel(ctx, x, y, w, h, options = {}) {
   const {
-    font = "20px system-ui, sans-serif",
-    fillStyle = "white",
-    strokeStyle = "rgba(0,0,0,0.7)",
-    lineWidth = 4,
-    textAlign = "left",
-    textBaseline = "top",
+    skew = 18,
+    borderColor = PALETTE.magenta,
+    glowColor = borderColor,
+    fillAlpha = 0.6,
+    mirror = false,
   } = options;
 
   ctx.save();
-  ctx.font = font;
-  ctx.textAlign = textAlign;
-  ctx.textBaseline = textBaseline;
+  if (mirror) {
+    ctx.translate(x + w * 0.5, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-(x + w * 0.5), 0);
+  }
+
+  buildPanelPath(ctx, x, y, w, h, skew);
+  const fillGradient = ctx.createLinearGradient(x, y, x, y + h);
+  fillGradient.addColorStop(0, `rgba(12, 16, 44, ${0.45 * fillAlpha})`);
+  fillGradient.addColorStop(0.6, `rgba(24, 12, 46, ${0.55 * fillAlpha})`);
+  fillGradient.addColorStop(1, `rgba(8, 10, 26, ${0.8 * fillAlpha})`);
+  ctx.fillStyle = fillGradient;
+  ctx.fill();
+
+  const sheen = ctx.createLinearGradient(x, y, x + w, y + h);
+  sheen.addColorStop(0, "rgba(255,255,255,0.09)");
+  sheen.addColorStop(0.5, "rgba(255,255,255,0.02)");
+  sheen.addColorStop(1, "rgba(255,255,255,0)");
+  buildPanelPath(ctx, x, y, w, h, skew);
+  ctx.fillStyle = sheen;
+  ctx.fill();
+
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = 16;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = borderColor;
+  buildPanelPath(ctx, x, y, w, h, skew);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + skew + 8, y + 10);
+  ctx.lineTo(x + w - 18, y + 10);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawNeonText(ctx, text, x, y, options = {}) {
+  const {
+    size = 24,
+    align = "left",
+    color = "#fff",
+    glowColor = color,
+    weight = 700,
+    font = "'Audiowide', system-ui, sans-serif",
+    baseline = "middle",
+  } = options;
+
+  ctx.save();
+  ctx.font = `${weight} ${size}px ${font}`;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
   ctx.lineJoin = "round";
-  ctx.miterLimit = 2;
-  ctx.lineWidth = lineWidth;
-  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = Math.max(2, size * 0.09);
+  ctx.strokeStyle = "rgba(0,0,0,0.75)";
   ctx.strokeText(text, x, y);
-  ctx.fillStyle = fillStyle;
+
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = Math.max(8, size * 0.3);
+  ctx.fillStyle = color;
   ctx.fillText(text, x, y);
   ctx.restore();
 }
 
-function drawPill(ctx, x, y, w, h, alpha = 0.25) {
-  const r = Math.min(12, h * 0.5, w * 0.5);
-
+function drawConnectorLine(ctx, x1, y1, x2, y2, color = PALETTE.connector) {
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawXWingIcon(ctx, x, y, size, isActive) {
-  const half = size * 0.5;
-  const wing = size * 0.42;
-  const body = size * 0.12;
-  const tint = isActive ? "rgba(255,255,255,0.95)" : "rgba(105,105,105,0.34)";
-
-  ctx.save();
-  ctx.translate(x, y);
-
-  ctx.strokeStyle = isActive ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.5)";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(-wing, -half);
-  ctx.lineTo(-body, -body);
-  ctx.moveTo(wing, -half);
-  ctx.lineTo(body, -body);
-  ctx.moveTo(-wing, half);
-  ctx.lineTo(-body, body);
-  ctx.moveTo(wing, half);
-  ctx.lineTo(body, body);
-  ctx.stroke();
-
-  ctx.strokeStyle = tint;
-  ctx.lineWidth = isActive ? 2.4 : 2.1;
-  ctx.beginPath();
-  ctx.moveTo(-wing, -half);
-  ctx.lineTo(-body, -body);
-  ctx.moveTo(wing, -half);
-  ctx.lineTo(body, -body);
-  ctx.moveTo(-wing, half);
-  ctx.lineTo(-body, body);
-  ctx.moveTo(wing, half);
-  ctx.lineTo(body, body);
-  ctx.stroke();
-
-  ctx.fillStyle = isActive ? "rgba(255,255,255,0.95)" : "rgba(70,70,70,0.5)";
-  ctx.beginPath();
-  ctx.arc(0, 0, size * 0.11, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (!isActive) {
-    ctx.strokeStyle = "rgba(145,145,145,0.32)";
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-function drawWeaponIcon(ctx, x, y, level, color) {
-  ctx.save();
-  ctx.translate(x, y);
-
-  const drawShape = () => {
-    ctx.beginPath();
-    if (level === 1) {
-      ctx.moveTo(-11, 0);
-      ctx.lineTo(10, 0);
-    } else if (level === 2) {
-      ctx.moveTo(-11, 0);
-      ctx.lineTo(10, 0);
-      ctx.moveTo(3, -5);
-      ctx.lineTo(10, 0);
-      ctx.lineTo(3, 5);
-    } else if (level === 3) {
-      ctx.moveTo(-11, -4);
-      ctx.lineTo(11, -4);
-      ctx.moveTo(-11, 4);
-      ctx.lineTo(11, 4);
-    } else {
-      ctx.moveTo(-10, 0);
-      ctx.lineTo(10, 0);
-      ctx.moveTo(-8, -7);
-      ctx.lineTo(8, 7);
-      ctx.moveTo(-8, 7);
-      ctx.lineTo(8, -7);
-    }
-    ctx.stroke();
-  };
-
-  ctx.strokeStyle = "rgba(0,0,0,0.7)";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  drawShape();
-
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = 1.6;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.8;
   ctx.shadowColor = color;
   ctx.shadowBlur = 10;
-  drawShape();
-
+  ctx.stroke();
   ctx.restore();
+}
+
+function drawComboBar(ctx, x, y, w, h, ratio) {
+  const clamped = clamp(ratio, 0, 1);
+  const segments = 16;
+  const gap = 2;
+  const segW = (w - gap * (segments - 1)) / segments;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(3, 8, 20, 0.7)";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(173, 228, 255, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, w, h);
+
+  const lit = Math.round(segments * clamped);
+  for (let i = 0; i < segments; i += 1) {
+    const sx = x + i * (segW + gap);
+    const progress = i / Math.max(1, segments - 1);
+    if (i < lit) {
+      const c = ctx.createLinearGradient(sx, y, sx + segW, y);
+      c.addColorStop(0, `rgba(255, 86, 215, ${0.95 - progress * 0.2})`);
+      c.addColorStop(1, `rgba(87, 227, 255, ${0.92 - progress * 0.18})`);
+      ctx.fillStyle = c;
+      ctx.shadowColor = "rgba(151, 236, 255, 0.9)";
+      ctx.shadowBlur = 8;
+      ctx.fillRect(sx, y + 2, segW, h - 4);
+    } else {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(36, 30, 62, 0.72)";
+      ctx.fillRect(sx, y + 2, segW, h - 4);
+    }
+  }
+  ctx.restore();
+}
+
+export function getWeaponHUDStyle(level) {
+  return WEAPON_HUD_STYLES[level] ?? WEAPON_HUD_STYLES[1];
 }
 
 export function drawHUD(ctx, game) {
   if (!game?.ship) return;
 
-  const M = 24;
+  const M = 28;
   const { w, h } = game.world;
-
   const level = game.ship.weaponLevel ?? 1;
-  const style = getWeaponHUDStyle(level);
+  const weaponStyle = getWeaponHUDStyle(level);
 
   const comboWindow = typeof game.getComboWindow === "function" ? game.getComboWindow() : 1;
   const ratio = clamp(game.comboTimer / Math.max(comboWindow, 0.001), 0, 1);
-  const weaponFx = clamp((game.hudFx?.weaponFlashT ?? 0) / 0.2, 0, 1);
-  const comboFx = clamp((game.hudFx?.comboPulseT ?? 0) / 0.12, 0, 1);
-  const waveFxProgress = 1 - clamp((game.hudFx?.waveIntroT ?? 0) / 1.1, 0, 1);
-  const waveEase = 1 - (1 - waveFxProgress) * (1 - waveFxProgress);
 
-  const topY = M;
-  const bottomY = h - M;
-  const topBlockH = 60;
-  const topBlockY = topY - 10;
-  const topBlockAlpha = 0.3;
-  const weaponScale = 1 + 0.05 * Math.sin(weaponFx * Math.PI);
+  const wavePanel = { x: w * 0.5 - 180, y: M, w: 360, h: 74, skew: 26 };
+  const comboPanel = { x: M, y: M + 8, w: 360, h: 64, skew: 22 };
+  const comboBarPanel = { x: M, y: comboPanel.y + comboPanel.h + 16, w: 420, h: 56, skew: 18 };
+  const scorePanel = { x: w - M - 350, y: M + 8, w: 350, h: 94, skew: 24 };
+  const weaponPanel = { x: w * 0.5 - 330, y: h - M - 88, w: 660, h: 78, skew: 30 };
 
-  // Haut gauche: arme
-  const weaponW = 252;
-  drawPill(ctx, M, topBlockY, weaponW, topBlockH, topBlockAlpha + weaponFx * 0.13);
-  ctx.save();
-  ctx.translate(M + weaponW * 0.5, topY + 20);
-  ctx.scale(weaponScale, weaponScale);
-  drawWeaponIcon(ctx, -90, -2, level, style.solid);
-  drawOutlinedText(ctx, style.label, -64, -2, {
-    font: "700 20px 'Audiowide', system-ui, sans-serif",
-    fillStyle: style.color,
-    textBaseline: "middle",
+  drawConnectorLine(ctx, comboPanel.x + comboPanel.w - 8, comboPanel.y + comboPanel.h * 0.5, wavePanel.x - 8, wavePanel.y + wavePanel.h * 0.5);
+  drawConnectorLine(ctx, wavePanel.x + wavePanel.w + 8, wavePanel.y + wavePanel.h * 0.5, scorePanel.x + 14, scorePanel.y + scorePanel.h * 0.5, "rgba(126, 225, 255, 0.85)");
+
+  drawNeonPanel(ctx, comboPanel.x, comboPanel.y, comboPanel.w, comboPanel.h, {
+    skew: comboPanel.skew,
+    borderColor: PALETTE.magenta,
+    glowColor: "rgba(255, 79, 216, 0.95)",
+    fillAlpha: 0.72,
   });
-  ctx.restore();
-
-  // Haut centre: vague
-  const waveW = 210;
-  const waveScale = 1.08 - 0.08 * waveEase;
-  const waveAlpha = topBlockAlpha + (1 - waveEase) * 0.14;
-  ctx.save();
-  ctx.translate(w * 0.5, topY + 20);
-  ctx.scale(waveScale, waveScale);
-  drawPill(ctx, -waveW * 0.5, topBlockY - (topY + 20), waveW, topBlockH, waveAlpha);
-  drawOutlinedText(ctx, `VAGUE ${game.level}`, 0, -2, {
-    font: "700 24px 'Audiowide', system-ui, sans-serif",
-    fillStyle: "rgba(255,255,255,0.96)",
-    textAlign: "center",
-    textBaseline: "middle",
+  drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.54, {
+    size: 44,
+    color: "#89e8ff",
+    glowColor: "rgba(137, 232, 255, 1)",
   });
-  ctx.restore();
 
-  // Haut droite: combo + timer
-  const comboTextY = topY + 4;
-  const comboRight = w - M;
-  const comboW = 268;
-  const comboH = 90;
-  drawPill(ctx, comboRight - comboW, topBlockY, comboW, comboH, topBlockAlpha);
-  const comboScale = 1 + 0.06 * Math.sin(comboFx * Math.PI);
-  ctx.save();
-  ctx.translate(comboRight - 12, comboTextY + 12);
-  ctx.scale(comboScale, comboScale);
-  drawOutlinedText(ctx, `COMBO x${game.combo.toFixed(2)}`, 0, 0, {
-    font: "700 33px 'Audiowide', system-ui, sans-serif",
-    fillStyle: style.color,
-    textAlign: "right",
-    textBaseline: "top",
-    lineWidth: 5,
+  drawNeonPanel(ctx, comboBarPanel.x, comboBarPanel.y, comboBarPanel.w, comboBarPanel.h, {
+    skew: comboBarPanel.skew,
+    borderColor: "#ff64df",
+    glowColor: "rgba(255, 100, 223, 0.9)",
+    fillAlpha: 0.66,
   });
-  ctx.restore();
+  const barPad = 20;
+  const timerText = game.comboTimer.toFixed(1).padStart(4, "0");
+  drawComboBar(ctx, comboBarPanel.x + barPad, comboBarPanel.y + 16, comboBarPanel.w - 140, 24, ratio);
+  drawNeonText(ctx, timerText, comboBarPanel.x + comboBarPanel.w - 26, comboBarPanel.y + comboBarPanel.h * 0.56, {
+    size: 38,
+    align: "right",
+    color: "#ff8cf4",
+    glowColor: "rgba(255, 125, 237, 0.95)",
+    font: "'Audiowide', monospace",
+  });
 
-  const barW = 240;
-  const barH = 14;
-  const barRight = comboRight - 12;
-  const barX = barRight - barW;
-  const barY = topY + 52;
-  ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1;
-  ctx.fillRect(barX, barY, barW, barH);
-  ctx.strokeRect(barX, barY, barW, barH);
-  ctx.fillStyle = style.solid;
-  ctx.shadowColor = style.solid;
-  ctx.shadowBlur = ratio < 0.25 ? 20 : 9;
-  ctx.fillRect(barX, barY, barW * ratio, barH);
-  ctx.restore();
+  drawNeonPanel(ctx, wavePanel.x, wavePanel.y, wavePanel.w, wavePanel.h, {
+    skew: wavePanel.skew,
+    borderColor: "#f45cff",
+    glowColor: "rgba(244, 92, 255, 0.95)",
+    fillAlpha: 0.76,
+  });
+  drawNeonText(ctx, `WAVE ${formatWave(game.level)}`, wavePanel.x + wavePanel.w * 0.5, wavePanel.y + wavePanel.h * 0.56, {
+    size: 64,
+    align: "center",
+    color: "#ff9bf5",
+    glowColor: "rgba(255, 121, 241, 1)",
+    weight: 700,
+  });
 
-  // Bas gauche: vies (3 icônes fixes)
+  drawNeonPanel(ctx, scorePanel.x, scorePanel.y, scorePanel.w, scorePanel.h, {
+    skew: scorePanel.skew,
+    borderColor: PALETTE.cyan,
+    glowColor: "rgba(83, 216, 255, 1)",
+    fillAlpha: 0.74,
+    mirror: true,
+  });
+  drawNeonText(ctx, "SCORE", scorePanel.x + scorePanel.w * 0.68, scorePanel.y + 24, {
+    size: 26,
+    align: "center",
+    color: "#8be7ff",
+    glowColor: "rgba(117, 233, 255, 0.95)",
+    baseline: "middle",
+  });
+  drawNeonText(ctx, formatScore(game.score), scorePanel.x + scorePanel.w * 0.55, scorePanel.y + 66, {
+    size: 54,
+    align: "center",
+    color: "#c9fdff",
+    glowColor: "rgba(144, 236, 255, 0.95)",
+    baseline: "middle",
+  });
+
   const maxLives = 3;
-  const size = 96;
-  const spacing = size + 18;
-  const bgPaddingX = 18;
-  const bgPaddingY = 16;
-  const livesW = size * maxLives + (spacing - size) * (maxLives - 1) + bgPaddingX * 2;
-  const livesH = size + bgPaddingY * 2;
-  const baseX = M + 12;
-  const baseY = bottomY - 16;
-  drawPill(ctx, M, Math.round(baseY - size - bgPaddingY), livesW, livesH, 0.33);
+  const size = 84;
+  const spacing = 16;
+  const livesX = M;
+  const livesY = h - M - size;
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
-    const dx = Math.round(baseX + i * spacing);
-    const dy = Math.round(baseY - size);
-    ctx.drawImage(img, dx, dy, size, size);
+    const dx = livesX + i * (size + spacing);
+    ctx.save();
+    ctx.shadowColor = i < game.lives ? "rgba(255, 115, 227, 0.9)" : "rgba(88, 126, 173, 0.45)";
+    ctx.shadowBlur = i < game.lives ? 14 : 8;
+    ctx.drawImage(img, dx, livesY, size, size);
+    ctx.restore();
   }
 
-  // Bas centre: score
-  const scoreW = 320;
-  const scoreH = 88;
-  drawPill(ctx, w * 0.5 - scoreW * 0.5, bottomY - 78, scoreW, scoreH);
-  drawOutlinedText(ctx, "SCORE", w * 0.5, bottomY - 48, {
-    font: "700 18px 'Audiowide', system-ui, sans-serif",
-    fillStyle: "rgba(230,230,230,0.95)",
-    textAlign: "center",
-    textBaseline: "middle",
-    lineWidth: 4,
+  drawNeonPanel(ctx, weaponPanel.x, weaponPanel.y, weaponPanel.w, weaponPanel.h, {
+    skew: weaponPanel.skew,
+    borderColor: PALETTE.cyan,
+    glowColor: "rgba(113, 231, 255, 0.95)",
+    fillAlpha: 0.84,
   });
-  drawOutlinedText(ctx, `${Math.floor(game.score)}`, w * 0.5, bottomY - 20, {
-    font: "700 40px 'Audiowide', system-ui, sans-serif",
-    fillStyle: "rgba(255,255,255,0.98)",
-    textAlign: "center",
-    textBaseline: "middle",
-    lineWidth: 6,
+  drawNeonText(ctx, "WEAPON", weaponPanel.x + 34, weaponPanel.y + 24, {
+    size: 32,
+    color: "#8feaff",
+    glowColor: "rgba(143, 234, 255, 0.95)",
+    baseline: "middle",
+  });
+  drawNeonText(ctx, weaponStyle.label, weaponPanel.x + weaponPanel.w * 0.53, weaponPanel.y + 50, {
+    size: 56,
+    align: "center",
+    color: weaponStyle.color,
+    glowColor: weaponStyle.glow,
+    baseline: "middle",
   });
 }
