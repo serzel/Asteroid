@@ -1,5 +1,5 @@
 import { Input } from "./Input.js";
-import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
+import { drawText } from "./utils.js";
 import { dist2, rand, dot } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Asteroid } from "../entities/Asteroid.js";
@@ -18,6 +18,10 @@ export class Game {
 
     this.last = 0;
     this.running = false;
+
+    this.cssW = 1;
+    this.cssH = 1;
+    this.dpr = window.devicePixelRatio || 1;
 
     this.world = { w: 0, h: 0 };
 
@@ -39,7 +43,7 @@ export class Game {
     this.maxParticles = 900;
     this.maxExplosions = 80;
 
-    this.background = new Background(canvas.width, canvas.height);
+    this.background = new Background(this.cssW, this.cssH);
     this.fastTrailAcc = 0;
     this.waveQueued = false;
 
@@ -114,11 +118,37 @@ export class Game {
 
   #mouseToCanvas(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-    const my = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-    const scaleX = this.canvas.width / this.world.w;
-    const scaleY = this.canvas.height / this.world.h;
-    return { mx: mx / scaleX, my: my / scaleY };
+    const mx = (e.clientX - rect.left) * (this.cssW / Math.max(1, rect.width));
+    const my = (e.clientY - rect.top) * (this.cssH / Math.max(1, rect.height));
+    return { mx, my };
+  }
+
+  #resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    const cssW = Math.max(1, Math.round(rect.width));
+    const cssH = Math.max(1, Math.round(rect.height));
+    const dpr = window.devicePixelRatio || 1;
+    const bufferW = Math.round(cssW * dpr);
+    const bufferH = Math.round(cssH * dpr);
+    const bufferChanged = this.canvas.width !== bufferW || this.canvas.height !== bufferH;
+    const changed = bufferChanged || this.cssW !== cssW || this.cssH !== cssH || this.dpr !== dpr;
+
+    if (bufferChanged) {
+      this.canvas.width = bufferW;
+      this.canvas.height = bufferH;
+    }
+
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    this.cssW = cssW;
+    this.cssH = cssH;
+    this.dpr = dpr;
+
+    this.world.w = cssW;
+    this.world.h = cssH;
+    if (changed) this.background.resize(cssW, cssH);
+
+    return changed;
   }
 
   #rebuildMenuButtons() {
@@ -182,11 +212,7 @@ export class Game {
   }
 
   start() {
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
-    this.world.w = r.cssW;
-    this.world.h = r.cssH;
-
-    this.background.resize(this.canvas.width, this.canvas.height);
+    this.#resize();
     this.#rebuildMenuButtons();
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -417,11 +443,7 @@ export class Game {
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
     this.last = t;
 
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
-    if (r.changed) {
-      this.world.w = r.cssW;
-      this.world.h = r.cssH;
-      this.background.resize(this.canvas.width, this.canvas.height);
+    if (this.#resize()) {
       this.#rebuildMenuButtons();
     }
 
@@ -839,7 +861,8 @@ export class Game {
 
   #draw() {
     const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.world.w, this.world.h);
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.cssW, this.cssH);
 
     if (this.state === "TITLE") {
       this.#drawTitleScreen();
