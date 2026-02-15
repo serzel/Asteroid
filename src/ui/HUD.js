@@ -21,6 +21,12 @@ const WEAPON_HUD_STYLES = {
   },
 };
 
+const lifeFullImg = new Image();
+lifeFullImg.src = "assets/life_full.png";
+
+const lifeEmptyImg = new Image();
+lifeEmptyImg.src = "assets/life_empty.png";
+
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
@@ -263,8 +269,14 @@ export function drawHUD(ctx, game) {
   const livesW = 172;
   const livesH = 52;
   drawPill(ctx, M, bottomY - 42, livesW, livesH, 0.3);
-  for (let i = 0; i < 3; i += 1) {
-    drawXWingIcon(ctx, M + 24 + i * 42, bottomY - 16, 24, i < game.lives);
+  const maxLives = 3;
+  const size = 28;
+  const spacing = size + 14;
+  const baseX = M + 10;
+  const baseY = bottomY;
+  for (let i = 0; i < maxLives; i += 1) {
+    const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
+    ctx.drawImage(img, baseX + i * spacing, baseY - size, size, size);
   }
 
   // Bas centre: score
