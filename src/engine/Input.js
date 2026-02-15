@@ -19,7 +19,23 @@ export class Input {
       },
     };
 
+    this.capturedCodes = new Set([
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "Space",
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "KeyZ",
+      "KeyQ",
+    ]);
+
     target.addEventListener("keydown", (e) => {
+      if (this.capturedCodes.has(e.code)) e.preventDefault();
+
       if (!this.down.has(e.code)) this.pressed.add(e.code);
       this.down.add(e.code);
 
@@ -30,6 +46,7 @@ export class Input {
     });
 
     target.addEventListener("keyup", (e) => {
+      if (this.capturedCodes.has(e.code)) e.preventDefault();
       this.down.delete(e.code);
     });
   }
