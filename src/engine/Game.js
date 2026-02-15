@@ -9,6 +9,25 @@ import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Background } from "./Background.js";
 import { drawHUD } from "../ui/HUD.js";
 
+const SHAKE_BY_ASTEROID_SIZE = {
+  3: { amp: 6, dur: 0.12 },
+  2: { amp: 4, dur: 0.1 },
+  1: { amp: 2, dur: 0.08 },
+};
+
+const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
+const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
+
+const HIT_STOP_BIG = 0.05;
+const HIT_STOP_DENSE = 0.04;
+const HIT_STOP_WEAPON_UP = 0.03;
+
+const COMBO_AMBIANCE_START = 10;
+const COMBO_AMBIANCE_RANGE = 35;
+const COMBO_PULSE_ALPHA = 0.06;
+const COMBO_OVERLAY_BASE_ALPHA = 0.06;
+const COMBO_OVERLAY_COLOR = "rgba(120,0,255,1)";
+
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -42,6 +61,13 @@ export class Game {
     this.background = new Background(canvas.width, canvas.height);
     this.fastTrailAcc = 0;
     this.waveQueued = false;
+
+    this.shakeTime = 0;
+    this.shakeDur = 0;
+    this.shakeAmp = 0;
+    this.shakeX = 0;
+    this.shakeY = 0;
+    this.hitStop = 0;
 
     // États principaux: TITLE -> PLAY -> GAME_OVER_ANIM -> GAME_OVER_READY.
     this.state = "TITLE";
@@ -106,6 +132,20 @@ export class Game {
   logDebug(message) {
     if (!this.debugEnabled) return;
     console.log(`[DEBUG] ${message}`);
+  }
+
+  clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+
+  addShake(amp, dur) {
+    this.shakeAmp = Math.max(this.shakeAmp, amp);
+    this.shakeDur = Math.max(this.shakeDur, dur);
+    this.shakeTime = Math.max(this.shakeTime, dur);
+  }
+
+  addHitStop(sec) {
+    this.hitStop = Math.max(this.hitStop, sec);
   }
 
   #pointInRect(mx, my, rect) {
@@ -186,7 +226,7 @@ export class Game {
     this.world.w = r.cssW;
     this.world.h = r.cssH;
 
-    this.background.resize(this.canvas.width, this.canvas.height);
+    this.background.resize(this.world.w, this.world.h);
     this.#rebuildMenuButtons();
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -212,6 +252,12 @@ export class Game {
     this.asteroids = [];
     this.waveQueued = false;
     this.fastTrailAcc = 0;
+    this.shakeTime = 0;
+    this.shakeDur = 0;
+    this.shakeAmp = 0;
+    this.shakeX = 0;
+    this.shakeY = 0;
+    this.hitStop = 0;
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
@@ -421,7 +467,7 @@ export class Game {
     if (r.changed) {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
-      this.background.resize(this.canvas.width, this.canvas.height);
+      this.background.resize(this.world.w, this.world.h);
       this.#rebuildMenuButtons();
     }
 
@@ -448,7 +494,11 @@ export class Game {
     this.ship.update(dt, this.input, this.world);
 
     if (this.input.wasPressed("Space") || this.input.isDown("Space")) {
+      const bulletsBeforeShot = this.bullets.length;
       this.ship.tryShoot(this.bullets);
+      if (this.ship.weaponLevel >= 4 && this.bullets.length > bulletsBeforeShot) {
+        this.addShake(WEAPON4_SHOT_SHAKE.amp, WEAPON4_SHOT_SHAKE.dur);
+      }
       if (this.bullets.length > this.maxBullets) {
         this.bullets.splice(0, this.bullets.length - this.maxBullets);
       }
@@ -536,6 +586,7 @@ export class Game {
             this.hudFx.comboPulseT = 0.12;
             if (this.ship.weaponLevel > prevWeaponLevel) {
               this.hudFx.weaponFlashT = 0.20;
+              this.addHitStop(HIT_STOP_WEAPON_UP);
             }
 
             const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
@@ -544,8 +595,45 @@ export class Game {
             const kids = a.split();
             this.asteroids.push(...kids);
 
-            this.#pushCapped(this.explosions, new Explosion(a.x, a.y, 0.28, a.radius * 1.1), this.maxExplosions);
-            this.#spawnDebris(a.x, a.y, Math.round(rand(12, 25)), a.type, 70, 230);
+            const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
+            this.addShake(shakeCfg.amp, shakeCfg.dur);
+            if (a.size === 3) this.addHitStop(HIT_STOP_BIG);
+            if (a.type === "dense") this.addHitStop(HIT_STOP_DENSE);
+
+            const explosionProfile = {
+              life: 0.3,
+              ringCount: 2,
+              maxRadius: a.radius * 3,
+              flashAlpha: 0.8,
+              colorMode: a.type === "dense" ? "dense" : a.type === "fast" ? "fast" : "normal",
+            };
+            if (a.size === 3 && a.type === "dense") {
+              explosionProfile.life = 0.35;
+              explosionProfile.ringCount = 3;
+              explosionProfile.maxRadius = 120;
+              explosionProfile.flashAlpha = 0.9;
+            } else if (a.size === 3) {
+              explosionProfile.life = 0.3;
+              explosionProfile.ringCount = 2;
+              explosionProfile.maxRadius = 110;
+              explosionProfile.flashAlpha = 0.8;
+            } else if (a.size === 2) {
+              explosionProfile.life = 0.22;
+              explosionProfile.ringCount = 2;
+              explosionProfile.maxRadius = 75;
+              explosionProfile.flashAlpha = 0.72;
+            } else {
+              explosionProfile.life = 0.14;
+              explosionProfile.ringCount = 1;
+              explosionProfile.maxRadius = 45;
+              explosionProfile.flashAlpha = 0.65;
+            }
+
+            this.#pushCapped(this.explosions, new Explosion(a.x, a.y, explosionProfile), this.maxExplosions);
+
+            const debrisCountBase = a.size === 3 ? rand(20, 34) : a.size === 2 ? rand(12, 20) : rand(7, 12);
+            const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1));
+            this.#spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
             this.#pushCapped(this.particles, Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6), this.maxParticles);
           } else {
             this.#spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
@@ -567,7 +655,8 @@ export class Game {
           this.comboTimer = 0;
           this.ship.updateWeaponLevel(this.combo);
 
-          this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, 0.45, 70), this.maxExplosions);
+          this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, { life: 0.45, ringCount: 3, maxRadius: 100, flashAlpha: 0.95, colorMode: "normal" }), this.maxExplosions);
+          this.addShake(PLAYER_HIT_SHAKE.amp, PLAYER_HIT_SHAKE.dur);
           this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3), this.maxParticles);
 
           if (this.lives <= 0) {
@@ -617,6 +706,26 @@ export class Game {
     }
 
     this.background.update(dt);
+
+    if (this.shakeTime > 0) {
+      this.shakeTime = Math.max(0, this.shakeTime - dt);
+      const ratio = this.shakeDur > 0 ? this.shakeTime / this.shakeDur : 0;
+      const strength = this.shakeAmp * ratio;
+      this.shakeX = (Math.random() * 2 - 1) * strength;
+      this.shakeY = (Math.random() * 2 - 1) * strength;
+      if (this.shakeTime <= 0) {
+        this.shakeAmp = 0;
+        this.shakeDur = 0;
+        this.shakeX = 0;
+        this.shakeY = 0;
+      }
+    }
+
+    if (this.hitStop > 0) {
+      this.hitStop -= dt;
+      if (this.hitStop > 0) return;
+      this.hitStop = 0;
+    }
 
     if (this.state === "TITLE") {
       if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
@@ -777,6 +886,7 @@ export class Game {
 
   #drawTitleScreen() {
     const ctx = this.ctx;
+    this.background.setAmbienceFactor(0);
     this.background.render(ctx);
     const panelW = 440;
     const panelH = 330;
@@ -813,7 +923,7 @@ export class Game {
 
   #drawPlayScene() {
     const ctx = this.ctx;
-    this.background.render(ctx);
+    this.background.draw(ctx);
     this.ship.render(ctx, this.combo);
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
@@ -821,7 +931,18 @@ export class Game {
     for (const p of this.particles) p.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
 
-    drawHUD(ctx, this);
+    const comboWindow = this.getCurrentComboWindow();
+    const amb = this.clamp01((this.combo - COMBO_AMBIANCE_START) / COMBO_AMBIANCE_RANGE);
+    const pulseWindow = comboWindow * 0.25;
+    const pulse = this.comboTimer < pulseWindow ? COMBO_PULSE_ALPHA * this.clamp01(1 - this.comboTimer / pulseWindow) : 0;
+    this.background.setAmbienceFactor(amb);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = COMBO_OVERLAY_BASE_ALPHA * amb + pulse;
+    ctx.fillStyle = COMBO_OVERLAY_COLOR;
+    ctx.fillRect(0, 0, this.world.w, this.world.h);
+    ctx.restore();
   }
 
   #drawGameOverOverlay() {
@@ -846,10 +967,15 @@ export class Game {
       return;
     }
 
+    ctx.save();
+    ctx.translate(this.shakeX, this.shakeY);
     this.#drawPlayScene();
 
     if (this.state === "GAME_OVER_ANIM" || this.state === "GAME_OVER_READY") {
       this.#drawGameOverOverlay();
     }
+    ctx.restore();
+
+    drawHUD(ctx, this);
   }
 }
