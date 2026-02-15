@@ -129,31 +129,19 @@ export class Background {
   }
 
   #pickNebulaStart() {
-    const forbidden = {
-      x: this.w * 0.2,
-      y: this.h * 0.2,
-      w: this.w * 0.6,
-      h: this.h * 0.6,
-    };
-    const size = Math.max(this.w, this.h) * randomRange(1.7, 2.4);
-
-    let x = randomRange(this.w * 0.1, this.w * 0.9);
-    let y = randomRange(this.h * 0.1, this.h * 0.9);
-    for (let tries = 0; tries < 30; tries++) {
-      if (!circleIntersectsRect(x, y, size * 0.18, forbidden)) break;
-      x = randomRange(this.w * 0.04, this.w * 0.96);
-      y = randomRange(this.h * 0.04, this.h * 0.96);
-    }
+    const size = Math.max(this.w, this.h) * randomRange(1.6, 2.2);
+    const baseX = this.w * randomRange(0.25, 0.75);
+    const baseY = this.h * randomRange(0.25, 0.75);
 
     return {
       img: this.nebulaImgs[Math.floor(Math.random() * this.nebulaImgs.length)],
-      x,
-      y,
+      baseX,
+      baseY,
+      driftX: 0,
+      driftY: 0,
       size,
-      alpha: randomRange(0.05, 0.1),
-      glowAlpha: randomRange(0.02, 0.04),
-      vx: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
-      vy: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
+      alpha: randomRange(0.12, 0.18),
+      glowAlpha: randomRange(0.04, 0.07),
     };
   }
 
@@ -263,13 +251,12 @@ export class Background {
     }
 
     if (this.nebula) {
-      this.nebula.x += this.nebula.vx * dt;
-      this.nebula.y += this.nebula.vy * dt;
-      const margin = this.nebula.size * 0.2;
-      if (this.nebula.x < -margin) this.nebula.x = this.w + margin;
-      if (this.nebula.x > this.w + margin) this.nebula.x = -margin;
-      if (this.nebula.y < -margin) this.nebula.y = this.h + margin;
-      if (this.nebula.y > this.h + margin) this.nebula.y = -margin;
+      this.nebula.driftX += dt * 2.0;
+      this.nebula.driftY += dt * 1.2;
+
+      const driftLimit = this.nebula.size * 0.15;
+      if (Math.abs(this.nebula.driftX) > driftLimit) this.nebula.driftX = 0;
+      if (Math.abs(this.nebula.driftY) > driftLimit) this.nebula.driftY = 0;
     }
 
     for (const planet of this.planets) {
@@ -325,15 +312,38 @@ export class Background {
   #drawNebula(ctx) {
     if (!this.nebula) return;
 
-    const { img, x, y, size, alpha, glowAlpha } = this.nebula;
+    const {
+      img,
+      baseX,
+      baseY,
+      driftX,
+      driftY,
+      size,
+      alpha,
+      glowAlpha,
+    } = this.nebula;
     if (!this.#isImageReady(img)) return;
 
-    this.#resetLayerState(ctx);
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
+    const x = baseX - size * 0.5 + driftX;
+    const y = baseY - size * 0.5 + driftY;
 
+    this.#resetLayerState(ctx);
+    ctx.imageSmoothingEnabled = true;
+
+    // Diagnostic mode: uncomment to force full-screen nebula rendering.
+    // ctx.save();
+    // ctx.globalAlpha = 0.22;
+    // ctx.globalCompositeOperation = "source-over";
+    // ctx.drawImage(img, 0, 0, this.w, this.h);
+    // ctx.restore();
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, x, y, size, size);
+
+    ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = glowAlpha;
-    ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
+    ctx.drawImage(img, x, y, size, size);
     this.#resetLayerState(ctx);
   }
 
