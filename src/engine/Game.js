@@ -1,5 +1,5 @@
 import { Input } from "./Input.js";
-import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
+import { drawText } from "./utils.js";
 import { dist2, rand, dot } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Asteroid } from "../entities/Asteroid.js";
@@ -39,7 +39,10 @@ export class Game {
     this.maxParticles = 900;
     this.maxExplosions = 80;
 
-    this.background = new Background(canvas.width, canvas.height);
+    const initialRect = this.canvas.getBoundingClientRect();
+    const initialCssW = initialRect.width || this.canvas.clientWidth || window.innerWidth;
+    const initialCssH = initialRect.height || this.canvas.clientHeight || window.innerHeight;
+    this.background = new Background(initialCssW, initialCssH);
     this.fastTrailAcc = 0;
     this.waveQueued = false;
 
@@ -70,6 +73,24 @@ export class Game {
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
     this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
+  }
+
+  #resizeCanvasToDisplaySize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    const cssW = rect.width || this.canvas.clientWidth || window.innerWidth;
+    const cssH = rect.height || this.canvas.clientHeight || window.innerHeight;
+    const pixelW = Math.round(cssW * dpr);
+    const pixelH = Math.round(cssH * dpr);
+
+    const changed = this.canvas.width !== pixelW || this.canvas.height !== pixelH;
+    if (changed) {
+      this.canvas.width = pixelW;
+      this.canvas.height = pixelH;
+    }
+
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { changed, cssW, cssH };
   }
 
   applyComboBreak() {
@@ -182,11 +203,11 @@ export class Game {
   }
 
   start() {
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
+    const r = this.#resizeCanvasToDisplaySize();
     this.world.w = r.cssW;
     this.world.h = r.cssH;
 
-    this.background.resize(this.canvas.width, this.canvas.height);
+    this.background.resize(this.world.w, this.world.h);
     this.#rebuildMenuButtons();
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -417,11 +438,11 @@ export class Game {
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
     this.last = t;
 
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
+    const r = this.#resizeCanvasToDisplaySize();
     if (r.changed) {
       this.world.w = r.cssW;
       this.world.h = r.cssH;
-      this.background.resize(this.canvas.width, this.canvas.height);
+      this.background.resize(this.world.w, this.world.h);
       this.#rebuildMenuButtons();
     }
 

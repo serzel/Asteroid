@@ -47,7 +47,7 @@ export class Ship {
     this.thrusting = false;
 
     this.sprite = new Image();
-    this.sprite.src = "assets/ship.png";
+    this.sprite.src = new URL("../../assets/ship.png", import.meta.url).href;
     this.spriteSize = 80; // ajuster selon la résolution
     this.spriteLoaded = false;
 
