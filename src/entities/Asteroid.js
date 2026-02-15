@@ -1,5 +1,7 @@
 import { wrap, rand } from "../engine/math.js";
 
+const TINT_SHADE_CACHE = new Map();
+
 export class Asteroid {
   static TYPE = {
     normal:   { speedMul: 1.0,  hpMul: 1, splitCount: 2, dashed: false, lineWidth: 1, points: 10, jitterMin: 0.75, jitterMax: 1.25, scoreMul: 1.0, tint: "rgba(180,180,180,1)" },
@@ -92,27 +94,33 @@ export class Asteroid {
   }
 
   #tintShades(tint) {
+    const cached = TINT_SHADE_CACHE.get(tint);
+    if (cached) return cached;
+
     const match = tint.match(/rgba?\((\d+),(\d+),(\d+)(?:,[^)]+)?\)/);
     if (!match) {
-      return {
+      const fallback = {
         highlightColor: "rgba(230,230,230,1)",
-        baseColor: tint,
         shadowColor: "rgba(60,60,60,1)",
         outlineColor: "rgba(45,45,45,0.95)",
       };
+      TINT_SHADE_CACHE.set(tint, fallback);
+      return fallback;
     }
-    const toNum = (v) => Number(v);
-    const r = toNum(match[1]);
-    const g = toNum(match[2]);
-    const b = toNum(match[3]);
+
+    const r = Number(match[1]);
+    const g = Number(match[2]);
+    const b = Number(match[3]);
     const lift = (v) => Math.round(v + (230 - v) * 0.7);
     const dark = (v) => Math.round(v * 0.35);
-    return {
+
+    const shades = {
       highlightColor: `rgba(${lift(r)},${lift(g)},${lift(b)},1)`,
-      baseColor: tint,
       shadowColor: `rgba(${dark(r)},${dark(g)},${dark(b)},1)`,
       outlineColor: `rgba(${Math.round(dark(r) * 0.8)},${Math.round(dark(g) * 0.8)},${Math.round(dark(b) * 0.8)},0.95)`,
     };
+    TINT_SHADE_CACHE.set(tint, shades);
+    return shades;
   }
 
   update(dt, world) {
