@@ -63,6 +63,12 @@ export class Game {
     this.debugEnabled = false;
     this.debugLogAccum = 0;
 
+    this.hudFx = {
+      weaponFlashT: 0,
+      comboPulseT: 0,
+      waveIntroT: 0,
+    };
+
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
     this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
@@ -213,6 +219,7 @@ export class Game {
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
     this.comboTimer = this.getCurrentComboWindow();
+    this.hudFx.waveIntroT = 1.10;
 
     this.#spawnLevel();
   }
@@ -300,6 +307,7 @@ export class Game {
     if (this.waveQueued) return;
     this.waveQueued = true;
     this.level += 1;
+    this.hudFx.waveIntroT = 1.10;
     this.#spawnLevel();
     this.waveQueued = false;
   }
@@ -429,6 +437,10 @@ export class Game {
   #updateGameplay(dt) {
     const dtSec = dt > 1 ? dt / 1000 : dt;
 
+    this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
+    this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
+    this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
+
     if (this.comboTimer > 0) this.comboTimer -= dt;
     if (this.comboTimer <= 0) {
       this.applyComboBreak();
@@ -519,9 +531,14 @@ export class Game {
           this.comboTimer = Math.min(this.comboTimer + 0.5, this.getCurrentComboWindow());
 
           if (destroyed) {
+            const prevWeaponLevel = this.ship.weaponLevel;
             this.combo += a.comboValue;
             this.ship.updateWeaponLevel(this.combo);
             this.comboTimer = this.getCurrentComboWindow();
+            this.hudFx.comboPulseT = 0.12;
+            if (this.ship.weaponLevel > prevWeaponLevel) {
+              this.hudFx.weaponFlashT = 0.20;
+            }
 
             const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
             this.score += Math.round(100 * a.size * cfg.scoreMul * this.combo);
