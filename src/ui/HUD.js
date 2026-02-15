@@ -2,22 +2,22 @@ const WEAPON_HUD_STYLES = {
   1: {
     color: "rgba(0, 200, 255, 0.90)",
     solid: "rgb(0, 200, 255)",
-    label: "L1",
+    label: "BLASTER",
   },
   2: {
     color: "rgba(0, 255, 120, 0.95)",
     solid: "rgb(0, 255, 120)",
-    label: "L2 SNIPER",
+    label: "SNIPER",
   },
   3: {
     color: "rgba(180, 0, 255, 0.95)",
     solid: "rgb(180, 0, 255)",
-    label: "L3 DOUBLE",
+    label: "DOUBLE",
   },
   4: {
     color: "rgba(255, 60, 0, 0.95)",
     solid: "rgb(255, 60, 0)",
-    label: "L4 SHOTGUN",
+    label: "SHOTGUN",
   },
 };
 
@@ -77,12 +77,12 @@ export function drawXWingIcon(ctx, x, y, size, isActive) {
   const half = size * 0.5;
   const wing = size * 0.42;
   const body = size * 0.12;
-  const tint = isActive ? "rgba(255,255,255,0.95)" : "rgba(160,160,160,0.45)";
+  const tint = isActive ? "rgba(255,255,255,0.95)" : "rgba(105,105,105,0.34)";
 
   ctx.save();
   ctx.translate(x, y);
 
-  ctx.strokeStyle = "rgba(0,0,0,0.7)";
+  ctx.strokeStyle = isActive ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.5)";
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -97,7 +97,7 @@ export function drawXWingIcon(ctx, x, y, size, isActive) {
   ctx.stroke();
 
   ctx.strokeStyle = tint;
-  ctx.lineWidth = 2.4;
+  ctx.lineWidth = isActive ? 2.4 : 2.1;
   ctx.beginPath();
   ctx.moveTo(-wing, -half);
   ctx.lineTo(-body, -body);
@@ -109,10 +109,18 @@ export function drawXWingIcon(ctx, x, y, size, isActive) {
   ctx.lineTo(body, body);
   ctx.stroke();
 
-  ctx.fillStyle = isActive ? "rgba(255,255,255,0.95)" : "rgba(120,120,120,0.45)";
+  ctx.fillStyle = isActive ? "rgba(255,255,255,0.95)" : "rgba(70,70,70,0.5)";
   ctx.beginPath();
   ctx.arc(0, 0, size * 0.11, 0, Math.PI * 2);
   ctx.fill();
+
+  if (!isActive) {
+    ctx.strokeStyle = "rgba(145,145,145,0.32)";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -154,9 +162,9 @@ export function drawWeaponIcon(ctx, x, y, level, color) {
   drawShape();
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.4;
+  ctx.lineWidth = 2.8;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 10;
   drawShape();
 
   ctx.restore();
@@ -173,63 +181,88 @@ export function drawHUD(ctx, game) {
 
   const comboWindow = typeof game.getComboWindow === "function" ? game.getComboWindow() : 1;
   const ratio = clamp(game.comboTimer / Math.max(comboWindow, 0.001), 0, 1);
+  const weaponFx = clamp((game.hudFx?.weaponFlashT ?? 0) / 0.2, 0, 1);
+  const comboFx = clamp((game.hudFx?.comboPulseT ?? 0) / 0.12, 0, 1);
+  const waveFxProgress = 1 - clamp((game.hudFx?.waveIntroT ?? 0) / 1.1, 0, 1);
+  const waveEase = 1 - (1 - waveFxProgress) * (1 - waveFxProgress);
 
   const topY = M;
   const bottomY = h - M;
+  const topBlockH = 60;
+  const topBlockY = topY - 10;
+  const topBlockAlpha = 0.3;
+  const weaponScale = 1 + 0.05 * Math.sin(weaponFx * Math.PI);
 
   // Haut gauche: arme
-  const weaponW = 220;
-  const weaponH = 52;
-  drawPill(ctx, M, topY - 8, weaponW, weaponH);
-  drawWeaponIcon(ctx, M + 24, topY + 17, level, style.solid);
-  drawOutlinedText(ctx, style.label, M + 46, topY + 16, {
+  const weaponW = 252;
+  drawPill(ctx, M, topBlockY, weaponW, topBlockH, topBlockAlpha + weaponFx * 0.13);
+  ctx.save();
+  ctx.translate(M + weaponW * 0.5, topY + 20);
+  ctx.scale(weaponScale, weaponScale);
+  drawWeaponIcon(ctx, -90, -2, level, style.solid);
+  drawOutlinedText(ctx, style.label, -64, -2, {
     font: "700 20px 'Audiowide', system-ui, sans-serif",
     fillStyle: style.color,
     textBaseline: "middle",
   });
+  ctx.restore();
 
   // Haut centre: vague
-  const waveW = 190;
-  const waveH = 52;
-  drawPill(ctx, w * 0.5 - waveW * 0.5, topY - 8, waveW, waveH);
-  drawOutlinedText(ctx, `VAGUE ${game.level}`, w * 0.5, topY + 16, {
+  const waveW = 210;
+  const waveScale = 1.08 - 0.08 * waveEase;
+  const waveAlpha = topBlockAlpha + (1 - waveEase) * 0.14;
+  ctx.save();
+  ctx.translate(w * 0.5, topY + 20);
+  ctx.scale(waveScale, waveScale);
+  drawPill(ctx, -waveW * 0.5, topBlockY - (topY + 20), waveW, topBlockH, waveAlpha);
+  drawOutlinedText(ctx, `VAGUE ${game.level}`, 0, -2, {
     font: "700 24px 'Audiowide', system-ui, sans-serif",
     fillStyle: "rgba(255,255,255,0.96)",
     textAlign: "center",
     textBaseline: "middle",
   });
+  ctx.restore();
 
   // Haut droite: combo + timer
-  const comboTextY = topY + 6;
+  const comboTextY = topY + 4;
   const comboRight = w - M;
-  const comboW = 250;
-  const comboH = 82;
-  drawPill(ctx, comboRight - comboW, topY - 8, comboW, comboH);
-  drawOutlinedText(ctx, `COMBO x${game.combo.toFixed(2)}`, comboRight - 12, comboTextY + 10, {
-    font: "700 30px 'Audiowide', system-ui, sans-serif",
+  const comboW = 268;
+  const comboH = 90;
+  drawPill(ctx, comboRight - comboW, topBlockY, comboW, comboH, topBlockAlpha);
+  const comboScale = 1 + 0.06 * Math.sin(comboFx * Math.PI);
+  ctx.save();
+  ctx.translate(comboRight - 12, comboTextY + 12);
+  ctx.scale(comboScale, comboScale);
+  drawOutlinedText(ctx, `COMBO x${game.combo.toFixed(2)}`, 0, 0, {
+    font: "700 33px 'Audiowide', system-ui, sans-serif",
     fillStyle: style.color,
     textAlign: "right",
     textBaseline: "top",
     lineWidth: 5,
   });
+  ctx.restore();
 
-  const barW = 236;
-  const barH = 12;
-  const barX = comboRight - barW - 8;
-  const barY = topY + 50;
+  const barW = 240;
+  const barH = 14;
+  const barRight = comboRight - 12;
+  const barX = barRight - barW;
+  const barY = topY + 52;
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 1;
   ctx.fillRect(barX, barY, barW, barH);
+  ctx.strokeRect(barX, barY, barW, barH);
   ctx.fillStyle = style.solid;
   ctx.shadowColor = style.solid;
-  ctx.shadowBlur = ratio < 0.25 ? 18 : 8;
+  ctx.shadowBlur = ratio < 0.25 ? 20 : 9;
   ctx.fillRect(barX, barY, barW * ratio, barH);
   ctx.restore();
 
   // Bas gauche: vies (3 icônes fixes)
-  const livesW = 162;
+  const livesW = 172;
   const livesH = 52;
-  drawPill(ctx, M, bottomY - 42, livesW, livesH);
+  drawPill(ctx, M, bottomY - 42, livesW, livesH, 0.3);
   for (let i = 0; i < 3; i += 1) {
     drawXWingIcon(ctx, M + 24 + i * 42, bottomY - 16, 24, i < game.lives);
   }
