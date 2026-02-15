@@ -7,6 +7,7 @@ const BG_LAYER_CONFIG = [
 const BG_DRIFT_X = 9;
 const BG_DRIFT_Y = 5;
 const DEFAULT_PLANET_SIZE = 256;
+const DEBUG_NEBULA = false;
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
@@ -64,6 +65,7 @@ export class Background {
     this.shootingStars = [];
     this.shootTimer = randomRange(7, 13);
     this.nebula = null;
+    this.nebulaDebugLastLog = 0;
 
     this.glowImg = new Image();
     this.glowImg.src = new URL("../../assets/glow_soft.png", import.meta.url);
@@ -135,7 +137,7 @@ export class Background {
       w: this.w * 0.6,
       h: this.h * 0.6,
     };
-    const size = Math.max(this.w, this.h) * randomRange(1.7, 2.4);
+    const size = Math.max(this.w, this.h) * randomRange(1.25, 1.75);
 
     let x = randomRange(this.w * 0.1, this.w * 0.9);
     let y = randomRange(this.h * 0.1, this.h * 0.9);
@@ -150,8 +152,8 @@ export class Background {
       x,
       y,
       size,
-      alpha: randomRange(0.05, 0.1),
-      glowAlpha: randomRange(0.02, 0.04),
+      alpha: randomRange(0.14, 0.24),
+      glowAlpha: randomRange(0.07, 0.13),
       vx: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
       vy: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
     };
@@ -323,17 +325,67 @@ export class Background {
   }
 
   #drawNebula(ctx) {
+    if (DEBUG_NEBULA) {
+      const now = performance.now() * 0.001;
+      if (now - this.nebulaDebugLastLog >= 1) {
+        console.log("[nebula] draw entry");
+        this.nebulaDebugLastLog = now;
+      }
+    }
+
     if (!this.nebula) return;
 
     const { img, x, y, size, alpha, glowAlpha } = this.nebula;
     if (!this.#isImageReady(img)) return;
 
+    const drawX = x - size * 0.5;
+    const drawY = y - size * 0.5;
+    const composite = "source-over";
+
     this.#resetLayerState(ctx);
+    ctx.globalCompositeOperation = composite;
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
+    ctx.drawImage(img, drawX, drawY, size, size);
 
     ctx.globalAlpha = glowAlpha;
     ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
+
+    if (DEBUG_NEBULA) {
+      const now = performance.now() * 0.001;
+      if (now - this.nebulaDebugLastLog >= 1) {
+        console.log("[nebula]", {
+          complete: img.complete,
+          naturalWidth: img.naturalWidth,
+          x: drawX,
+          y: drawY,
+          size,
+          alpha,
+          comp: composite,
+        });
+        this.nebulaDebugLastLog = now;
+      }
+    }
+
+    if (DEBUG_NEBULA) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(8, 8, 420, 108);
+      ctx.fillStyle = "#7ef5ff";
+      ctx.font = "12px monospace";
+      ctx.textBaseline = "top";
+      const lines = [
+        `nebula complete: ${img.complete}`,
+        `natural: ${img.naturalWidth} x ${img.naturalHeight}`,
+        `draw rect: ${drawX.toFixed(1)}, ${drawY.toFixed(1)}, ${size.toFixed(1)}, ${size.toFixed(1)}`,
+        `alpha: ${alpha.toFixed(3)}`,
+        `composite: ${composite}`,
+      ];
+      lines.forEach((line, i) => ctx.fillText(line, 16, 16 + i * 18));
+      ctx.restore();
+    }
+
     this.#resetLayerState(ctx);
   }
 
