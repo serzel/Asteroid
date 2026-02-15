@@ -93,6 +93,12 @@ export class Background {
     return !!img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
   }
 
+  #resetLayerState(ctx) {
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.imageSmoothingEnabled = true;
+  }
+
   #planetRadiusFor(img, scale) {
     const base = this.#isImageReady(img) ? Math.max(img.naturalWidth, img.naturalHeight) : DEFAULT_PLANET_SIZE;
     return base * scale * 0.5;
@@ -320,28 +326,19 @@ export class Background {
     if (!this.nebula) return;
 
     const { img, x, y, size, alpha, glowAlpha } = this.nebula;
-    ctx.save();
-    if (this.#isImageReady(img)) {
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
+    if (!this.#isImageReady(img)) return;
 
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = glowAlpha;
-      ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
-    } else {
-      const fallback = ctx.createRadialGradient(x, y, size * 0.12, x, y, size * 0.48);
-      fallback.addColorStop(0, "rgba(0,180,255,0.08)");
-      fallback.addColorStop(0.6, "rgba(192,0,255,0.04)");
-      fallback.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = fallback;
-      ctx.beginPath();
-      ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    this.#resetLayerState(ctx);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
+
+    ctx.globalAlpha = glowAlpha;
+    ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
+    this.#resetLayerState(ctx);
   }
 
   #drawStarLayers(ctx, indices) {
+    this.#resetLayerState(ctx);
     const glowReady = this.#isImageReady(this.glowImg);
 
     for (const i of indices) {
@@ -369,36 +366,17 @@ export class Background {
   }
 
   #drawPlanets(ctx, layers) {
-    const glowReady = this.#isImageReady(this.glowImg);
+    this.#resetLayerState(ctx);
 
     for (const planet of this.planets) {
       if (!layers.includes(planet.layer)) continue;
 
       const img = planet.img;
-      const drawW = this.#isImageReady(img) ? img.naturalWidth * planet.scale : planet.radius * 2;
-      const drawH = this.#isImageReady(img) ? img.naturalHeight * planet.scale : planet.radius * 2;
-      const radius = Math.max(drawW, drawH) * 0.5;
-
-      if (glowReady) {
-        const haloSize = radius * planet.haloSizeMul;
-        ctx.save();
-        ctx.globalAlpha = planet.haloAlpha;
-        ctx.drawImage(this.glowImg, planet.x - haloSize * 0.5, planet.y - haloSize * 0.5, haloSize, haloSize);
-        ctx.globalCompositeOperation = "source-atop";
-        ctx.fillStyle = planet.haloTint === "cyan" ? "rgba(0,180,255,0.9)" : "rgba(200,0,255,0.9)";
-        ctx.fillRect(planet.x - haloSize * 0.5, planet.y - haloSize * 0.5, haloSize, haloSize);
-        ctx.restore();
-      }
+      const radius = planet.radius;
 
       if (this.#isImageReady(img)) {
         ctx.globalAlpha = planet.alpha;
-        ctx.drawImage(img, planet.x - drawW * 0.5, planet.y - drawH * 0.5, drawW, drawH);
-
-        ctx.globalAlpha = 0.04;
-        ctx.drawImage(img, planet.x - drawW * 0.51, planet.y - drawH * 0.51, drawW * 1.02, drawH * 1.02);
-        ctx.globalAlpha = 0.02;
-        ctx.drawImage(img, planet.x - drawW * 0.52, planet.y - drawH * 0.52, drawW * 1.04, drawH * 1.04);
-        ctx.globalAlpha = 1;
+        ctx.drawImage(img, planet.x - radius, planet.y - radius, radius * 2, radius * 2);
       } else {
         const fallback = ctx.createRadialGradient(planet.x, planet.y, radius * 0.2, planet.x, planet.y, radius);
         fallback.addColorStop(0, "rgba(210,230,255,0.25)");
@@ -410,12 +388,13 @@ export class Background {
       }
     }
 
-    ctx.globalAlpha = 1;
+    this.#resetLayerState(ctx);
   }
 
   #drawShootingStars(ctx) {
     if (!this.shootingStars.length) return;
 
+    this.#resetLayerState(ctx);
     const glowReady = this.#isImageReady(this.glowImg);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -458,6 +437,7 @@ export class Background {
   }
 
   #drawNeonGrade(ctx) {
+    this.#resetLayerState(ctx);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = 0.045;
@@ -482,22 +462,15 @@ export class Background {
     vignette.addColorStop(1, "rgba(185,0,255,0.08)");
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, this.w, this.h);
+    this.#resetLayerState(ctx);
   }
 
   #drawNoiseTile(ctx, img, alpha) {
     if (!this.#isImageReady(img)) return;
 
-    ctx.save();
-    const desiredMode = "overlay";
-    ctx.globalCompositeOperation = desiredMode;
-
-    let effectiveAlpha = alpha;
-    if (ctx.globalCompositeOperation !== desiredMode) {
-      ctx.globalCompositeOperation = "source-over";
-      effectiveAlpha *= 0.5;
-    }
-
-    ctx.globalAlpha = effectiveAlpha;
+    this.#resetLayerState(ctx);
+    ctx.globalCompositeOperation = "overlay";
+    ctx.globalAlpha = alpha;
     const tileW = img.naturalWidth;
     const tileH = img.naturalHeight;
 
@@ -506,11 +479,11 @@ export class Background {
         ctx.drawImage(img, x, y, tileW, tileH);
       }
     }
-
-    ctx.restore();
+    this.#resetLayerState(ctx);
   }
 
   draw(ctx) {
+    this.#resetLayerState(ctx);
     const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
     bg.addColorStop(0, "hsl(224, 72%, 6%)");
     bg.addColorStop(0.5, "hsl(238, 70%, 5%)");
@@ -526,6 +499,7 @@ export class Background {
     this.#drawNeonGrade(ctx);
     this.#drawNoiseTile(ctx, this.noiseGrainImg, 0.025);
     this.#drawNoiseTile(ctx, this.noiseScanlinesImg, 0.018);
+    this.#resetLayerState(ctx);
   }
 
   render(ctx) {
