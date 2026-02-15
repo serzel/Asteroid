@@ -69,11 +69,26 @@ export class Background {
     this.glowImg.src = new URL("../../assets/glow_soft.png", import.meta.url);
 
     this.nebulaImgs = [];
-    for (const path of ["../../assets/nebula_neon_01.png", "../../assets/nebula_neon_02.png"]) {
-      const img = new Image();
-      img.src = new URL(path, import.meta.url);
-      this.nebulaImgs.push(img);
-    }
+
+    const nebula01 = new Image();
+    nebula01.onload = () => {
+      console.log("nebula loaded", nebula01.src, nebula01.naturalWidth, nebula01.naturalHeight);
+    };
+    nebula01.onerror = () => {
+      console.error("nebula failed", nebula01.src);
+    };
+    nebula01.src = new URL("../../assets/nebula_neon_01.png", import.meta.url);
+    this.nebulaImgs.push(nebula01);
+
+    const nebula02 = new Image();
+    nebula02.onload = () => {
+      console.log("nebula loaded", nebula02.src, nebula02.naturalWidth, nebula02.naturalHeight);
+    };
+    nebula02.onerror = () => {
+      console.error("nebula failed", nebula02.src);
+    };
+    nebula02.src = new URL("../../assets/nebula_neon_02.png", import.meta.url);
+    this.nebulaImgs.push(nebula02);
 
     this.noiseGrainImg = new Image();
     this.noiseGrainImg.src = new URL("../../assets/noise_grain.png", import.meta.url);
@@ -326,14 +341,20 @@ export class Background {
     if (!this.nebula) return;
 
     const { img, x, y, size, alpha, glowAlpha } = this.nebula;
-    if (!this.#isImageReady(img)) return;
+    if (!img?.complete || img.naturalWidth <= 0) return;
 
     this.#resetLayerState(ctx);
+    ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = alpha;
     ctx.drawImage(img, x - size * 0.5, y - size * 0.5, size, size);
 
+    // Mode test temporaire (plein écran) pour valider visuellement le chargement nébuleuse.
+    // ctx.globalAlpha = 0.25;
+    // ctx.drawImage(img, 0, 0, this.w, this.h);
+
     ctx.globalAlpha = glowAlpha;
     ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
+    ctx.globalAlpha = 1;
     this.#resetLayerState(ctx);
   }
 
