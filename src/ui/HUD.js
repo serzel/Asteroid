@@ -185,7 +185,7 @@ function drawComboBar(ctx, x, y, w, h, ratio) {
   ctx.restore();
 }
 
-export function getWeaponHUDStyle(level) {
+function getWeaponHUDStyle(level) {
   return WEAPON_HUD_STYLES[level] ?? WEAPON_HUD_STYLES[1];
 }
 
