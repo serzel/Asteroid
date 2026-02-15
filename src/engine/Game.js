@@ -7,6 +7,7 @@ import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Background } from "./Background.js";
+import { drawHUD } from "../ui/HUD.js";
 
 export class Game {
   constructor(canvas) {
@@ -92,6 +93,10 @@ export class Game {
 
   getCurrentComboWindow() {
     return this.getComboWindowForWeaponLevel(this.ship?.weaponLevel ?? 1);
+  }
+
+  getComboWindow() {
+    return this.getCurrentComboWindow();
   }
 
   logDebug(message) {
@@ -682,23 +687,7 @@ export class Game {
     for (const p of this.particles) p.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
 
-    const difficultyLabel = this.difficultyPreset ?? "NORMAL";
-    drawText(ctx, `Score: ${Math.floor(this.score)}`, 16, 12, 18);
-    drawText(ctx, `Vies: ${this.lives}`, 16, 34, 18);
-    drawText(ctx, `Niveau: ${this.level}`, 16, 56, 18);
-    drawText(ctx, `COMBO x${this.combo.toFixed(2)}`, 16, 78, 18);
-    const timerText = this.comboTimer < 1 && this.comboTimer > 0
-      ? `TIMER: ${this.comboTimer.toFixed(1)}s !`
-      : `TIMER: ${this.comboTimer.toFixed(1)}s`;
-    drawText(ctx, timerText, 16, 100, 18);
-    const weaponNames = {
-      1: "Blaster",
-      2: "Sniper",
-      3: "Double Blaster",
-      4: "Shotgun",
-    };
-    const weaponName = weaponNames[this.ship.weaponLevel] ?? `Weapon ${this.ship.weaponLevel}`;
-    drawText(ctx, `WEAPON: ${weaponName}`, 16, 122, 18);
+    drawHUD(ctx, this);
   }
 
   #drawGameOverOverlay() {
