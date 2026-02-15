@@ -29,7 +29,7 @@ export function getWeaponHUDStyle(level) {
   return WEAPON_HUD_STYLES[level] ?? WEAPON_HUD_STYLES[1];
 }
 
-export function drawOutlinedText(ctx, text, x, y, options = {}) {
+function drawOutlinedText(ctx, text, x, y, options = {}) {
   const {
     font = "20px system-ui, sans-serif",
     fillStyle = "white",
@@ -53,7 +53,7 @@ export function drawOutlinedText(ctx, text, x, y, options = {}) {
   ctx.restore();
 }
 
-export function drawPill(ctx, x, y, w, h, alpha = 0.25) {
+function drawPill(ctx, x, y, w, h, alpha = 0.25) {
   const r = Math.min(12, h * 0.5, w * 0.5);
 
   ctx.save();
@@ -73,7 +73,7 @@ export function drawPill(ctx, x, y, w, h, alpha = 0.25) {
   ctx.restore();
 }
 
-export function drawXWingIcon(ctx, x, y, size, isActive) {
+function drawXWingIcon(ctx, x, y, size, isActive) {
   const half = size * 0.5;
   const wing = size * 0.42;
   const body = size * 0.12;
@@ -125,7 +125,7 @@ export function drawXWingIcon(ctx, x, y, size, isActive) {
   ctx.restore();
 }
 
-export function drawWeaponIcon(ctx, x, y, level, color) {
+function drawWeaponIcon(ctx, x, y, level, color) {
   ctx.save();
   ctx.translate(x, y);
 

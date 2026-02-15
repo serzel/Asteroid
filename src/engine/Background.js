@@ -132,14 +132,20 @@ export class Background {
   }
 
   #triggerShooterTwinkle() {
-    const allStars = [];
-    for (const layer of this.starLayers) allStars.push(...layer.stars);
-    if (allStars.length === 0) return;
+    let totalStars = 0;
+    for (const layer of this.starLayers) totalStars += layer.stars.length;
+    if (totalStars === 0) return;
 
-    const picks = Math.min(6, allStars.length);
+    const picks = Math.min(6, totalStars);
     for (let i = 0; i < picks; i++) {
-      const idx = Math.floor(Math.random() * allStars.length);
-      allStars[idx].twinkleBoost = 0.6;
+      let idx = Math.floor(Math.random() * totalStars);
+      for (const layer of this.starLayers) {
+        if (idx < layer.stars.length) {
+          layer.stars[idx].twinkleBoost = 0.6;
+          break;
+        }
+        idx -= layer.stars.length;
+      }
     }
   }
 

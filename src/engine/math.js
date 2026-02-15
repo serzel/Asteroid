@@ -18,9 +18,6 @@ export function rand(min, max) {
   return min + Math.random() * (max - min);
 }
 
-export function randInt(min, maxInclusive) {
-  return Math.floor(rand(min, maxInclusive + 1));
-}
 
 export function dot(ax, ay, bx, by) {
   return ax * bx + ay * by;

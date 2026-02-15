@@ -30,8 +30,6 @@ export class Game {
     this.comboTimer = 0;
     this.lives = 3;
 
-    this.COMBO_WINDOW = 5.0;
-
     this.level = 1;
     this.particles = [];
     this.explosions = [];

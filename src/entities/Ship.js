@@ -15,6 +15,13 @@ const WEAPON_TRAIL_COLORS = {
   4: "rgb(255, 60, 0)",
 };
 
+const WEAPON_HALF_COLORS = {
+  1: "rgba(0, 200, 255, 0.50)",
+  2: "rgba(0, 255, 120, 0.50)",
+  3: "rgba(180, 0, 255, 0.50)",
+  4: "rgba(255, 60, 0, 0.50)",
+};
+
 function weaponTrailColor(level) {
   return WEAPON_TRAIL_COLORS[level] ?? WEAPON_TRAIL_COLORS[1];
 }
@@ -54,12 +61,6 @@ export class Ship {
 
     this.invincible = 0; // secondes (respawn)
 
-    this.weaponNames = {
-      1: "Blaster",
-      2: "Sniper",
-      3: "Double Blaster",
-      4: "Shotgun",
-    };
 
     this.trail = [];
     this.trailMax = 12;
@@ -156,9 +157,6 @@ export class Ship {
     }
   }
 
-  getWeaponName() {
-    return this.weaponNames[this.weaponLevel] ?? "Blaster";
-  }
 
   tryShoot(bullets) {
     if (this.cooldown > 0) return;
@@ -254,7 +252,7 @@ export class Ship {
       const flameLength = 15 + this._flameJitter * 10;
       const baseX = -size * 0.35;
       const baseY = 0;
-      const weaponColorHalf = weaponColor.replace(/\d?\.\d+\)$/, "0.50)");
+      const weaponColorHalf = WEAPON_HALF_COLORS[this.weaponLevel] ?? WEAPON_HALF_COLORS[1];
 
       const grad = ctx.createRadialGradient(
         baseX,
