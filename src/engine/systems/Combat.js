@@ -60,9 +60,9 @@ export function resolveAsteroidCollisions(game) {
       const rvx = a.vx - b.vx;
       const rvy = a.vy - b.vy;
       const velAlongNormal = dot(rvx, rvy, nx, ny);
-      if (velAlongNormal <= 0) continue;
+      if (velAlongNormal > 0) continue;
 
-      const impulse = velAlongNormal;
+      const impulse = -velAlongNormal;
       a.vx -= impulse * nx;
       a.vy -= impulse * ny;
       b.vx += impulse * nx;
