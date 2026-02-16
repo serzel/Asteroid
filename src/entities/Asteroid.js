@@ -62,6 +62,19 @@ function loadAsteroidSprites() {
 
 const ASTEROID_SPRITES = loadAsteroidSprites();
 
+const ASTEROID_VISUAL_SCALE_BY_TYPE = {
+  normal: 1.10,
+  dense: 1.08,
+  fast: 1.15,
+  splitter: 1.12,
+};
+
+const ASTEROID_VISUAL_SCALE_BY_SIZE = {
+  1: 1.0,
+  2: 1.0,
+  3: 1.0,
+};
+
 const ASTEROID_HIT_CIRCLES = {
   normal: {
     1: [{ ox: 0, oy: 0, r: 1.0 }],
@@ -247,6 +260,10 @@ export class Asteroid {
     const sprite = spriteAsset?.img;
     const bbox = spriteAsset?.meta?.bbox;
     const diameter = this.displayRadius * 2;
+    const typeScale = ASTEROID_VISUAL_SCALE_BY_TYPE[this.type] ?? ASTEROID_VISUAL_SCALE_BY_TYPE.normal;
+    const sizeScale = ASTEROID_VISUAL_SCALE_BY_SIZE[this.size] ?? 1.0;
+    const visualScale = typeScale * sizeScale;
+    const drawDiameter = diameter * visualScale;
 
     ctx.save();
     ctx.translate(this.x, this.y);
@@ -265,8 +282,8 @@ export class Asteroid {
         cx: imgW * 0.5,
         cy: imgH * 0.5,
       };
-      const scaleX = diameter / imgW;
-      const scaleY = diameter / imgH;
+      const scaleX = drawDiameter / imgW;
+      const scaleY = drawDiameter / imgH;
       const drawX = -bb.cx * scaleX;
       const drawY = -bb.cy * scaleY;
 
@@ -282,7 +299,7 @@ export class Asteroid {
     if (this.hitFlash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = `rgba(255,255,255,${0.22 * this.hitFlash})`;
-      ctx.fillRect(-this.displayRadius, -this.displayRadius, diameter, diameter);
+      ctx.fillRect(-drawDiameter * 0.5, -drawDiameter * 0.5, drawDiameter, drawDiameter);
       ctx.globalCompositeOperation = "source-over";
     }
 
