@@ -1,5 +1,3 @@
-import { wrap } from "../engine/math.js";
-
 export class Bullet {
   constructor(x = 0, y = 0, vx = 0, vy = 0, life = 1.2, color = "white", styleLevel = 1) {
     this.radius = 2;
@@ -22,8 +20,11 @@ export class Bullet {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    this.x = wrap(this.x, world.w);
-    this.y = wrap(this.y, world.h);
+    const margin = this.radius;
+    if (this.x < -margin || this.x > world.w + margin || this.y < -margin || this.y > world.h + margin) {
+      this.dead = true;
+      return;
+    }
 
     this.life -= dt;
     if (this.life <= 0) this.dead = true;

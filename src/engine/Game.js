@@ -1,9 +1,8 @@
 import { Input } from "./Input.js";
 import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
-import { dist2, rand } from "./math.js";
+import { rand } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Bullet } from "../entities/Bullet.js";
-import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Background } from "./Background.js";
@@ -11,7 +10,7 @@ import { drawHUD } from "../ui/HUD.js";
 import { SpatialHash } from "./SpatialHash.js";
 import { Pool } from "./Pool.js";
 import { spawnLevel, nextLevel, getWaveBudget, getWaveWeights, buildWave } from "./systems/Spawner.js";
-import { updateEffectsOnly, spawnDebris } from "./systems/Effects.js";
+import { updateEffectsOnly, spawnDebris, prepareFxFrameBudget, spawnParticleBurstCapped } from "./systems/Effects.js";
 import { rebuildAsteroidSpatialHash, resolveAsteroidCollisions, resolveBulletAsteroidCollisions } from "./systems/Combat.js";
 import { updateTitleState } from "./states/TitleState.js";
 import { updatePlayState } from "./states/PlayState.js";
@@ -76,6 +75,7 @@ export class Game {
 
     this.asteroidSpatialHash = new SpatialHash(96);
     this.asteroidSpatialQuery = [];
+    this.bulletSpatialQuery = [];
     this.asteroidIndexMap = new Map();
 
     this.bulletPool = new Pool(() => new Bullet());
@@ -106,12 +106,16 @@ export class Game {
     this.debugEnabled = false;
     this.debugColliders = false;
     this.debugLogAccum = 0;
-    this.debugPerfAccum = 0;
-    this.debugPerf = {
+
+    this.debugProfilerEnabled = false;
+    this.debugProfiler = {
+      fps: 0,
       updateMs: 0,
-      drawMs: 0,
+      renderMs: 0,
+      sampleTime: 0,
       frameCount: 0,
-      frameTimeTotal: 0,
+      updateTotal: 0,
+      renderTotal: 0,
     };
 
     this.hudFx = {
@@ -380,44 +384,78 @@ export class Game {
     if (!this.running) return;
 
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
-    const frameStart = this.debugEnabled ? performance.now() : 0;
     this.last = t;
 
     this.#applyResizeIfNeeded();
 
-    let updateStart = 0;
-    let drawStart = 0;
-    if (this.debugEnabled) {
-      performance.mark("game:update:start");
-      updateStart = performance.now();
-    }
-    this.#update(dt);
-    if (this.debugEnabled) {
-      this.debugPerf.updateMs += performance.now() - updateStart;
-      performance.mark("game:update:end");
-      performance.measure("game:update", "game:update:start", "game:update:end");
-      performance.clearMeasures("game:update");
-      performance.clearMarks("game:update:start");
-      performance.clearMarks("game:update:end");
-
-      performance.mark("game:draw:start");
-      drawStart = performance.now();
-    }
-    this.#draw();
-    if (this.debugEnabled) {
-      this.debugPerf.drawMs += performance.now() - drawStart;
-      performance.mark("game:draw:end");
-      performance.measure("game:draw", "game:draw:start", "game:draw:end");
-      performance.clearMeasures("game:draw");
-      performance.clearMarks("game:draw:start");
-      performance.clearMarks("game:draw:end");
-
-      this.debugPerf.frameTimeTotal += performance.now() - frameStart;
-      this.debugPerf.frameCount += 1;
+    if (this.debugProfilerEnabled) {
+      const updateStart = performance.now();
+      this.#update(dt);
+      const updateEnd = performance.now();
+      this.#draw();
+      const renderEnd = performance.now();
+      this.#sampleProfiler(dt, updateEnd - updateStart, renderEnd - updateEnd);
+    } else {
+      this.#update(dt);
+      this.#draw();
     }
 
     this.input.endFrame();
     requestAnimationFrame(this.loopHandle);
+  }
+
+
+  #resetProfilerSamples() {
+    this.debugProfiler.fps = 0;
+    this.debugProfiler.updateMs = 0;
+    this.debugProfiler.renderMs = 0;
+    this.debugProfiler.sampleTime = 0;
+    this.debugProfiler.frameCount = 0;
+    this.debugProfiler.updateTotal = 0;
+    this.debugProfiler.renderTotal = 0;
+  }
+
+  #sampleProfiler(dt, updateMs, renderMs) {
+    this.debugProfiler.sampleTime += dt;
+    this.debugProfiler.frameCount += 1;
+    this.debugProfiler.updateTotal += updateMs;
+    this.debugProfiler.renderTotal += renderMs;
+
+    if (this.debugProfiler.sampleTime < 0.25) return;
+
+    const frames = this.debugProfiler.frameCount;
+    this.debugProfiler.fps = frames / this.debugProfiler.sampleTime;
+    this.debugProfiler.updateMs = this.debugProfiler.updateTotal / frames;
+    this.debugProfiler.renderMs = this.debugProfiler.renderTotal / frames;
+    this.debugProfiler.sampleTime = 0;
+    this.debugProfiler.frameCount = 0;
+    this.debugProfiler.updateTotal = 0;
+    this.debugProfiler.renderTotal = 0;
+  }
+
+  #drawProfilerOverlay() {
+    if (!this.debugProfilerEnabled) return;
+
+    const ctx = this.ctx;
+    const x = 14;
+    const y = 12;
+    const lineH = 16;
+    const w = 172;
+    const h = 60;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
+    ctx.fillRect(x - 8, y - 6, w, h);
+
+    ctx.font = "600 12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#7ef7ff";
+    ctx.fillText(`FPS: ${this.debugProfiler.fps.toFixed(1)}`, x, y);
+    ctx.fillText(`Update: ${this.debugProfiler.updateMs.toFixed(2)} ms`, x, y + lineH);
+    ctx.fillText(`Render: ${this.debugProfiler.renderMs.toFixed(2)} ms`, x, y + lineH * 2);
+    ctx.restore();
   }
 
   #applyResizeIfNeeded(force = false) {
@@ -435,6 +473,8 @@ export class Game {
   }
 
   #updateGameplay(dt) {
+    prepareFxFrameBudget(this, dt);
+
     this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
     this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
     this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
@@ -529,7 +569,9 @@ export class Game {
       for (const a of this.asteroids) {
         if (a.dead) continue;
         const r = this.ship.radius + a.radius;
-        if (dist2(this.ship.x, this.ship.y, a.x, a.y) <= r * r) {
+        const dx = a.x - this.ship.x;
+        const dy = a.y - this.ship.y;
+        if (dx * dx + dy * dy <= r * r) {
           this.lives -= 1;
           this.combo = 1;
           this.comboTimer = 0;
@@ -537,7 +579,7 @@ export class Game {
 
           this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, { life: 0.45, ringCount: 3, maxRadius: 100, flashAlpha: 0.95, colorMode: "normal" }), this.maxExplosions);
           this.addShake(PLAYER_HIT_SHAKE.amp, PLAYER_HIT_SHAKE.dur);
-          this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3, (...args) => this.particlePool.acquire(...args)), this.maxParticles, this.particlePool);
+          spawnParticleBurstCapped(this, this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3);
 
           if (this.lives <= 0) {
             this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
@@ -580,8 +622,13 @@ export class Game {
       console.log(`[DEBUG] Colliders ${this.debugColliders ? "ON" : "OFF"}`);
     }
 
+    if (this.input.wasPressed("debugProfiler")) {
+      this.debugProfilerEnabled = !this.debugProfilerEnabled;
+      this.#resetProfilerSamples();
+      console.log(`[DEBUG] Profiler ${this.debugProfilerEnabled ? "ON" : "OFF"}`);
+    }
+
     this.debugLogAccum += dt;
-    this.debugPerfAccum += dt;
     if (this.debugEnabled && this.debugLogAccum >= 1.0) {
       this.debugLogAccum = 0;
       const difficulty = this.difficultyPreset ?? "NORMAL";
@@ -590,20 +637,6 @@ export class Game {
       );
     }
 
-    if (this.debugEnabled && this.debugPerfAccum >= 1.0 && this.debugPerf.frameCount > 0) {
-      const avgFrame = this.debugPerf.frameTimeTotal / this.debugPerf.frameCount;
-      const avgUpdate = this.debugPerf.updateMs / this.debugPerf.frameCount;
-      const avgDraw = this.debugPerf.drawMs / this.debugPerf.frameCount;
-      const fps = this.debugPerf.frameCount / this.debugPerfAccum;
-      console.log(
-        `[PERF] fps=${fps.toFixed(1)} frame=${avgFrame.toFixed(2)}ms update=${avgUpdate.toFixed(2)}ms draw=${avgDraw.toFixed(2)}ms`
-      );
-      this.debugPerfAccum = 0;
-      this.debugPerf.frameCount = 0;
-      this.debugPerf.frameTimeTotal = 0;
-      this.debugPerf.updateMs = 0;
-      this.debugPerf.drawMs = 0;
-    }
 
     this.background.update(dt);
 
@@ -730,13 +763,13 @@ export class Game {
     ctx.restore();
   }
 
-  #drawNeonButton(rect, label, state) {
+  #drawNeonButton(rect, label, hovered, pressed = false) {
     const ctx = this.ctx;
     const { x, y, w, h } = rect;
     const radius = 9;
-    const pulse = state.hovered ? 0.5 + 0.5 * Math.sin(performance.now() * 0.006) : 0;
-    const glowBoost = state.hovered ? 1 : 0.35;
-    const pressBoost = state.pressed ? 0.35 : 0;
+    const pulse = hovered ? 0.5 + 0.5 * Math.sin(performance.now() * 0.006) : 0;
+    const glowBoost = hovered ? 1 : 0.35;
+    const pressBoost = pressed ? 0.35 : 0;
 
     const borderGrad = ctx.createLinearGradient(x, y, x + w, y + h);
     borderGrad.addColorStop(0, "rgba(255,84,236,0.96)");
@@ -754,7 +787,7 @@ export class Game {
     this.#roundedRectPath(ctx, x, y, w, h, radius);
     ctx.stroke();
 
-    if (state.hovered || state.pressed) {
+    if (hovered || pressed) {
       ctx.shadowBlur = 0;
       ctx.lineWidth = 1.2;
       ctx.strokeStyle = `rgba(215,252,255,${0.55 + pulse * 0.3 + pressBoost})`;
@@ -795,10 +828,7 @@ export class Game {
     ctx.restore();
 
     for (const button of this.titleButtons) {
-      this.#drawNeonButton(button, button.label, {
-        hovered: this.hoveredButtonId === button.id,
-        pressed: false,
-      });
+      this.#drawNeonButton(button, button.label, this.hoveredButtonId === button.id);
     }
 
     ctx.save();
@@ -886,6 +916,7 @@ export class Game {
 
     if (this.state === GAME_STATE.TITLE) {
       this.#drawTitleScreen();
+      this.#drawProfilerOverlay();
       return;
     }
 
@@ -900,5 +931,6 @@ export class Game {
     ctx.restore();
 
     drawHUD(ctx, this);
+    this.#drawProfilerOverlay();
   }
 }

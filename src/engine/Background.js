@@ -413,12 +413,11 @@ export class Background {
 
         if (star.large && glowReady) {
           const glowSize = star.r * star.glowMul;
-          ctx.save();
           ctx.globalAlpha = star.glowAlpha * alpha;
           ctx.drawImage(this.glowImg, star.x - glowSize * 0.5, star.y - glowSize * 0.5, glowSize, glowSize);
-          ctx.restore();
         }
 
+        ctx.globalAlpha = 1;
         ctx.fillStyle = `hsla(${star.h.toFixed(1)}, ${star.s.toFixed(1)}%, ${star.l.toFixed(1)}%, ${alpha.toFixed(4)})`;
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);

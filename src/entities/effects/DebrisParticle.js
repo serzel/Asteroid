@@ -37,7 +37,6 @@ export class DebrisParticle {
     const dx = this.vx * 0.012;
     const dy = this.vy * 0.012;
 
-    ctx.save();
     ctx.globalAlpha = t;
     ctx.strokeStyle = this.color;
     ctx.lineWidth = this.size;
@@ -48,7 +47,8 @@ export class DebrisParticle {
     ctx.moveTo(this.x - dx, this.y - dy);
     ctx.lineTo(this.x + dx, this.y + dy);
     ctx.stroke();
-    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
   }
 
   static spray(x, y, count, color, speedMin = 45, speedMax = 170, acquire = null) {

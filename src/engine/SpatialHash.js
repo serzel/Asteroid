@@ -30,7 +30,8 @@ export class SpatialHash {
     }
   }
 
-  query(x, y, radius = 0, out = []) {
+  query(x, y, radius = 0, out) {
+    if (!out) throw new Error("SpatialHash.query requires an output array");
     out.length = 0;
     this._queryId += 1;
     const queryId = this._queryId;

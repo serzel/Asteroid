@@ -23,6 +23,7 @@ export class Input {
     this.actionBindings = {
       shoot: "Space",
       debugToggle: "F1",
+      debugProfiler: "F2",
     };
 
     this.capturedCodes = new Set([
