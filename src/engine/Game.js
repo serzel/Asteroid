@@ -16,15 +16,10 @@ import { rebuildAsteroidSpatialHash, resolveAsteroidCollisions, resolveBulletAst
 import { updateTitleState } from "./states/TitleState.js";
 import { updatePlayState } from "./states/PlayState.js";
 import { updateGameOverAnimState, updateGameOverReadyState } from "./states/GameOverState.js";
+import { DIFFICULTY_PRESETS, COMBO_OVERLAY, COMBO_WINDOW } from "../config/gameplay.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
-
-const COMBO_AMBIANCE_START = 10;
-const COMBO_AMBIANCE_RANGE = 35;
-const COMBO_PULSE_ALPHA = 0.06;
-const COMBO_OVERLAY_BASE_ALPHA = 0.06;
-const COMBO_OVERLAY_COLOR = "rgba(120,0,255,1)";
 
 const GAME_STATE = {
   TITLE: "TITLE",
@@ -102,11 +97,7 @@ export class Game {
     this.gameOverDelay = 0;
 
     this.difficultyPreset = null;
-    this.difficultyPresets = {
-      EASY: { waveBudgetMult: 0.85, asteroidSpeedMult: 0.9, scoreDrainCombo1PerSec: 800 },
-      NORMAL: { waveBudgetMult: 1.0, asteroidSpeedMult: 1.0, scoreDrainCombo1PerSec: 1200 },
-      HARD: { waveBudgetMult: 1.15, asteroidSpeedMult: 1.1, scoreDrainCombo1PerSec: 1600 },
-    };
+    this.difficultyPresets = DIFFICULTY_PRESETS;
 
     this.hoveredButtonId = null;
     this.titleButtons = [];
@@ -155,7 +146,7 @@ export class Game {
 
 
   getComboWindowForWeaponLevel(level) {
-    return Math.max(1, 5.0 - (level - 1) * 0.5);
+    return Math.max(COMBO_WINDOW.min, COMBO_WINDOW.base - (level - 1) * COMBO_WINDOW.perWeaponLevel);
   }
 
   getCurrentComboWindow() {
@@ -826,15 +817,15 @@ export class Game {
     for (const b of this.bullets) b.draw(ctx);
 
     const comboWindow = this.getCurrentComboWindow();
-    const amb = this.clamp01((this.combo - COMBO_AMBIANCE_START) / COMBO_AMBIANCE_RANGE);
+    const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
     const pulseWindow = comboWindow * 0.25;
-    const pulse = this.comboTimer < pulseWindow ? COMBO_PULSE_ALPHA * this.clamp01(1 - this.comboTimer / pulseWindow) : 0;
+    const pulse = this.comboTimer < pulseWindow ? COMBO_OVERLAY.pulseAlpha * this.clamp01(1 - this.comboTimer / pulseWindow) : 0;
     this.background.setAmbienceFactor(amb);
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = COMBO_OVERLAY_BASE_ALPHA * amb + pulse;
-    ctx.fillStyle = COMBO_OVERLAY_COLOR;
+    ctx.globalAlpha = COMBO_OVERLAY.baseAlpha * amb + pulse;
+    ctx.fillStyle = COMBO_OVERLAY.color;
     ctx.fillRect(0, 0, this.world.w, this.world.h);
     ctx.restore();
   }

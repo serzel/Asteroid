@@ -1,5 +1,6 @@
 import { wrap } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
+import { WEAPON_LEVEL_RULES } from "../config/gameplay.js";
 
 const WEAPON_COLORS = {
   1: "rgba(0, 200, 255, 0.90)",
@@ -142,19 +143,9 @@ export class Ship {
   }
 
   updateWeaponLevel(combo) {
-    if (combo >= 45) {
-      this.weaponLevel = 4;
-      this.bulletLife = 0.95;
-    } else if (combo >= 25) {
-      this.weaponLevel = 3;
-      this.bulletLife = 1.2;
-    } else if (combo >= 10) {
-      this.weaponLevel = 2;
-      this.bulletLife = 1.9;
-    } else {
-      this.weaponLevel = 1;
-      this.bulletLife = 1.2;
-    }
+    const rule = WEAPON_LEVEL_RULES.find((entry) => combo >= entry.minCombo) ?? WEAPON_LEVEL_RULES[WEAPON_LEVEL_RULES.length - 1];
+    this.weaponLevel = rule.weaponLevel;
+    this.bulletLife = rule.bulletLife;
   }
 
 
