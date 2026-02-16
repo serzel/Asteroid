@@ -30,8 +30,7 @@ export class SpatialHash {
     }
   }
 
-  query(x, y, radius = 0, out = []) {
-    out.length = 0;
+  query(x, y, radius = 0, out) {
     this._queryId += 1;
     const queryId = this._queryId;
 
