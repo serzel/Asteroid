@@ -51,11 +51,12 @@ export class DebrisParticle {
     ctx.restore();
   }
 
-  static spray(x, y, count, color, speedMin = 45, speedMax = 170, acquire = null) {
+  static spray(x, y, count, color, speedMin = 45, speedMax = 170, acquire = null, maxToSpawn = count) {
     const out = [];
     const make = acquire ?? ((px, py, pvx, pvy, life, size, particleColor) => new DebrisParticle(px, py, pvx, pvy, life, size, particleColor));
+    const target = Math.max(0, Math.min(count, Math.floor(maxToSpawn)));
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < target; i++) {
       const a = rand(0, Math.PI * 2);
       const s = rand(speedMin, speedMax);
       out.push(make(

@@ -10,15 +10,27 @@ export function debrisColorFor(type) {
 
 export function spawnDebris(game, x, y, count, type, speedMin, speedMax) {
   const color = debrisColorFor(type);
+  const reducedCount = Math.max(1, Math.round(count * 0.65));
+  const debrisBudgetLeft = Math.max(0, (game.fxDebrisBudgetPerFrame ?? 0) - (game.fxSpawnedDebrisThisFrame ?? 0));
+  const totalBudgetLeft = Math.max(0, (game.fxSpawnBudgetTotal ?? 0) - (game.fxSpawnedThisFrame ?? 0));
+  const maxToSpawn = Math.min(reducedCount, debrisBudgetLeft, totalBudgetLeft);
+
+  if (maxToSpawn <= 0) return;
+
   const items = DebrisParticle.spray(
     x,
     y,
-    count,
+    reducedCount,
     color,
     speedMin,
     speedMax,
-    (...args) => game.debrisPool.acquire(...args)
+    (...args) => game.debrisPool.acquire(...args),
+    maxToSpawn
   );
+  const spawned = items.length;
+  if (spawned <= 0) return;
+  game.fxSpawnedDebrisThisFrame += spawned;
+  game.fxSpawnedThisFrame += spawned;
   game.pushCapped(game.debris, items, game.maxDebris, game.debrisPool);
 }
 

@@ -73,6 +73,12 @@ export class Game {
     this.maxBullets = 120;
     this.maxParticles = 900;
     this.maxExplosions = 80;
+    this.fxSpawnBudgetTotal = 200;
+    this.fxParticleBudgetPerFrame = 120;
+    this.fxDebrisBudgetPerFrame = 80;
+    this.fxSpawnedThisFrame = 0;
+    this.fxSpawnedParticlesThisFrame = 0;
+    this.fxSpawnedDebrisThisFrame = 0;
 
     this.asteroidSpatialHash = new SpatialHash(96);
     this.asteroidSpatialQuery = [];
@@ -478,6 +484,10 @@ export class Game {
   }
 
   #updateGameplay(dt) {
+    this.fxSpawnedThisFrame = 0;
+    this.fxSpawnedParticlesThisFrame = 0;
+    this.fxSpawnedDebrisThisFrame = 0;
+
     this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
     this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
     this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
@@ -580,7 +590,29 @@ export class Game {
 
           this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, { life: 0.45, ringCount: 3, maxRadius: 100, flashAlpha: 0.95, colorMode: "normal" }), this.maxExplosions);
           this.addShake(PLAYER_HIT_SHAKE.amp, PLAYER_HIT_SHAKE.dur);
-          this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3, (...args) => this.particlePool.acquire(...args)), this.maxParticles, this.particlePool);
+          {
+            const baseParticleCount = Math.round(70 * 0.65);
+            const particleBudgetLeft = Math.max(0, this.fxParticleBudgetPerFrame - this.fxSpawnedParticlesThisFrame);
+            const totalBudgetLeft = Math.max(0, this.fxSpawnBudgetTotal - this.fxSpawnedThisFrame);
+            const maxToSpawn = Math.min(baseParticleCount, particleBudgetLeft, totalBudgetLeft);
+            const spawnedParticles = Particle.burst(
+              this.ship.x,
+              this.ship.y,
+              baseParticleCount,
+              80,
+              380,
+              0.35,
+              1.05,
+              1,
+              3,
+              (...args) => this.particlePool.acquire(...args),
+              maxToSpawn
+            );
+            const spawned = spawnedParticles.length;
+            this.fxSpawnedParticlesThisFrame += spawned;
+            this.fxSpawnedThisFrame += spawned;
+            this.#pushCapped(this.particles, spawnedParticles, this.maxParticles, this.particlePool);
+          }
 
           if (this.lives <= 0) {
             this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);

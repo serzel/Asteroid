@@ -26,7 +26,16 @@ export class Explosion {
     this.x = x;
     this.y = y;
     this.t = 0;
-    this.profile = { ...EXPLOSION_DEFAULT_PROFILE, ...profile };
+
+    const merged = { ...EXPLOSION_DEFAULT_PROFILE, ...profile };
+    const ringCount = Math.max(1, Math.min(3, Math.floor(merged.ringCount)));
+    const maxRadiusCap = merged.maxRadius > 100 ? merged.maxRadius * 0.85 : merged.maxRadius;
+
+    this.profile = {
+      ...merged,
+      ringCount,
+      maxRadius: maxRadiusCap,
+    };
     this.dead = false;
   }
 
