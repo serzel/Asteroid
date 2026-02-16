@@ -27,13 +27,15 @@ export function rebuildAsteroidSpatialHash(game) {
 
 export function resolveAsteroidCollisions(game) {
   const A = game.asteroids;
+  const tmp = game._queryTmp ?? (game._queryTmp = []);
 
   for (let i = 0; i < A.length; i++) {
     const a = A[i];
     if (a.dead) continue;
 
-    const candidates = game.asteroidSpatialHash.query(a.x, a.y, a.radius, game.asteroidSpatialQuery);
-    for (const b of candidates) {
+    tmp.length = 0;
+    game.asteroidSpatialHash.query(a.x, a.y, a.radius, tmp);
+    for (const b of tmp) {
       const j = game.asteroidIndexMap.get(b);
       if (j == null || j <= i) continue;
       if (b.dead) continue;
@@ -76,14 +78,17 @@ export function resolveAsteroidCollisions(game) {
 }
 
 export function resolveBulletAsteroidCollisions(game) {
+  const tmp = game._queryTmp ?? (game._queryTmp = []);
+
   for (const b of game.bullets) {
     if (b.dead) continue;
 
-    const candidates = game.asteroidSpatialHash.query(b.x, b.y, b.radius, game.asteroidSpatialQuery);
+    tmp.length = 0;
+    game.asteroidSpatialHash.query(b.x, b.y, b.radius, tmp);
     let target = null;
     let minD2 = Infinity;
 
-    for (const a of candidates) {
+    for (const a of tmp) {
       if (a.dead) continue;
       const r = b.radius + a.radius;
       const r2 = r * r;
