@@ -582,8 +582,22 @@ export class Game {
     if (this.ship.invincible <= 0) {
       for (const a of this.asteroids) {
         if (a.dead) continue;
-        const r = this.ship.radius + a.radius;
-        if (dist2(this.ship.x, this.ship.y, a.x, a.y) <= r * r) {
+
+        const broadR = this.ship.radius + a.radius;
+        if (dist2(this.ship.x, this.ship.y, a.x, a.y) > broadR * broadR) continue;
+
+        const hitCircles = a.getWorldHitCircles(a._worldHitCircles ?? (a._worldHitCircles = []));
+        let shipHit = false;
+        for (let i = 0; i < hitCircles.length; i++) {
+          const c = hitCircles[i];
+          const rr = this.ship.radius + c.r;
+          if (dist2(this.ship.x, this.ship.y, c.x, c.y) <= rr * rr) {
+            shipHit = true;
+            break;
+          }
+        }
+
+        if (shipHit) {
           this.lives -= 1;
           this.combo = 1;
           this.comboTimer = 0;
@@ -969,7 +983,13 @@ export class Game {
     }
 
     for (const a of this.asteroids) {
-      this.#drawColliderCircle(a.x, a.y, a.radius, "rgba(255, 102, 102, 0.95)");
+      this.#drawColliderCircle(a.x, a.y, a.radius, "rgba(255, 102, 102, 0.55)");
+
+      const hitCircles = a.getWorldHitCircles(a._worldHitCircles ?? (a._worldHitCircles = []));
+      for (let i = 0; i < hitCircles.length; i++) {
+        const c = hitCircles[i];
+        this.#drawColliderCircle(c.x, c.y, c.r, "rgba(255, 58, 58, 0.95)");
+      }
     }
 
     ctx.restore();

@@ -1,4 +1,4 @@
-import { dist2, rand, dot } from "../math.js";
+import { rand, dot } from "../math.js";
 import { Asteroid } from "../../entities/Asteroid.js";
 import { Particle } from "../../entities/effects/Particle.js";
 import { Explosion } from "../../entities/effects/Explosion.js";
@@ -13,6 +13,65 @@ const SHAKE_BY_ASTEROID_SIZE = {
 const HIT_STOP_BIG = 0.05;
 const HIT_STOP_DENSE = 0.04;
 const HIT_STOP_WEAPON_UP = 0.03;
+
+function findDeepestAsteroidPairContact(a, b) {
+  const circlesA = a.getWorldHitCircles(a._worldHitCircles ?? (a._worldHitCircles = []));
+  const circlesB = b.getWorldHitCircles(b._worldHitCircles ?? (b._worldHitCircles = []));
+
+  let best = null;
+  for (let i = 0; i < circlesA.length; i++) {
+    const ca = circlesA[i];
+    for (let j = 0; j < circlesB.length; j++) {
+      const cb = circlesB[j];
+      const dx = cb.x - ca.x;
+      const dy = cb.y - ca.y;
+      const rr = ca.r + cb.r;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > rr * rr) continue;
+
+      let d = Math.sqrt(d2);
+      let nx = 1;
+      let ny = 0;
+      if (d > 1e-8) {
+        nx = dx / d;
+        ny = dy / d;
+      } else {
+        const fallbackDx = b.x - a.x;
+        const fallbackDy = b.y - a.y;
+        const fallbackLen = Math.hypot(fallbackDx, fallbackDy);
+        if (fallbackLen > 1e-8) {
+          nx = fallbackDx / fallbackLen;
+          ny = fallbackDy / fallbackLen;
+        }
+        d = 0;
+      }
+
+      const penetration = rr - d;
+      if (!best || penetration > best.penetration) {
+        best = { nx, ny, penetration };
+        if (penetration >= rr * 0.4) return best;
+      }
+    }
+  }
+
+  return best;
+}
+
+function findBulletAsteroidHit(bullet, asteroid) {
+  const circles = asteroid.getWorldHitCircles(asteroid._worldHitCircles ?? (asteroid._worldHitCircles = []));
+  let bestD2 = Infinity;
+  for (let i = 0; i < circles.length; i++) {
+    const c = circles[i];
+    const dx = bullet.x - c.x;
+    const dy = bullet.y - c.y;
+    const rr = bullet.radius + c.r;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > rr * rr || d2 >= bestD2) continue;
+    bestD2 = d2;
+  }
+
+  return bestD2;
+}
 
 export function rebuildAsteroidSpatialHash(game) {
   game.asteroidSpatialHash.clear();
@@ -48,18 +107,20 @@ export function resolveAsteroidCollisions(game) {
         if (j == null || j <= i) continue;
         if (b.dead) continue;
 
-        const r = a.radius + b.radius;
-        const r2 = r * r;
+        const broadR = a.radius + b.radius;
+        const broadR2 = broadR * broadR;
 
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const d2 = dx * dx + dy * dy;
+        const broadDx = b.x - a.x;
+        const broadDy = b.y - a.y;
+        const broadD2 = broadDx * broadDx + broadDy * broadDy;
 
-        if (d2 > r2 || d2 === 0) continue;
+        if (broadD2 > broadR2) continue;
 
-        const d = Math.sqrt(d2);
-        const nx = dx / d;
-        const ny = dy / d;
+        const contact = findDeepestAsteroidPairContact(a, b);
+        if (!contact) continue;
+
+        const nx = contact.nx;
+        const ny = contact.ny;
 
         const mA = a.radius * a.radius;
         const mB = b.radius * b.radius;
@@ -101,7 +162,7 @@ export function resolveAsteroidCollisions(game) {
           if (iter === 0) collisionCount += 1;
         }
 
-        const penetration = r - d;
+        const penetration = contact.penetration;
         const correctionMag = (Math.max(penetration - slop, 0) / invMassSum) * percent;
         const correctionX = correctionMag * nx;
         const correctionY = correctionMag * ny;
@@ -152,10 +213,15 @@ export function resolveBulletAsteroidCollisions(game) {
 
     for (const a of tmp) {
       if (a.dead) continue;
-      const r = b.radius + a.radius;
-      const r2 = r * r;
-      const d2 = dist2(b.x, b.y, a.x, a.y);
-      if (d2 > r2 || d2 >= minD2) continue;
+
+      const broadR = b.radius + a.radius;
+      const broadDx = b.x - a.x;
+      const broadDy = b.y - a.y;
+      const broadD2 = broadDx * broadDx + broadDy * broadDy;
+      if (broadD2 > broadR * broadR) continue;
+
+      const d2 = findBulletAsteroidHit(b, a);
+      if (d2 === Infinity || d2 >= minD2) continue;
       minD2 = d2;
       target = a;
     }
