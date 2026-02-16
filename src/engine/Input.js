@@ -26,6 +26,7 @@ export class Input {
       "ArrowLeft",
       "ArrowRight",
       "Space",
+      "F1",
       "KeyW",
       "KeyA",
       "KeyS",
@@ -87,6 +88,7 @@ export class Input {
     const directionCodes = this.#directionCodes(code);
     if (directionCodes) return directionCodes.some((c) => this.down.has(c));
     if (code === "shoot") return this.down.has("Space");
+    if (code === "debugToggle") return this.down.has("F1");
 
     return this.down.has(code);
   }
@@ -95,6 +97,7 @@ export class Input {
     const directionCodes = this.#directionCodes(code);
     if (directionCodes) return directionCodes.some((c) => this.pressed.has(c));
     if (code === "shoot") return this.pressed.has("Space");
+    if (code === "debugToggle") return this.pressed.has("F1");
 
     return this.pressed.has(code);
   }

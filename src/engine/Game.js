@@ -104,6 +104,7 @@ export class Game {
     this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
 
     this.debugEnabled = false;
+    this.debugColliders = false;
     this.debugLogAccum = 0;
     this.debugPerfAccum = 0;
     this.debugPerf = {
@@ -574,6 +575,11 @@ export class Game {
       console.log(`[DEBUG] ${this.debugEnabled ? "Enabled" : "Disabled"}`);
     }
 
+    if (this.input.wasPressed("debugToggle")) {
+      this.debugColliders = !this.debugColliders;
+      console.log(`[DEBUG] Colliders ${this.debugColliders ? "ON" : "OFF"}`);
+    }
+
     this.debugLogAccum += dt;
     this.debugPerfAccum += dt;
     if (this.debugEnabled && this.debugLogAccum >= 1.0) {
@@ -830,6 +836,37 @@ export class Game {
     ctx.restore();
   }
 
+
+  #drawColliderCircle(x, y, radius, strokeStyle, lineWidth = 1.5) {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = strokeStyle;
+    ctx.stroke();
+  }
+
+  #drawCollidersOverlay() {
+    if (!this.debugColliders || this.state === GAME_STATE.TITLE) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+
+    if (this.ship) {
+      this.#drawColliderCircle(this.ship.x, this.ship.y, this.ship.radius, "rgba(80, 210, 255, 0.95)", 2);
+    }
+
+    for (const b of this.bullets) {
+      this.#drawColliderCircle(b.x, b.y, b.radius, "rgba(255, 243, 120, 0.95)");
+    }
+
+    for (const a of this.asteroids) {
+      this.#drawColliderCircle(a.x, a.y, a.radius, "rgba(255, 102, 102, 0.95)");
+    }
+
+    ctx.restore();
+  }
   #drawGameOverOverlay() {
     const ctx = this.ctx;
     ctx.save();
@@ -855,6 +892,7 @@ export class Game {
     ctx.save();
     ctx.translate(this.shakeX, this.shakeY);
     this.#drawPlayScene();
+    this.#drawCollidersOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
       this.#drawGameOverOverlay();
