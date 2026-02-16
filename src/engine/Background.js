@@ -7,7 +7,30 @@ const BG_LAYER_CONFIG = [
 const BG_DRIFT_X = 9;
 const BG_DRIFT_Y = 5;
 const DEFAULT_PLANET_SIZE = 256;
-const DEBUG_NEBULA = false;
+const NEBULA_LAYERS = [
+  {
+    scaleMin: 1.3,
+    scaleMax: 1.75,
+    speedMin: 2.2,
+    speedMax: 4.2,
+    baseAlphaMin: 0.2,
+    baseAlphaMax: 0.28,
+    glowAlphaMin: 0.08,
+    glowAlphaMax: 0.13,
+    tintAlpha: 0.08,
+  },
+  {
+    scaleMin: 1.05,
+    scaleMax: 1.35,
+    speedMin: 1.1,
+    speedMax: 2.2,
+    baseAlphaMin: 0.16,
+    baseAlphaMax: 0.24,
+    glowAlphaMin: 0.06,
+    glowAlphaMax: 0.1,
+    tintAlpha: 0.06,
+  },
+];
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
@@ -64,8 +87,7 @@ export class Background {
     this.planets = [];
     this.shootingStars = [];
     this.shootTimer = randomRange(7, 13);
-    this.nebula = null;
-    this.nebulaDebugLastLog = 0;
+    this.nebulae = [];
 
     this.glowImg = new Image();
     this.glowImg.src = new URL("../../assets/glow_soft.png", import.meta.url);
@@ -130,14 +152,14 @@ export class Background {
     return { ...config, stars };
   }
 
-  #pickNebulaStart() {
+  #pickNebulaStart(layerConfig) {
     const forbidden = {
       x: this.w * 0.2,
       y: this.h * 0.2,
       w: this.w * 0.6,
       h: this.h * 0.6,
     };
-    const size = Math.max(this.w, this.h) * randomRange(1.25, 1.75);
+    const size = Math.max(this.w, this.h) * randomRange(layerConfig.scaleMin, layerConfig.scaleMax);
 
     let x = randomRange(this.w * 0.1, this.w * 0.9);
     let y = randomRange(this.h * 0.1, this.h * 0.9);
@@ -152,10 +174,11 @@ export class Background {
       x,
       y,
       size,
-      alpha: randomRange(0.14, 0.24),
-      glowAlpha: randomRange(0.07, 0.13),
-      vx: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
-      vy: randomRange(1, 4) * (Math.random() > 0.5 ? 1 : -1),
+      alpha: randomRange(layerConfig.baseAlphaMin, layerConfig.baseAlphaMax),
+      glowAlpha: randomRange(layerConfig.glowAlphaMin, layerConfig.glowAlphaMax),
+      tintAlpha: layerConfig.tintAlpha,
+      vx: randomRange(layerConfig.speedMin, layerConfig.speedMax) * (Math.random() > 0.5 ? 1 : -1),
+      vy: randomRange(layerConfig.speedMin, layerConfig.speedMax) * (Math.random() > 0.5 ? 1 : -1),
     };
   }
 
@@ -163,7 +186,7 @@ export class Background {
     this.w = w;
     this.h = h;
     this.layers = BG_LAYER_CONFIG.map((config) => this.#buildLayer(config));
-    this.nebula = this.#pickNebulaStart();
+    this.nebulae = NEBULA_LAYERS.map((layerConfig) => this.#pickNebulaStart(layerConfig));
 
     const hudZones = [
       { x: 0, y: 0, w: this.w * 0.26, h: this.h * 0.17 },
@@ -264,14 +287,14 @@ export class Background {
       }
     }
 
-    if (this.nebula) {
-      this.nebula.x += this.nebula.vx * dt;
-      this.nebula.y += this.nebula.vy * dt;
-      const margin = this.nebula.size * 0.2;
-      if (this.nebula.x < -margin) this.nebula.x = this.w + margin;
-      if (this.nebula.x > this.w + margin) this.nebula.x = -margin;
-      if (this.nebula.y < -margin) this.nebula.y = this.h + margin;
-      if (this.nebula.y > this.h + margin) this.nebula.y = -margin;
+    for (const nebula of this.nebulae) {
+      nebula.x += nebula.vx * dt;
+      nebula.y += nebula.vy * dt;
+      const margin = nebula.size * 0.22;
+      if (nebula.x < -margin) nebula.x = this.w + margin;
+      if (nebula.x > this.w + margin) nebula.x = -margin;
+      if (nebula.y < -margin) nebula.y = this.h + margin;
+      if (nebula.y > this.h + margin) nebula.y = -margin;
     }
 
     for (const planet of this.planets) {
@@ -325,64 +348,51 @@ export class Background {
   }
 
   #drawNebula(ctx) {
-    if (DEBUG_NEBULA) {
-      const now = performance.now() * 0.001;
-      if (now - this.nebulaDebugLastLog >= 1) {
-        console.log("[nebula] draw entry");
-        this.nebulaDebugLastLog = now;
-      }
-    }
+    if (!this.nebulae.length) return;
 
-    if (!this.nebula) return;
+    for (const nebula of this.nebulae) {
+      if (!this.#isImageReady(nebula.img)) continue;
 
-    const { img, x, y, size, alpha, glowAlpha } = this.nebula;
-    if (!this.#isImageReady(img)) return;
+      const drawX = nebula.x - nebula.size * 0.5;
+      const drawY = nebula.y - nebula.size * 0.5;
+      const alpha = Math.max(0.16, nebula.alpha);
+      const glowAlpha = Math.max(0.06, nebula.glowAlpha);
 
-    const drawX = x - size * 0.5;
-    const drawY = y - size * 0.5;
-    const composite = "source-over";
-
-    this.#resetLayerState(ctx);
-    ctx.globalCompositeOperation = composite;
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(img, drawX, drawY, size, size);
-
-    ctx.globalAlpha = glowAlpha;
-    ctx.drawImage(img, x - size * 0.52, y - size * 0.52, size * 1.04, size * 1.04);
-
-    if (DEBUG_NEBULA) {
-      const now = performance.now() * 0.001;
-      if (now - this.nebulaDebugLastLog >= 1) {
-        console.log("[nebula]", {
-          complete: img.complete,
-          naturalWidth: img.naturalWidth,
-          x: drawX,
-          y: drawY,
-          size,
-          alpha,
-          comp: composite,
-        });
-        this.nebulaDebugLastLog = now;
-      }
-    }
-
-    if (DEBUG_NEBULA) {
       ctx.save();
-      ctx.globalAlpha = 1;
+
+      // Passe 1 — matière de la nébuleuse (toujours visible sur fond sombre).
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-      ctx.fillRect(8, 8, 420, 108);
-      ctx.fillStyle = "#7ef5ff";
-      ctx.font = "12px monospace";
-      ctx.textBaseline = "top";
-      const lines = [
-        `nebula complete: ${img.complete}`,
-        `natural: ${img.naturalWidth} x ${img.naturalHeight}`,
-        `draw rect: ${drawX.toFixed(1)}, ${drawY.toFixed(1)}, ${size.toFixed(1)}, ${size.toFixed(1)}`,
-        `alpha: ${alpha.toFixed(3)}`,
-        `composite: ${composite}`,
-      ];
-      lines.forEach((line, i) => ctx.fillText(line, 16, 16 + i * 18));
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(nebula.img, drawX, drawY, nebula.size, nebula.size);
+
+      // Passe 2 — coeur lumineux pour renforcer l'énergie colorée.
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = glowAlpha;
+      ctx.drawImage(
+        nebula.img,
+        nebula.x - nebula.size * 0.54,
+        nebula.y - nebula.size * 0.54,
+        nebula.size * 1.08,
+        nebula.size * 1.08,
+      );
+
+      // Passe 3 — voile coloré doux pour conserver la signature néon dans les zones sombres.
+      const tint = ctx.createRadialGradient(
+        nebula.x,
+        nebula.y,
+        nebula.size * 0.08,
+        nebula.x,
+        nebula.y,
+        nebula.size * 0.56,
+      );
+      tint.addColorStop(0, `rgba(95,225,255,${nebula.tintAlpha.toFixed(3)})`);
+      tint.addColorStop(0.55, `rgba(168,72,255,${(nebula.tintAlpha * 0.8).toFixed(3)})`);
+      tint.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = tint;
+      ctx.fillRect(drawX, drawY, nebula.size, nebula.size);
+
       ctx.restore();
     }
 
