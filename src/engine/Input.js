@@ -25,6 +25,8 @@ export class Input {
       debugToggle: "F1",
       debugProfiler: "F2",
       debugProfilerFreeze: "F3",
+      debugSeams: "F4",
+      debugSeamsNearest: "F5",
     };
 
     this.capturedCodes = new Set([
