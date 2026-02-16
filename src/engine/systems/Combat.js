@@ -50,8 +50,11 @@ export function resolveAsteroidCollisions(game) {
       const nx = dx / d;
       const ny = dy / d;
 
-      const overlap = r - d;
-      const sep = overlap * 0.5;
+      const penetration = r - d;
+      const correctionPercent = 0.8;
+      const slop = 0.5;
+      const correction = Math.max(penetration - slop, 0) * correctionPercent;
+      const sep = correction * 0.5;
       a.x -= nx * sep;
       a.y -= ny * sep;
       b.x += nx * sep;
