@@ -1,5 +1,6 @@
 export class Input {
   constructor(target = window) {
+    this.target = target;
     this.down = new Set();
     this.pressed = new Set();
     this.keyboardLayout = "AZERTY";
@@ -33,7 +34,7 @@ export class Input {
       "KeyQ",
     ]);
 
-    target.addEventListener("keydown", (e) => {
+    this.onKeyDown = (e) => {
       if (this.capturedCodes.has(e.code)) e.preventDefault();
 
       if (!this.down.has(e.code)) this.pressed.add(e.code);
@@ -43,12 +44,29 @@ export class Input {
         this.keyboardLayout = this.keyboardLayout === "AZERTY" ? "QWERTY" : "AZERTY";
         console.info(`Layout: ${this.keyboardLayout}`);
       }
-    });
+    };
 
-    target.addEventListener("keyup", (e) => {
+    this.onKeyUp = (e) => {
       if (this.capturedCodes.has(e.code)) e.preventDefault();
       this.down.delete(e.code);
-    });
+    };
+
+    this.onWindowBlur = () => {
+      this.down.clear();
+      this.pressed.clear();
+    };
+
+    this.onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        this.down.clear();
+        this.pressed.clear();
+      }
+    };
+
+    target.addEventListener("keydown", this.onKeyDown);
+    target.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("blur", this.onWindowBlur);
+    document.addEventListener("visibilitychange", this.onVisibilityChange);
   }
 
   #directionCodes(action) {
@@ -82,6 +100,15 @@ export class Input {
   }
 
   endFrame() {
+    this.pressed.clear();
+  }
+
+  destroy() {
+    this.target.removeEventListener("keydown", this.onKeyDown);
+    this.target.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("blur", this.onWindowBlur);
+    document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    this.down.clear();
     this.pressed.clear();
   }
 }

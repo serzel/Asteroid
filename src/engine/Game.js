@@ -28,6 +28,13 @@ const COMBO_PULSE_ALPHA = 0.06;
 const COMBO_OVERLAY_BASE_ALPHA = 0.06;
 const COMBO_OVERLAY_COLOR = "rgba(120,0,255,1)";
 
+const GAME_STATE = {
+  TITLE: "TITLE",
+  PLAY: "PLAY",
+  GAME_OVER_ANIM: "GAME_OVER_ANIM",
+  GAME_OVER_READY: "GAME_OVER_READY",
+};
+
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -37,6 +44,19 @@ export class Game {
 
     this.last = 0;
     this.running = false;
+
+    this.resizeObserver = null;
+    this.resizeDirty = true;
+    this.resizeFallbackHandler = () => {
+      this.resizeDirty = true;
+    };
+
+    this.pointerTransform = {
+      left: 0,
+      top: 0,
+      scaleX: 1,
+      scaleY: 1,
+    };
 
     this.world = { w: 0, h: 0 };
 
@@ -59,7 +79,6 @@ export class Game {
     this.maxExplosions = 80;
 
     this.background = new Background(canvas.width, canvas.height);
-    this.fastTrailAcc = 0;
     this.waveQueued = false;
 
     this.shakeTime = 0;
@@ -70,7 +89,7 @@ export class Game {
     this.hitStop = 0;
 
     // États principaux: TITLE -> PLAY -> GAME_OVER_ANIM -> GAME_OVER_READY.
-    this.state = "TITLE";
+    this.state = GAME_STATE.TITLE;
     this.gameOverDelay = 0;
 
     this.difficultyPreset = null;
@@ -86,12 +105,21 @@ export class Game {
 
     this.debugEnabled = false;
     this.debugLogAccum = 0;
+    this.debugPerfAccum = 0;
+    this.debugPerf = {
+      updateMs: 0,
+      drawMs: 0,
+      frameCount: 0,
+      frameTimeTotal: 0,
+    };
 
     this.hudFx = {
       weaponFlashT: 0,
       comboPulseT: 0,
       waveIntroT: 0,
     };
+
+    this.loopHandle = (t) => this.#loop(t);
 
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
@@ -153,12 +181,17 @@ export class Game {
   }
 
   #mouseToCanvas(e) {
+    const mx = (e.clientX - this.pointerTransform.left) * this.pointerTransform.scaleX;
+    const my = (e.clientY - this.pointerTransform.top) * this.pointerTransform.scaleY;
+    return { mx, my };
+  }
+
+  #refreshPointerTransform() {
     const rect = this.canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-    const my = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-    const scaleX = this.canvas.width / this.world.w;
-    const scaleY = this.canvas.height / this.world.h;
-    return { mx: mx / scaleX, my: my / scaleY };
+    this.pointerTransform.left = rect.left;
+    this.pointerTransform.top = rect.top;
+    this.pointerTransform.scaleX = rect.width > 0 ? this.world.w / rect.width : 1;
+    this.pointerTransform.scaleY = rect.height > 0 ? this.world.h / rect.height : 1;
   }
 
   #rebuildMenuButtons() {
@@ -182,14 +215,14 @@ export class Game {
     const { mx, my } = this.#mouseToCanvas(e);
     this.hoveredButtonId = null;
 
-    if (this.state === "TITLE") {
+    if (this.state === GAME_STATE.TITLE) {
       for (const button of this.titleButtons) {
         if (this.#pointInRect(mx, my, button)) {
           this.hoveredButtonId = button.id;
           break;
         }
       }
-    } else if (this.state === "GAME_OVER_READY") {
+    } else if (this.state === GAME_STATE.GAME_OVER_READY) {
       if (this.#pointInRect(mx, my, this.menuButton)) this.hoveredButtonId = this.menuButton.id;
     }
 
@@ -199,7 +232,7 @@ export class Game {
   #onPointerDown(e) {
     const { mx, my } = this.#mouseToCanvas(e);
 
-    if (this.state === "TITLE") {
+    if (this.state === GAME_STATE.TITLE) {
       for (const button of this.titleButtons) {
         if (this.#pointInRect(mx, my, button)) {
           this.#startWithDifficulty(button.id);
@@ -208,8 +241,8 @@ export class Game {
       }
     }
 
-    if (this.state === "GAME_OVER_READY" && this.#pointInRect(mx, my, this.menuButton)) {
-      this.state = "TITLE";
+    if (this.state === GAME_STATE.GAME_OVER_READY && this.#pointInRect(mx, my, this.menuButton)) {
+      this.state = GAME_STATE.TITLE;
       this.hoveredButtonId = null;
     }
   }
@@ -217,24 +250,40 @@ export class Game {
   #startWithDifficulty(id) {
     this.difficultyPreset = id;
     this.#newGame();
-    this.state = "PLAY";
+    this.state = GAME_STATE.PLAY;
     this.logDebug(`Start game difficulty=${id}`);
   }
 
   start() {
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
-    this.world.w = r.cssW;
-    this.world.h = r.cssH;
-
-    this.background.resize(this.world.w, this.world.h);
-    this.#rebuildMenuButtons();
+    this.#applyResizeIfNeeded(true);
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
 
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.resizeDirty = true;
+      });
+      this.resizeObserver.observe(this.canvas);
+    } else {
+      window.addEventListener("resize", this.resizeFallbackHandler);
+    }
+
     this.running = true;
-    requestAnimationFrame((t) => this.#loop(t));
+    requestAnimationFrame(this.loopHandle);
+  }
+
+  destroy() {
+    this.running = false;
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    } else {
+      window.removeEventListener("resize", this.resizeFallbackHandler);
+    }
+    this.input.destroy();
+    this.canvas.style.cursor = "default";
   }
 
   #newGame() {
@@ -251,7 +300,6 @@ export class Game {
     this.bullets = [];
     this.asteroids = [];
     this.waveQueued = false;
-    this.fastTrailAcc = 0;
     this.shakeTime = 0;
     this.shakeDur = 0;
     this.shakeAmp = 0;
@@ -461,21 +509,58 @@ export class Game {
     if (!this.running) return;
 
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
+    const frameStart = this.debugEnabled ? performance.now() : 0;
     this.last = t;
 
-    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
-    if (r.changed) {
-      this.world.w = r.cssW;
-      this.world.h = r.cssH;
-      this.background.resize(this.world.w, this.world.h);
-      this.#rebuildMenuButtons();
+    this.#applyResizeIfNeeded();
+
+    let updateStart = 0;
+    let drawStart = 0;
+    if (this.debugEnabled) {
+      performance.mark("game:update:start");
+      updateStart = performance.now();
+    }
+    this.#update(dt);
+    if (this.debugEnabled) {
+      this.debugPerf.updateMs += performance.now() - updateStart;
+      performance.mark("game:update:end");
+      performance.measure("game:update", "game:update:start", "game:update:end");
+      performance.clearMeasures("game:update");
+      performance.clearMarks("game:update:start");
+      performance.clearMarks("game:update:end");
+
+      performance.mark("game:draw:start");
+      drawStart = performance.now();
+    }
+    this.#draw();
+    if (this.debugEnabled) {
+      this.debugPerf.drawMs += performance.now() - drawStart;
+      performance.mark("game:draw:end");
+      performance.measure("game:draw", "game:draw:start", "game:draw:end");
+      performance.clearMeasures("game:draw");
+      performance.clearMarks("game:draw:start");
+      performance.clearMarks("game:draw:end");
+
+      this.debugPerf.frameTimeTotal += performance.now() - frameStart;
+      this.debugPerf.frameCount += 1;
     }
 
-    this.#update(dt);
-    this.#draw();
-
     this.input.endFrame();
-    requestAnimationFrame((tt) => this.#loop(tt));
+    requestAnimationFrame(this.loopHandle);
+  }
+
+  #applyResizeIfNeeded(force = false) {
+    if (!force && !this.resizeDirty) return;
+    const r = resizeCanvasToDisplaySize(this.canvas, this.ctx);
+    const changed = force || r.changed || this.world.w !== r.cssW || this.world.h !== r.cssH;
+    this.resizeDirty = false;
+    if (!changed) return;
+
+    this.world.w = r.cssW;
+    this.world.h = r.cssH;
+    this.background.resize(this.world.w, this.world.h);
+    this.#rebuildMenuButtons();
+    this.#refreshPointerTransform();
   }
 
   #updateGameplay(dt) {
@@ -523,10 +608,10 @@ export class Game {
           const rMin = 1.2 * scale;
           const rMax = 2.8 * scale;
 
-          this.fastTrailAcc += dt * rate;
+          a.fastTrailAcc = (a.fastTrailAcc ?? 0) + dt * rate;
 
-          while (this.fastTrailAcc >= 1) {
-            this.fastTrailAcc -= 1;
+          while (a.fastTrailAcc >= 1) {
+            a.fastTrailAcc -= 1;
 
             const tx = -ny;
             const ty = nx;
@@ -661,7 +746,7 @@ export class Game {
 
           if (this.lives <= 0) {
             this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
-            this.state = "GAME_OVER_ANIM";
+            this.state = GAME_STATE.GAME_OVER_ANIM;
             this.gameOverDelay = 2.0;
           } else {
             this.ship.respawn(this.world.w / 2, this.world.h / 2);
@@ -697,12 +782,28 @@ export class Game {
 
     const dtSec = dt > 1 ? dt / 1000 : dt;
     this.debugLogAccum += dtSec;
+    this.debugPerfAccum += dtSec;
     if (this.debugEnabled && this.debugLogAccum >= 1.0) {
       this.debugLogAccum = 0;
       const difficulty = this.difficultyPreset ?? "NORMAL";
       console.log(
         `[DEBUG] state=${this.state} wave=${this.level} asteroidCount=${this.asteroids.length} score=${Math.floor(this.score)} combo=${this.combo.toFixed(2)} comboTimer=${this.comboTimer.toFixed(2)} weaponLevel=${this.ship?.weaponLevel ?? 1} difficulty=${difficulty}`
       );
+    }
+
+    if (this.debugEnabled && this.debugPerfAccum >= 1.0 && this.debugPerf.frameCount > 0) {
+      const avgFrame = this.debugPerf.frameTimeTotal / this.debugPerf.frameCount;
+      const avgUpdate = this.debugPerf.updateMs / this.debugPerf.frameCount;
+      const avgDraw = this.debugPerf.drawMs / this.debugPerf.frameCount;
+      const fps = this.debugPerf.frameCount / this.debugPerfAccum;
+      console.log(
+        `[PERF] fps=${fps.toFixed(1)} frame=${avgFrame.toFixed(2)}ms update=${avgUpdate.toFixed(2)}ms draw=${avgDraw.toFixed(2)}ms`
+      );
+      this.debugPerfAccum = 0;
+      this.debugPerf.frameCount = 0;
+      this.debugPerf.frameTimeTotal = 0;
+      this.debugPerf.updateMs = 0;
+      this.debugPerf.drawMs = 0;
     }
 
     this.background.update(dt);
@@ -727,50 +828,49 @@ export class Game {
       this.hitStop = 0;
     }
 
-    if (this.state === "TITLE") {
+    if (this.state === GAME_STATE.TITLE) {
       if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
       if (this.input.wasPressed("Digit2")) this.#startWithDifficulty("NORMAL");
       if (this.input.wasPressed("Digit3")) this.#startWithDifficulty("HARD");
       return;
     }
 
-    if (this.state === "PLAY") {
+    if (this.state === GAME_STATE.PLAY) {
       this.#updateGameplay(dt);
       return;
     }
 
     // GAME_OVER_ANIM: on laisse tourner effets/anim 2s avant prompt restart.
-    if (this.state === "GAME_OVER_ANIM") {
-      for (const p of this.particles) p.update(dt, this.world);
-      for (const e of this.explosions) e.update(dt);
-      for (const d of this.debris) d.update(dt, this.world);
-      this.#compactAlive(this.particles);
-      this.#compactAlive(this.explosions);
-      this.#compactAlive(this.debris);
+    if (this.state === GAME_STATE.GAME_OVER_ANIM) {
+      this.#updateEffectsOnly(dt);
       this.gameOverDelay -= dt;
       if (this.gameOverDelay <= 0) {
-        this.state = "GAME_OVER_READY";
+        this.state = GAME_STATE.GAME_OVER_READY;
         this.logDebug("State transition -> GAME_OVER_READY");
       }
       return;
     }
 
-    if (this.state === "GAME_OVER_READY") {
-      for (const p of this.particles) p.update(dt, this.world);
-      for (const e of this.explosions) e.update(dt);
-      for (const d of this.debris) d.update(dt, this.world);
-      this.#compactAlive(this.particles);
-      this.#compactAlive(this.explosions);
-      this.#compactAlive(this.debris);
+    if (this.state === GAME_STATE.GAME_OVER_READY) {
+      this.#updateEffectsOnly(dt);
 
       if (this.input.wasPressed("KeyR") || this.input.wasPressed("Enter")) {
         this.#newGame();
-        this.state = "PLAY";
+        this.state = GAME_STATE.PLAY;
       }
       if (this.input.wasPressed("KeyM")) {
-        this.state = "TITLE";
+        this.state = GAME_STATE.TITLE;
       }
     }
+  }
+
+  #updateEffectsOnly(dt) {
+    for (const p of this.particles) p.update(dt, this.world);
+    for (const e of this.explosions) e.update(dt);
+    for (const d of this.debris) d.update(dt, this.world);
+    this.#compactAlive(this.particles);
+    this.#compactAlive(this.explosions);
+    this.#compactAlive(this.debris);
   }
 
   #roundedRectPath(ctx, x, y, w, h, r = 10) {
@@ -962,7 +1062,7 @@ export class Game {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.world.w, this.world.h);
 
-    if (this.state === "TITLE") {
+    if (this.state === GAME_STATE.TITLE) {
       this.#drawTitleScreen();
       return;
     }
@@ -971,7 +1071,7 @@ export class Game {
     ctx.translate(this.shakeX, this.shakeY);
     this.#drawPlayScene();
 
-    if (this.state === "GAME_OVER_ANIM" || this.state === "GAME_OVER_READY") {
+    if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
       this.#drawGameOverOverlay();
     }
     ctx.restore();
