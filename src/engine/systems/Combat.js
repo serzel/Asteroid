@@ -29,11 +29,11 @@ export function rebuildAsteroidSpatialHash(game) {
 export function resolveAsteroidCollisions(game) {
   const A = game.asteroids;
   const tmp = game._queryTmp ?? (game._queryTmp = []);
-  const e = 0.35;
-  const mu = 0.12;
-  const percent = 0.6;
-  const slop = 0.5;
-  const iterations = 3;
+  const e = 0.22;
+  const mu = 0.26;
+  const percent = 0.5;
+  const slop = 0.8;
+  const iterations = 4;
   let collisionCount = 0;
 
   for (let iter = 0; iter < iterations; iter++) {
