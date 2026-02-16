@@ -47,7 +47,7 @@ export class Ship {
     this.thrusting = false;
 
     this.sprite = new Image();
-    this.sprite.src = "assets/ship.png";
+    this.sprite.src = new URL("../../assets/ship.png", import.meta.url);
     this.spriteSize = 80; // ajuster selon la résolution
     this.spriteLoaded = false;
 
@@ -158,7 +158,7 @@ export class Ship {
   }
 
 
-  tryShoot(bullets) {
+  tryShoot(bullets, createBullet = null) {
     if (this.cooldown > 0) return;
 
     const baseSpeed = 520;
@@ -178,7 +178,10 @@ export class Ship {
       const bulletSpeed = baseSpeed * speedMul;
       const bvx = dirX * bulletSpeed + this.vx;
       const bvy = dirY * bulletSpeed + this.vy;
-      bullets.push(new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel));
+      const bullet = createBullet
+        ? createBullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel)
+        : new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel);
+      bullets.push(bullet);
     };
 
     if (this.weaponLevel >= 4) {

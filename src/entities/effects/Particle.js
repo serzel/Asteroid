@@ -1,7 +1,11 @@
 import { wrap, rand } from "../../engine/math.js";
 
 export class Particle {
-  constructor(x, y, vx, vy, life, radius) {
+  constructor(x = 0, y = 0, vx = 0, vy = 0, life = 0.2, radius = 1) {
+    this.reset(x, y, vx, vy, life, radius);
+  }
+
+  reset(x, y, vx, vy, life, radius) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -42,13 +46,16 @@ export class Particle {
 }
 
 
-  static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax) {
+  static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax, acquire = null) {
     const out = [];
+    const make = acquire ?? ((px, py, pvx, pvy, life, radius) => new Particle(px, py, pvx, pvy, life, radius));
+
     for (let i = 0; i < count; i++) {
       const a = rand(0, Math.PI * 2);
       const s = rand(speedMin, speedMax);
-      out.push(new Particle(
-        x, y,
+      out.push(make(
+        x,
+        y,
         Math.cos(a) * s,
         Math.sin(a) * s,
         rand(lifeMin, lifeMax),

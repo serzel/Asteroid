@@ -1,13 +1,17 @@
 import { wrap } from "../engine/math.js";
 
 export class Bullet {
-  constructor(x, y, vx, vy, life = 1.2, color = "white", styleLevel = 1) {
+  constructor(x = 0, y = 0, vx = 0, vy = 0, life = 1.2, color = "white", styleLevel = 1) {
+    this.radius = 2;
+    this.reset(x, y, vx, vy, life, color, styleLevel);
+  }
+
+  reset(x, y, vx, vy, life = 1.2, color = "white", styleLevel = 1) {
     this.x = x;
     this.y = y;
     this.vx = vx;
     this.vy = vy;
-    this.radius = 2;
-    this.life = life; // secondes
+    this.life = life;
     this.dead = false;
     this.color = `${color}`;
     this.styleLevel = styleLevel;

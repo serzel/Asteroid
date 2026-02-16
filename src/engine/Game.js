@@ -1,26 +1,24 @@
 import { Input } from "./Input.js";
 import { resizeCanvasToDisplaySize, drawText } from "./utils.js";
-import { dist2, rand, dot } from "./math.js";
+import { dist2, rand } from "./math.js";
 import { Ship } from "../entities/Ship.js";
-import { Asteroid } from "../entities/Asteroid.js";
+import { Bullet } from "../entities/Bullet.js";
 import { Particle } from "../entities/effects/Particle.js";
 import { Explosion } from "../entities/effects/Explosion.js";
 import { DebrisParticle } from "../entities/effects/DebrisParticle.js";
 import { Background } from "./Background.js";
 import { drawHUD } from "../ui/HUD.js";
-
-const SHAKE_BY_ASTEROID_SIZE = {
-  3: { amp: 6, dur: 0.12 },
-  2: { amp: 4, dur: 0.1 },
-  1: { amp: 2, dur: 0.08 },
-};
+import { SpatialHash } from "./SpatialHash.js";
+import { Pool } from "./Pool.js";
+import { spawnLevel, nextLevel, getWaveBudget, getWaveWeights, buildWave } from "./systems/Spawner.js";
+import { updateEffectsOnly, spawnDebris } from "./systems/Effects.js";
+import { rebuildAsteroidSpatialHash, resolveAsteroidCollisions, resolveBulletAsteroidCollisions } from "./systems/Combat.js";
+import { updateTitleState } from "./states/TitleState.js";
+import { updatePlayState } from "./states/PlayState.js";
+import { updateGameOverAnimState, updateGameOverReadyState } from "./states/GameOverState.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
-
-const HIT_STOP_BIG = 0.05;
-const HIT_STOP_DENSE = 0.04;
-const HIT_STOP_WEAPON_UP = 0.03;
 
 const COMBO_AMBIANCE_START = 10;
 const COMBO_AMBIANCE_RANGE = 35;
@@ -50,6 +48,9 @@ export class Game {
     this.resizeFallbackHandler = () => {
       this.resizeDirty = true;
     };
+    this.orientationChangeHandler = () => {
+      this.resizeDirty = true;
+    };
 
     this.pointerTransform = {
       left: 0,
@@ -77,6 +78,14 @@ export class Game {
     this.maxBullets = 120;
     this.maxParticles = 900;
     this.maxExplosions = 80;
+
+    this.asteroidSpatialHash = new SpatialHash(96);
+    this.asteroidSpatialQuery = [];
+    this.asteroidIndexMap = new Map();
+
+    this.bulletPool = new Pool(() => new Bullet());
+    this.particlePool = new Pool(() => new Particle());
+    this.debrisPool = new Pool(() => new DebrisParticle());
 
     this.background = new Background(canvas.width, canvas.height);
     this.waveQueued = false;
@@ -261,13 +270,14 @@ export class Game {
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
 
+    window.addEventListener("resize", this.resizeFallbackHandler);
+    window.addEventListener("orientationchange", this.orientationChangeHandler);
+
     if (typeof ResizeObserver !== "undefined") {
       this.resizeObserver = new ResizeObserver(() => {
         this.resizeDirty = true;
       });
-      this.resizeObserver.observe(this.canvas);
-    } else {
-      window.addEventListener("resize", this.resizeFallbackHandler);
+      this.resizeObserver.observe(document.documentElement);
     }
 
     this.running = true;
@@ -276,11 +286,12 @@ export class Game {
 
   destroy() {
     this.running = false;
+    window.removeEventListener("resize", this.resizeFallbackHandler);
+    window.removeEventListener("orientationchange", this.orientationChangeHandler);
+
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
-    } else {
-      window.removeEventListener("resize", this.resizeFallbackHandler);
     }
     this.input.destroy();
     this.canvas.style.cursor = "default";
@@ -293,6 +304,10 @@ export class Game {
     this.lives = 3;
 
     this.level = 1;
+    this.#releaseAllToPool(this.particles, this.particlePool);
+    this.#releaseAllToPool(this.debris, this.debrisPool);
+    this.#releaseAllToPool(this.bullets, this.bulletPool);
+
     this.particles = [];
     this.explosions = [];
     this.debris = [];
@@ -316,193 +331,57 @@ export class Game {
     this.#spawnLevel();
   }
 
-  #resolveAsteroidCollisions() {
-    const A = this.asteroids;
+  #spawnLevel() {
+    spawnLevel(this);
+  }
 
-    for (let i = 0; i < A.length; i++) {
-      const a = A[i];
-      if (a.dead) continue;
-
-      for (let j = i + 1; j < A.length; j++) {
-        const b = A[j];
-        if (b.dead) continue;
-
-        const r = a.radius + b.radius;
-
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const d2 = dx * dx + dy * dy;
-
-        if (d2 > r * r || d2 === 0) continue;
-
-        const d = Math.sqrt(d2);
-        const nx = dx / d;
-        const ny = dy / d;
-
-        const overlap = r - d;
-        const sep = overlap * 0.5;
-        a.x -= nx * sep;
-        a.y -= ny * sep;
-        b.x += nx * sep;
-        b.y += ny * sep;
-
-        const rvx = a.vx - b.vx;
-        const rvy = a.vy - b.vy;
-        const velAlongNormal = dot(rvx, rvy, nx, ny);
-        if (velAlongNormal <= 0) continue;
-
-        const impulse = velAlongNormal;
-        a.vx -= impulse * nx;
-        a.vy -= impulse * ny;
-        b.vx += impulse * nx;
-        b.vy += impulse * ny;
-      }
+  #pushCapped(list, items, max, pool = null) {
+    if (Array.isArray(items)) list.push(...items);
+    else list.push(items);
+    if (list.length > max) {
+      const removed = list.splice(0, list.length - max);
+      if (pool) pool.releaseMany(removed);
     }
   }
 
-  #spawnLevel() {
-    this.buildWave(this.level);
+  #releaseAllToPool(items, pool) {
+    if (!pool || items.length === 0) return;
+    pool.releaseMany(items);
+    items.length = 0;
   }
 
-  #pushCapped(list, items, max) {
-    if (Array.isArray(items)) list.push(...items);
-    else list.push(items);
-    if (list.length > max) list.splice(0, list.length - max);
-  }
-
-  #compactAlive(items) {
+  #compactAlive(items, pool = null) {
     let write = 0;
     for (let read = 0; read < items.length; read++) {
       const item = items[read];
       if (!item.dead) {
         items[write] = item;
         write += 1;
+      } else if (pool) {
+        pool.release(item);
       }
     }
     items.length = write;
   }
 
-  #debrisColorFor(type) {
-    const cfg = Asteroid.TYPE[type] ?? Asteroid.TYPE.normal;
-    return cfg.tint;
-  }
-
   #spawnDebris(x, y, count, type, speedMin, speedMax) {
-    const color = this.#debrisColorFor(type);
-    this.debris.push(...DebrisParticle.spray(x, y, count, color, speedMin, speedMax));
-    if (this.debris.length > this.maxDebris) {
-      this.debris.splice(0, this.debris.length - this.maxDebris);
-    }
+    spawnDebris(this, x, y, count, type, speedMin, speedMax);
   }
 
   #nextLevel() {
-    if (this.waveQueued) return;
-    this.waveQueued = true;
-    this.level += 1;
-    this.hudFx.waveIntroT = 1.10;
-    this.#spawnLevel();
-    this.waveQueued = false;
+    nextLevel(this);
   }
 
   getWaveBudget(wave) {
-    const cycle = Math.floor((wave - 1) / 6);
-    const step = (wave - 1) % 6;
-    const baseBudget = 8 + wave * 2 + cycle * 4;
-    const stepMult = [0.92, 1.00, 1.08, 1.16, 1.24, 1.45][step];
-    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
-    return Math.floor(baseBudget * stepMult * difficulty.waveBudgetMult);
+    return getWaveBudget(this, wave);
   }
 
   getWaveWeights(wave) {
-    const step = (wave - 1) % 6;
-    const weightsByStep = [
-      { normal: 0.60, dense: 0.30, fast: 0.10 },
-      { normal: 0.50, dense: 0.35, fast: 0.15 },
-      { dense: 0.55, normal: 0.35, fast: 0.10 },
-      { fast: 0.45, normal: 0.35, dense: 0.20 },
-      { dense: 0.40, fast: 0.35, normal: 0.25 },
-      { fast: 0.45, dense: 0.35, normal: 0.20 },
-    ];
-    return weightsByStep[step];
+    return getWaveWeights(wave);
   }
 
   buildWave(wave) {
-    const cycle = Math.floor((wave - 1) / 6);
-    const step = (wave - 1) % 6;
-    const costs = { normal: 1, dense: 2, fast: 3, splitter: 4 };
-    const maxFrag3 = 1 + cycle;
-    const budget = this.getWaveBudget(wave);
-    const weights = this.getWaveWeights(wave);
-    this.logDebug(`Spawn wave=${wave} budget=${budget}`);
-
-    const picks = [];
-    let remainingBudget = budget;
-    let normalCount = 0;
-    let frag3Count = 0;
-
-    if (step === 5 && wave >= 6 && remainingBudget >= costs.splitter && frag3Count < maxFrag3) {
-      picks.push("splitter");
-      remainingBudget -= costs.splitter;
-      frag3Count += 1;
-    }
-
-    const weightedPick = (poolWeights) => {
-      const entries = Object.entries(poolWeights);
-      const total = entries.reduce((acc, [, w]) => acc + w, 0);
-      let roll = Math.random() * total;
-      for (const [type, weight] of entries) {
-        roll -= weight;
-        if (roll <= 0) return type;
-      }
-      return entries[entries.length - 1][0];
-    };
-
-    while (remainingBudget >= 1) {
-      let type = weightedPick(weights);
-
-      if (wave >= 6 && frag3Count < maxFrag3 && remainingBudget >= costs.splitter && Math.random() < (0.08 + cycle * 0.03)) {
-        type = "splitter";
-      }
-
-      const cost = costs[type] ?? 1;
-      if (cost > remainingBudget) break;
-
-      picks.push(type);
-      remainingBudget -= cost;
-      if (type === "normal") normalCount += 1;
-      if (type === "splitter") frag3Count += 1;
-    }
-
-    if (normalCount === 0) {
-      if (remainingBudget >= costs.normal) {
-        picks.push("normal");
-      } else if (picks.length > 0) {
-        const idx = picks.findIndex((type) => type !== "splitter");
-        if (idx >= 0) picks[idx] = "normal";
-      }
-    }
-
-    const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
-
-    for (const type of picks) {
-      let x;
-      let y;
-      do {
-        x = rand(0, this.world.w);
-        y = rand(0, this.world.h);
-      } while (dist2(x, y, this.ship.x, this.ship.y) < 240 * 240);
-
-      const sizeRoll = Math.random();
-      let size = 3;
-      if (wave >= 4 && sizeRoll < 0.28) size = 2;
-      if (wave >= 9 && sizeRoll < 0.10) size = 1;
-
-      const a = new Asteroid(x, y, size, type);
-      const boost = 1 + Math.min(1.2, wave * 0.03 + cycle * 0.05);
-      a.vx *= boost * difficulty.asteroidSpeedMult;
-      a.vy *= boost * difficulty.asteroidSpeedMult;
-      this.asteroids.push(a);
-    }
+    buildWave(this, wave);
   }
 
   #loop(t) {
@@ -564,8 +443,6 @@ export class Game {
   }
 
   #updateGameplay(dt) {
-    const dtSec = dt > 1 ? dt / 1000 : dt;
-
     this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
     this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
     this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
@@ -580,12 +457,13 @@ export class Game {
 
     if (this.input.wasPressed("Space") || this.input.isDown("Space")) {
       const bulletsBeforeShot = this.bullets.length;
-      this.ship.tryShoot(this.bullets);
+      this.ship.tryShoot(this.bullets, (...args) => this.bulletPool.acquire(...args));
       if (this.ship.weaponLevel >= 4 && this.bullets.length > bulletsBeforeShot) {
         this.addShake(WEAPON4_SHOT_SHAKE.amp, WEAPON4_SHOT_SHAKE.dur);
       }
       if (this.bullets.length > this.maxBullets) {
-        this.bullets.splice(0, this.bullets.length - this.maxBullets);
+        const removed = this.bullets.splice(0, this.bullets.length - this.maxBullets);
+        this.bulletPool.releaseMany(removed);
       }
     }
 
@@ -631,7 +509,7 @@ export class Game {
             const vy = pvy + a.vy * inherit;
 
             this.particles.push(
-              new Particle(
+              this.particlePool.acquire(
                 sx2,
                 sy2,
                 vx,
@@ -645,90 +523,15 @@ export class Game {
       }
     }
 
-    this.#resolveAsteroidCollisions();
+    rebuildAsteroidSpatialHash(this);
+    resolveAsteroidCollisions(this);
+    rebuildAsteroidSpatialHash(this);
 
     for (const p of this.particles) p.update(dt, this.world);
     for (const e of this.explosions) e.update(dt);
     for (const d of this.debris) d.update(dt, this.world);
 
-    for (const b of this.bullets) {
-      if (b.dead) continue;
-      for (const a of this.asteroids) {
-        if (a.dead) continue;
-        const r = b.radius + a.radius;
-        if (dist2(b.x, b.y, a.x, a.y) <= r * r) {
-          b.dead = true;
-
-          a.hitFlash = 1;
-          const destroyed = a.hit();
-          this.comboTimer = Math.min(this.comboTimer + 0.5, this.getCurrentComboWindow());
-
-          if (destroyed) {
-            const prevWeaponLevel = this.ship.weaponLevel;
-            this.combo += a.comboValue;
-            this.ship.updateWeaponLevel(this.combo);
-            this.comboTimer = this.getCurrentComboWindow();
-            this.hudFx.comboPulseT = 0.12;
-            if (this.ship.weaponLevel > prevWeaponLevel) {
-              this.hudFx.weaponFlashT = 0.20;
-              this.addHitStop(HIT_STOP_WEAPON_UP);
-            }
-
-            const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
-            this.score += Math.round(100 * a.size * cfg.scoreMul * this.combo);
-
-            const kids = a.split();
-            this.asteroids.push(...kids);
-
-            const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
-            this.addShake(shakeCfg.amp, shakeCfg.dur);
-            if (a.size === 3) this.addHitStop(HIT_STOP_BIG);
-            if (a.type === "dense") this.addHitStop(HIT_STOP_DENSE);
-
-            const explosionProfile = {
-              life: 0.3,
-              ringCount: 2,
-              maxRadius: a.radius * 3,
-              flashAlpha: 0.8,
-              colorMode: a.type === "dense" ? "dense" : a.type === "fast" ? "fast" : "normal",
-            };
-            if (a.size === 3 && a.type === "dense") {
-              explosionProfile.life = 0.35;
-              explosionProfile.ringCount = 3;
-              explosionProfile.maxRadius = 120;
-              explosionProfile.flashAlpha = 0.9;
-            } else if (a.size === 3) {
-              explosionProfile.life = 0.3;
-              explosionProfile.ringCount = 2;
-              explosionProfile.maxRadius = 110;
-              explosionProfile.flashAlpha = 0.8;
-            } else if (a.size === 2) {
-              explosionProfile.life = 0.22;
-              explosionProfile.ringCount = 2;
-              explosionProfile.maxRadius = 75;
-              explosionProfile.flashAlpha = 0.72;
-            } else {
-              explosionProfile.life = 0.14;
-              explosionProfile.ringCount = 1;
-              explosionProfile.maxRadius = 45;
-              explosionProfile.flashAlpha = 0.65;
-            }
-
-            this.#pushCapped(this.explosions, new Explosion(a.x, a.y, explosionProfile), this.maxExplosions);
-
-            const debrisCountBase = a.size === 3 ? rand(20, 34) : a.size === 2 ? rand(12, 20) : rand(7, 12);
-            const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1));
-            this.#spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
-            this.#pushCapped(this.particles, Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6), this.maxParticles);
-          } else {
-            this.#spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
-            this.#pushCapped(this.particles, Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2), this.maxParticles);
-          }
-
-          break;
-        }
-      }
-    }
+    resolveBulletAsteroidCollisions(this);
 
     if (this.ship.invincible <= 0) {
       for (const a of this.asteroids) {
@@ -742,7 +545,7 @@ export class Game {
 
           this.#pushCapped(this.explosions, new Explosion(this.ship.x, this.ship.y, { life: 0.45, ringCount: 3, maxRadius: 100, flashAlpha: 0.95, colorMode: "normal" }), this.maxExplosions);
           this.addShake(PLAYER_HIT_SHAKE.amp, PLAYER_HIT_SHAKE.dur);
-          this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3), this.maxParticles);
+          this.#pushCapped(this.particles, Particle.burst(this.ship.x, this.ship.y, 70, 80, 380, 0.35, 1.05, 1, 3, (...args) => this.particlePool.acquire(...args)), this.maxParticles, this.particlePool);
 
           if (this.lives <= 0) {
             this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
@@ -757,11 +560,11 @@ export class Game {
       }
     }
 
-    this.#compactAlive(this.bullets);
+    this.#compactAlive(this.bullets, this.bulletPool);
     this.#compactAlive(this.asteroids);
-    this.#compactAlive(this.particles);
+    this.#compactAlive(this.particles, this.particlePool);
     this.#compactAlive(this.explosions);
-    this.#compactAlive(this.debris);
+    this.#compactAlive(this.debris, this.debrisPool);
 
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
@@ -769,7 +572,7 @@ export class Game {
 
     if (this.combo === 1) {
       const difficulty = this.difficultyPresets[this.difficultyPreset] ?? this.difficultyPresets.NORMAL;
-      this.score -= difficulty.scoreDrainCombo1PerSec * dtSec;
+      this.score -= difficulty.scoreDrainCombo1PerSec * dt;
       this.score = Math.max(0, this.score);
     }
   }
@@ -780,9 +583,8 @@ export class Game {
       console.log(`[DEBUG] ${this.debugEnabled ? "Enabled" : "Disabled"}`);
     }
 
-    const dtSec = dt > 1 ? dt / 1000 : dt;
-    this.debugLogAccum += dtSec;
-    this.debugPerfAccum += dtSec;
+    this.debugLogAccum += dt;
+    this.debugPerfAccum += dt;
     if (this.debugEnabled && this.debugLogAccum >= 1.0) {
       this.debugLogAccum = 0;
       const difficulty = this.difficultyPreset ?? "NORMAL";
@@ -829,48 +631,40 @@ export class Game {
     }
 
     if (this.state === GAME_STATE.TITLE) {
-      if (this.input.wasPressed("Digit1")) this.#startWithDifficulty("EASY");
-      if (this.input.wasPressed("Digit2")) this.#startWithDifficulty("NORMAL");
-      if (this.input.wasPressed("Digit3")) this.#startWithDifficulty("HARD");
+      updateTitleState(this, (id) => this.#startWithDifficulty(id));
       return;
     }
 
     if (this.state === GAME_STATE.PLAY) {
-      this.#updateGameplay(dt);
+      updatePlayState(() => this.#updateGameplay(dt));
       return;
     }
 
     // GAME_OVER_ANIM: on laisse tourner effets/anim 2s avant prompt restart.
     if (this.state === GAME_STATE.GAME_OVER_ANIM) {
-      this.#updateEffectsOnly(dt);
-      this.gameOverDelay -= dt;
-      if (this.gameOverDelay <= 0) {
-        this.state = GAME_STATE.GAME_OVER_READY;
-        this.logDebug("State transition -> GAME_OVER_READY");
-      }
+      updateGameOverAnimState(this, dt, (dtSec) => this.#updateEffectsOnly(dtSec));
       return;
     }
 
     if (this.state === GAME_STATE.GAME_OVER_READY) {
-      this.#updateEffectsOnly(dt);
-
-      if (this.input.wasPressed("KeyR") || this.input.wasPressed("Enter")) {
-        this.#newGame();
-        this.state = GAME_STATE.PLAY;
-      }
-      if (this.input.wasPressed("KeyM")) {
-        this.state = GAME_STATE.TITLE;
-      }
+      updateGameOverReadyState(this, () => this.#updateEffectsOnly(dt), () => this.#newGame());
     }
   }
 
   #updateEffectsOnly(dt) {
-    for (const p of this.particles) p.update(dt, this.world);
-    for (const e of this.explosions) e.update(dt);
-    for (const d of this.debris) d.update(dt, this.world);
-    this.#compactAlive(this.particles);
-    this.#compactAlive(this.explosions);
-    this.#compactAlive(this.debris);
+    updateEffectsOnly(this, dt);
+  }
+
+  pushCapped(list, items, max, pool = null) {
+    this.#pushCapped(list, items, max, pool);
+  }
+
+  compactAlive(items, pool = null) {
+    this.#compactAlive(items, pool);
+  }
+
+  spawnDebris(x, y, count, type, speedMin, speedMax) {
+    this.#spawnDebris(x, y, count, type, speedMin, speedMax);
   }
 
   #roundedRectPath(ctx, x, y, w, h, r = 10) {
