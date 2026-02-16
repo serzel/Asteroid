@@ -45,6 +45,29 @@ function loadAsteroidSprites() {
 
 const ASTEROID_SPRITES = loadAsteroidSprites();
 
+const ASTEROID_HIT_CIRCLES = {
+  normal: {
+    1: [{ ox: 0, oy: 0, r: 1.0 }],
+    2: [{ ox: 0, oy: 0, r: 1.0 }],
+    3: [{ ox: 0, oy: 0, r: 1.0 }],
+  },
+  dense: {
+    1: [{ ox: 0, oy: 0, r: 1.0 }],
+    2: [{ ox: 0, oy: 0, r: 1.0 }],
+    3: [{ ox: 0, oy: 0, r: 1.0 }],
+  },
+  splitter: {
+    1: [{ ox: -0.33, oy: 0.0, r: 0.75 }, { ox: 0.33, oy: 0.0, r: 0.75 }],
+    2: [{ ox: -0.34, oy: 0.0, r: 0.74 }, { ox: 0.34, oy: 0.0, r: 0.74 }],
+    3: [{ ox: -0.36, oy: 0.0, r: 0.72 }, { ox: 0.36, oy: 0.0, r: 0.72 }],
+  },
+  fast: {
+    1: [{ ox: -0.52, oy: 0.0, r: 0.52 }, { ox: 0.0, oy: 0.0, r: 0.48 }, { ox: 0.52, oy: 0.0, r: 0.52 }],
+    2: [{ ox: -0.50, oy: 0.0, r: 0.53 }, { ox: 0.0, oy: 0.0, r: 0.49 }, { ox: 0.50, oy: 0.0, r: 0.53 }],
+    3: [{ ox: -0.48, oy: 0.0, r: 0.54 }, { ox: 0.0, oy: 0.0, r: 0.5 }, { ox: 0.48, oy: 0.0, r: 0.54 }],
+  },
+};
+
 export class Asteroid {
   static TYPE = {
     normal:   { speedMul: 1.0,  hpMul: 1, splitCount: 2, dashed: false, lineWidth: 1, points: 10, jitterMin: 0.75, jitterMax: 1.25, scoreMul: 1.0, tint: "rgba(180,180,180,1)" },
@@ -102,6 +125,31 @@ export class Asteroid {
 
   #getSprite() {
     return ASTEROID_SPRITES[this.type]?.[this.size] ?? ASTEROID_SPRITES.normal[this.size];
+  }
+
+  getHitCircles() {
+    return ASTEROID_HIT_CIRCLES[this.type]?.[this.size]
+      ?? ASTEROID_HIT_CIRCLES.normal[this.size]
+      ?? ASTEROID_HIT_CIRCLES.normal[3];
+  }
+
+  getWorldHitCircles(out = []) {
+    out.length = 0;
+    const hitCircles = this.getHitCircles();
+    const cos = Math.cos(this.rot);
+    const sin = Math.sin(this.rot);
+
+    for (let i = 0; i < hitCircles.length; i++) {
+      const c = hitCircles[i];
+      const localX = c.ox * this.radius;
+      const localY = c.oy * this.radius;
+      out.push({
+        x: this.x + localX * cos - localY * sin,
+        y: this.y + localX * sin + localY * cos,
+        r: c.r * this.radius,
+      });
+    }
+    return out;
   }
 
   hit() {
