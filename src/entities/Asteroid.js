@@ -224,7 +224,6 @@ draw(ctx) {
   ctx.fill();
 
   if (this.hitFlash > 0) {
-    ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = `rgba(255,255,255,${0.25 * this.hitFlash})`;
     this.#traceRoundedPath(ctx);
@@ -232,7 +231,7 @@ draw(ctx) {
     ctx.strokeStyle = `rgba(255,255,255,${0.18 * this.hitFlash})`;
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
   }
 
   // cratères subtils
