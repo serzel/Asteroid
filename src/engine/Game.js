@@ -126,6 +126,22 @@ export class Game {
       asteroidTotalKineticEnergy: 0,
     };
 
+    this.profView = {
+      accTime: 0,
+      refreshEvery: 0.25,
+      shownUpdateMs: 0,
+      shownDrawMs: 0,
+      shownFps: 0,
+      shownCollisions: 0,
+      shownMaxSpeed: 0,
+      shownKE: 0,
+      peakWindow: 1.0,
+      peakUpdateMs: 0,
+      peakDrawMs: 0,
+      peakTimer: 0,
+      freezeT: 0,
+    };
+
     this.hudFx = {
       weaponFlashT: 0,
       comboPulseT: 0,
@@ -419,6 +435,30 @@ export class Game {
       this.debugPerf.frameCount += 1;
     }
 
+    this.profView.peakUpdateMs = Math.max(this.profView.peakUpdateMs, this._updateMs);
+    this.profView.peakDrawMs = Math.max(this.profView.peakDrawMs, this._renderMs);
+    this.profView.peakTimer += dt;
+    if (this.profView.peakTimer >= this.profView.peakWindow) {
+      this.profView.peakUpdateMs = 0;
+      this.profView.peakDrawMs = 0;
+      this.profView.peakTimer = 0;
+    }
+
+    if (this.profView.freezeT > 0) {
+      this.profView.freezeT = Math.max(0, this.profView.freezeT - dt);
+    }
+
+    this.profView.accTime += dt;
+    if (this.profView.freezeT <= 0 && this.profView.accTime >= this.profView.refreshEvery) {
+      this.profView.shownUpdateMs = this._updateMs;
+      this.profView.shownDrawMs = this._renderMs;
+      this.profView.shownFps = this._fps;
+      this.profView.shownCollisions = this.debugStats.asteroidCollisionCount;
+      this.profView.shownMaxSpeed = this.debugStats.asteroidMaxSpeed;
+      this.profView.shownKE = this.debugStats.asteroidTotalKineticEnergy;
+      this.profView.accTime = 0;
+    }
+
     this.input.endFrame();
     requestAnimationFrame(this.loopHandle);
   }
@@ -585,6 +625,11 @@ export class Game {
 
     if (this.input.wasPressed("debugProfiler")) {
       this.debugProfiler = !this.debugProfiler;
+    }
+
+    if (this.input.wasPressed("debugProfilerFreeze")) {
+      this.profView.freezeT = 2;
+      this.profView.accTime = 0;
     }
 
     this.debugLogAccum += dt;
@@ -891,17 +936,39 @@ export class Game {
     if (!this.debugProfiler) return;
 
     const ctx = this.ctx;
+    const x = 10;
+    const y = 10;
+    const lineHeight = 20;
+    const lines = [
+      `FPS: ${this.profView.shownFps.toFixed(0)}`,
+      `update: ${this.profView.shownUpdateMs.toFixed(1)} ms | PEAK (last 1s): ${this.profView.peakUpdateMs.toFixed(1)} ms`,
+      `render: ${this.profView.shownDrawMs.toFixed(1)} ms | PEAK (last 1s): ${this.profView.peakDrawMs.toFixed(1)} ms`,
+      `asteroid collisions: ${this.profView.shownCollisions}`,
+      `asteroid max speed: ${this.profView.shownMaxSpeed.toFixed(2)}`,
+      `asteroid kinetic E: ${this.profView.shownKE.toFixed(1)}`,
+      `freeze(F3): ${this.profView.freezeT > 0 ? `${this.profView.freezeT.toFixed(1)}s` : "ready"}`,
+    ];
+
     ctx.save();
-    ctx.font = "14px monospace";
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = "#05070d";
+    ctx.fillRect(x - 8, y - 8, 700, lines.length * lineHeight + 16);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font = "15px monospace";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillStyle = "rgba(220, 245, 255, 0.95)";
-    ctx.fillText(`FPS: ${this._fps.toFixed(0)}`, 10, 10);
-    ctx.fillText(`update: ${this._updateMs.toFixed(1)} ms`, 10, 28);
-    ctx.fillText(`render: ${this._renderMs.toFixed(1)} ms`, 10, 46);
-    ctx.fillText(`asteroid collisions: ${this.debugStats.asteroidCollisionCount}`, 10, 64);
-    ctx.fillText(`asteroid max speed: ${this.debugStats.asteroidMaxSpeed.toFixed(2)}`, 10, 82);
-    ctx.fillText(`asteroid kinetic E: ${this.debugStats.asteroidTotalKineticEnergy.toFixed(1)}`, 10, 100);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.fillStyle = "rgba(220, 245, 255, 0.98)";
+
+    for (let i = 0; i < lines.length; i++) {
+      const ty = y + i * lineHeight;
+      ctx.strokeText(lines[i], x, ty);
+      ctx.fillText(lines[i], x, ty);
+    }
+
     ctx.restore();
   }
 
