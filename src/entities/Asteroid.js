@@ -3,6 +3,9 @@ import { wrap, rand } from "../engine/math.js";
 const TINT_SHADE_CACHE = new Map();
 const DASH_PATTERN_FAST = [6, 6];
 const DASH_PATTERN_NONE = [];
+const SPLIT_KICK = 60;
+const MAX_CHILD_SPEED = 520;
+const SPLIT_ENERGY_LOSS = 0.92;
 
 export class Asteroid {
   static TYPE = {
@@ -191,8 +194,28 @@ export class Asteroid {
     if (count <= 0) return [];
 
     const kids = [];
+    const base = rand(0, Math.PI * 2);
+    const step = (Math.PI * 2) / count;
     for (let i = 0; i < count; i++) {
-      kids.push(new Asteroid(this.x, this.y, this.size - 1, this.type));
+      const kid = new Asteroid(this.x, this.y, this.size - 1, this.type);
+      const angle = base + i * step;
+      const kickX = Math.cos(angle) * SPLIT_KICK;
+      const kickY = Math.sin(angle) * SPLIT_KICK;
+
+      kid.vx = this.vx + kickX;
+      kid.vy = this.vy + kickY;
+
+      const speed = Math.hypot(kid.vx, kid.vy);
+      if (speed > MAX_CHILD_SPEED) {
+        const scale = MAX_CHILD_SPEED / speed;
+        kid.vx *= scale;
+        kid.vy *= scale;
+      }
+
+      kid.vx *= SPLIT_ENERGY_LOSS;
+      kid.vy *= SPLIT_ENERGY_LOSS;
+
+      kids.push(kid);
     }
     return kids;
   }
