@@ -36,10 +36,10 @@ const HUD_LAYOUT = {
 };
 
 const lifeFullImg = new Image();
-lifeFullImg.src = "assets/life_full.png";
+lifeFullImg.src = new URL("../../assets/life_full.png", import.meta.url);
 
 const lifeEmptyImg = new Image();
-lifeEmptyImg.src = "assets/life_empty.png";
+lifeEmptyImg.src = new URL("../../assets/life_empty.png", import.meta.url);
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));

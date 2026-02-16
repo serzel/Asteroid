@@ -1,7 +1,11 @@
 import { wrap, rand } from "../../engine/math.js";
 
 export class DebrisParticle {
-  constructor(x, y, vx, vy, life, size, color) {
+  constructor(x = 0, y = 0, vx = 0, vy = 0, life = 0.2, size = 1, color = "white") {
+    this.reset(x, y, vx, vy, life, size, color);
+  }
+
+  reset(x, y, vx, vy, life, size, color) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -47,12 +51,14 @@ export class DebrisParticle {
     ctx.restore();
   }
 
-  static spray(x, y, count, color, speedMin = 45, speedMax = 170) {
+  static spray(x, y, count, color, speedMin = 45, speedMax = 170, acquire = null) {
     const out = [];
+    const make = acquire ?? ((px, py, pvx, pvy, life, size, particleColor) => new DebrisParticle(px, py, pvx, pvy, life, size, particleColor));
+
     for (let i = 0; i < count; i++) {
       const a = rand(0, Math.PI * 2);
       const s = rand(speedMin, speedMax);
-      out.push(new DebrisParticle(
+      out.push(make(
         x + rand(-2, 2),
         y + rand(-2, 2),
         Math.cos(a) * s,
