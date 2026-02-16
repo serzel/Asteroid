@@ -27,6 +27,14 @@ const PALETTE = {
   connector: "rgba(220, 128, 255, 0.85)",
 };
 
+const HUD_LAYOUT = {
+  wavePanel: { x: 0, y: 0, w: 360, h: 74, skew: 26 },
+  comboPanel: { x: 0, y: 0, w: 360, h: 64, skew: 22 },
+  comboBarPanel: { x: 0, y: 0, w: 420, h: 56, skew: 18 },
+  scorePanel: { x: 0, y: 0, w: 350, h: 94, skew: 24 },
+  weaponPanel: { x: 0, y: 0, w: 660, h: 78, skew: 30 },
+};
+
 const lifeFullImg = new Image();
 lifeFullImg.src = "assets/life_full.png";
 
@@ -200,11 +208,21 @@ export function drawHUD(ctx, game) {
   const comboWindow = typeof game.getComboWindow === "function" ? game.getComboWindow() : 1;
   const ratio = clamp(game.comboTimer / Math.max(comboWindow, 0.001), 0, 1);
 
-  const wavePanel = { x: w * 0.5 - 180, y: M, w: 360, h: 74, skew: 26 };
-  const comboPanel = { x: M, y: M + 8, w: 360, h: 64, skew: 22 };
-  const comboBarPanel = { x: M, y: comboPanel.y + comboPanel.h + 16, w: 420, h: 56, skew: 18 };
-  const scorePanel = { x: w - M - 350, y: M + 8, w: 350, h: 94, skew: 24 };
-  const weaponPanel = { x: w * 0.5 - 330, y: h - M - 88, w: 660, h: 78, skew: 30 };
+  const wavePanel = HUD_LAYOUT.wavePanel;
+  wavePanel.x = w * 0.5 - 180;
+  wavePanel.y = M;
+  const comboPanel = HUD_LAYOUT.comboPanel;
+  comboPanel.x = M;
+  comboPanel.y = M + 8;
+  const comboBarPanel = HUD_LAYOUT.comboBarPanel;
+  comboBarPanel.x = M;
+  comboBarPanel.y = comboPanel.y + comboPanel.h + 16;
+  const scorePanel = HUD_LAYOUT.scorePanel;
+  scorePanel.x = w - M - scorePanel.w;
+  scorePanel.y = M + 8;
+  const weaponPanel = HUD_LAYOUT.weaponPanel;
+  weaponPanel.x = w * 0.5 - weaponPanel.w * 0.5;
+  weaponPanel.y = h - M - 88;
 
   drawConnectorLine(ctx, comboPanel.x + comboPanel.w - 8, comboPanel.y + comboPanel.h * 0.5, wavePanel.x - 8, wavePanel.y + wavePanel.h * 0.5);
   drawConnectorLine(ctx, wavePanel.x + wavePanel.w + 8, wavePanel.y + wavePanel.h * 0.5, scorePanel.x + 14, scorePanel.y + scorePanel.h * 0.5, "rgba(126, 225, 255, 0.85)");
