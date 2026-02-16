@@ -121,7 +121,9 @@ export function resolveBulletAsteroidCollisions(game) {
         game.score += Math.round(100 * a.size * cfg.scoreMul * game.combo);
 
         const kids = a.split();
-        game.asteroids.push(...kids);
+        for (let i = 0; i < kids.length; i++) {
+          game.asteroids.push(kids[i]);
+        }
 
         const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
         game.addShake(shakeCfg.amp, shakeCfg.dur);
@@ -164,7 +166,7 @@ export function resolveBulletAsteroidCollisions(game) {
         game.spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
         game.pushCapped(
           game.particles,
-          Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, (...args) => game.particlePool.acquire(...args)),
+          Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
           game.maxParticles,
           game.particlePool
         );
@@ -172,7 +174,7 @@ export function resolveBulletAsteroidCollisions(game) {
         game.spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
         game.pushCapped(
           game.particles,
-          Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, (...args) => game.particlePool.acquire(...args)),
+          Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
           game.maxParticles,
           game.particlePool
         );
