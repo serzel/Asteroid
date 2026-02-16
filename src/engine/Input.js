@@ -29,7 +29,7 @@ export class Input {
       debugSeamsNearest: "F6",
     };
 
-    this.capturedCodes = new Set([
+    this.trackedCodes = new Set([
       "ArrowUp",
       "ArrowDown",
       "ArrowLeft",
@@ -43,21 +43,41 @@ export class Input {
       ...Object.values(this.actionBindings),
     ]);
 
+    this.preventedCodes = new Set([
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "KeyZ",
+      "KeyQ",
+      "Space",
+    ]);
+
     this.onKeyDown = (e) => {
-      if (this.capturedCodes.has(e.code)) e.preventDefault();
+      const code = this.#eventCode(e);
+      if (!code || !this.trackedCodes.has(code)) return;
 
-      if (!this.down.has(e.code)) this.pressed.add(e.code);
-      this.down.add(e.code);
+      if (this.preventedCodes.has(code)) e.preventDefault();
 
-      if (e.code === "KeyP" && !e.repeat) {
+      if (!this.down.has(code)) this.pressed.add(code);
+      this.down.add(code);
+
+      if (code === "KeyP" && !e.repeat) {
         this.keyboardLayout = this.keyboardLayout === "AZERTY" ? "QWERTY" : "AZERTY";
         console.info(`Layout: ${this.keyboardLayout}`);
       }
     };
 
     this.onKeyUp = (e) => {
-      if (this.capturedCodes.has(e.code)) e.preventDefault();
-      this.down.delete(e.code);
+      const code = this.#eventCode(e);
+      if (!code || !this.trackedCodes.has(code)) return;
+
+      if (this.preventedCodes.has(code)) e.preventDefault();
+      this.down.delete(code);
     };
 
     this.onWindowBlur = () => {
@@ -94,6 +114,36 @@ export class Input {
 
   #boundCode(action) {
     return this.actionBindings[action] ?? action;
+  }
+
+  #eventCode(event) {
+    if (event.code) return event.code;
+
+    const fallbackCodes = {
+      " ": "Space",
+      ArrowUp: "ArrowUp",
+      ArrowDown: "ArrowDown",
+      ArrowLeft: "ArrowLeft",
+      ArrowRight: "ArrowRight",
+      Up: "ArrowUp",
+      Down: "ArrowDown",
+      Left: "ArrowLeft",
+      Right: "ArrowRight",
+      z: "KeyZ",
+      q: "KeyQ",
+      s: "KeyS",
+      d: "KeyD",
+      w: "KeyW",
+      a: "KeyA",
+      p: "KeyP",
+      F1: "F1",
+      F2: "F2",
+      F3: "F3",
+      F4: "F4",
+      F6: "F6",
+    };
+
+    return fallbackCodes[event.key] ?? fallbackCodes[event.key?.toLowerCase()];
   }
 
   isDown(code) {
