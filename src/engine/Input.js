@@ -24,6 +24,7 @@ export class Input {
       shoot: "Space",
       debugToggle: "F1",
       debugProfiler: "F2",
+      debugProfilerFreeze: "F3",
     };
 
     this.capturedCodes = new Set([
