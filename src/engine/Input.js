@@ -40,6 +40,7 @@ export class Input {
       "KeyD",
       "KeyZ",
       "KeyQ",
+      "KeyP",
       ...Object.values(this.actionBindings),
     ]);
 
@@ -117,6 +118,11 @@ export class Input {
   }
 
   #eventCode(event) {
+    if (typeof event.key === "string") {
+      const alphaKey = event.key.trim();
+      if (/^[a-z]$/i.test(alphaKey)) return `Key${alphaKey.toUpperCase()}`;
+    }
+
     if (event.code) return event.code;
 
     const fallbackCodes = {
