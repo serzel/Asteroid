@@ -455,7 +455,7 @@ export class Game {
 
     this.ship.update(dt, this.input, this.world);
 
-    if (this.input.wasPressed("Space") || this.input.isDown("Space")) {
+    if (this.input.wasPressed("shoot") || this.input.isDown("shoot")) {
       const bulletsBeforeShot = this.bullets.length;
       this.ship.tryShoot(this.bullets, (...args) => this.bulletPool.acquire(...args));
       if (this.ship.weaponLevel >= 4 && this.bullets.length > bulletsBeforeShot) {
