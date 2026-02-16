@@ -42,8 +42,6 @@ export class DebrisParticle {
     ctx.strokeStyle = this.color;
     ctx.lineWidth = this.size;
     ctx.lineCap = "round";
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = 3;
     ctx.beginPath();
     ctx.moveTo(this.x - dx, this.y - dy);
     ctx.lineTo(this.x + dx, this.y + dy);
