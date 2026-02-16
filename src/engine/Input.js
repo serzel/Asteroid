@@ -20,19 +20,23 @@ export class Input {
       },
     };
 
+    this.actionBindings = {
+      shoot: "Space",
+      debugToggle: "F1",
+    };
+
     this.capturedCodes = new Set([
       "ArrowUp",
       "ArrowDown",
       "ArrowLeft",
       "ArrowRight",
-      "Space",
-      "F1",
       "KeyW",
       "KeyA",
       "KeyS",
       "KeyD",
       "KeyZ",
       "KeyQ",
+      ...Object.values(this.actionBindings),
     ]);
 
     this.onKeyDown = (e) => {
@@ -84,22 +88,22 @@ export class Input {
     return [arrowCode, layoutCode];
   }
 
+  #boundCode(action) {
+    return this.actionBindings[action] ?? action;
+  }
+
   isDown(code) {
     const directionCodes = this.#directionCodes(code);
     if (directionCodes) return directionCodes.some((c) => this.down.has(c));
-    if (code === "shoot") return this.down.has("Space");
-    if (code === "debugToggle") return this.down.has("F1");
 
-    return this.down.has(code);
+    return this.down.has(this.#boundCode(code));
   }
 
   wasPressed(code) {
     const directionCodes = this.#directionCodes(code);
     if (directionCodes) return directionCodes.some((c) => this.pressed.has(c));
-    if (code === "shoot") return this.pressed.has("Space");
-    if (code === "debugToggle") return this.pressed.has("F1");
 
-    return this.pressed.has(code);
+    return this.pressed.has(this.#boundCode(code));
   }
 
   endFrame() {
