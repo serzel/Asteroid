@@ -1,4 +1,5 @@
 import { wrap, rand } from "../engine/math.js";
+import { computeAlphaBBox } from "../engine/utils.js";
 
 const SPLIT_KICK = 60;
 const MAX_CHILD_SPEED = 520;
@@ -35,8 +36,24 @@ function loadAsteroidSprites() {
 
     for (const [size, fileName] of Object.entries(bySize)) {
       const img = new Image();
+      const asset = {
+        img,
+        meta: {
+          bbox: null,
+        },
+      };
+
+      img.onload = () => {
+        asset.meta.bbox = computeAlphaBBox(img);
+      };
+
       img.src = new URL(`../../assets/${fileName}`, import.meta.url);
-      sprites[type][Number(size)] = img;
+
+      if (img.complete && img.naturalWidth > 0) {
+        asset.meta.bbox = computeAlphaBBox(img);
+      }
+
+      sprites[type][Number(size)] = asset;
     }
   }
 
@@ -88,6 +105,9 @@ export class Asteroid {
     if (this.type === "fast") {
       this.radius *= 0.75; // 25% plus petit
     }
+    this.displayRadius = this.radius;
+    this.hasBboxCollisionRadius = false;
+    this.#refreshCollisionRadius();
 
     // Valeur de combo selon la taille (gros/moyen/petit).
     this.comboValue = size >= 3 ? 1.0 : size === 2 ? 0.5 : 0.25;
@@ -121,10 +141,36 @@ export class Asteroid {
     if (this.hitFlash > 0) {
       this.hitFlash = Math.max(0, this.hitFlash - this.hitFlashDecay * dt);
     }
+
+    if (!this.hasBboxCollisionRadius) {
+      this.#refreshCollisionRadius();
+    }
   }
 
   #getSprite() {
     return ASTEROID_SPRITES[this.type]?.[this.size] ?? ASTEROID_SPRITES.normal[this.size];
+  }
+
+  #refreshCollisionRadius() {
+    const spriteAsset = this.#getSprite();
+    const bbox = spriteAsset?.meta?.bbox;
+
+    if (!bbox) {
+      this.radius = this.displayRadius;
+      this.hasBboxCollisionRadius = false;
+      return;
+    }
+
+    const img = spriteAsset.img;
+    const imgW = img.naturalWidth || img.width;
+    const imgH = img.naturalHeight || img.height;
+    const scaleX = (this.displayRadius * 2) / imgW;
+    const scaleY = (this.displayRadius * 2) / imgH;
+    const bboxDisplayW = bbox.w * scaleX;
+    const bboxDisplayH = bbox.h * scaleY;
+
+    this.radius = Math.max(1, Math.hypot(bboxDisplayW, bboxDisplayH) * 0.48);
+    this.hasBboxCollisionRadius = true;
   }
 
   getHitCircles() {
@@ -197,27 +243,46 @@ export class Asteroid {
   }
 
   draw(ctx) {
-    const sprite = this.#getSprite();
-    const diameter = this.radius * 2;
+    const spriteAsset = this.#getSprite();
+    const sprite = spriteAsset?.img;
+    const bbox = spriteAsset?.meta?.bbox;
+    const diameter = this.displayRadius * 2;
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
 
     if (sprite?.complete && sprite.naturalWidth > 0) {
-      ctx.drawImage(sprite, -this.radius, -this.radius, diameter, diameter);
+      const imgW = sprite.naturalWidth || sprite.width;
+      const imgH = sprite.naturalHeight || sprite.height;
+      const bb = bbox ?? {
+        minX: 0,
+        minY: 0,
+        maxX: imgW - 1,
+        maxY: imgH - 1,
+        w: imgW,
+        h: imgH,
+        cx: imgW * 0.5,
+        cy: imgH * 0.5,
+      };
+      const scaleX = diameter / imgW;
+      const scaleY = diameter / imgH;
+      const drawX = -bb.cx * scaleX;
+      const drawY = -bb.cy * scaleY;
+
+      ctx.drawImage(sprite, drawX, drawY, imgW * scaleX, imgH * scaleY);
     } else {
       // Fallback temporaire pendant le chargement image.
       ctx.fillStyle = "rgba(140,140,140,0.75)";
       ctx.beginPath();
-      ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.displayRadius, 0, Math.PI * 2);
       ctx.fill();
     }
 
     if (this.hitFlash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = `rgba(255,255,255,${0.22 * this.hitFlash})`;
-      ctx.fillRect(-this.radius, -this.radius, diameter, diameter);
+      ctx.fillRect(-this.displayRadius, -this.displayRadius, diameter, diameter);
       ctx.globalCompositeOperation = "source-over";
     }
 
