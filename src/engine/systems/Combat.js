@@ -76,11 +76,6 @@ export function resolveBulletAsteroidCollisions(game) {
     if (b.dead) continue;
 
     const candidates = game.asteroidSpatialHash.query(b.x, b.y, b.radius, game.asteroidSpatialQuery);
-    candidates.sort((left, right) => {
-      const li = game.asteroidIndexMap.get(left);
-      const ri = game.asteroidIndexMap.get(right);
-      return (li ?? 0) - (ri ?? 0);
-    });
 
     for (const a of candidates) {
       if (a.dead) continue;
