@@ -102,6 +102,7 @@ export class Game {
     this.hoveredButtonId = null;
     this.titleButtons = [];
     this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
+    this.titleButtonDrawState = { hovered: false, pressed: false };
 
     this.debugEnabled = false;
     this.debugColliders = false;
@@ -796,10 +797,10 @@ export class Game {
     ctx.restore();
 
     for (const button of this.titleButtons) {
-      this.#drawNeonButton(button, button.label, {
-        hovered: this.hoveredButtonId === button.id,
-        pressed: false,
-      });
+      const drawState = this.titleButtonDrawState;
+      drawState.hovered = this.hoveredButtonId === button.id;
+      drawState.pressed = false;
+      this.#drawNeonButton(button, button.label, drawState);
     }
 
     ctx.save();

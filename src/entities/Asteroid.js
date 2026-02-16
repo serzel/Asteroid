@@ -1,6 +1,8 @@
 import { wrap, rand } from "../engine/math.js";
 
 const TINT_SHADE_CACHE = new Map();
+const DASH_PATTERN_FAST = [6, 6];
+const DASH_PATTERN_NONE = [];
 
 export class Asteroid {
   static TYPE = {
@@ -209,7 +211,7 @@ draw(ctx) {
   ctx.translate(this.x, this.y);
   ctx.rotate(this.rot);
 
-  if (cfg.dashed) ctx.setLineDash([6, 6]);
+  if (cfg.dashed) ctx.setLineDash(DASH_PATTERN_FAST);
 
   // contour principal (forme procédurale lissée)
   this.#traceRoundedPath(ctx);
@@ -271,7 +273,7 @@ draw(ctx) {
   ctx.shadowBlur = 0;
 
   // reset dash pour ne pas impacter le reste
-  ctx.setLineDash([]);
+  ctx.setLineDash(DASH_PATTERN_NONE);
 
   // DENSE: noyau + ring HP
   if (this.type === "dense") {
