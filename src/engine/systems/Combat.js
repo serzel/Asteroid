@@ -29,53 +29,87 @@ export function rebuildAsteroidSpatialHash(game) {
 export function resolveAsteroidCollisions(game) {
   const A = game.asteroids;
   const tmp = game._queryTmp ?? (game._queryTmp = []);
+  const e = 0.35;
+  const mu = 0.12;
+  const percent = 0.6;
+  const slop = 0.5;
+  const iterations = 3;
   let collisionCount = 0;
 
-  for (let i = 0; i < A.length; i++) {
-    const a = A[i];
-    if (a.dead) continue;
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < A.length; i++) {
+      const a = A[i];
+      if (a.dead) continue;
 
-    tmp.length = 0;
-    game.asteroidSpatialHash.query(a.x, a.y, a.radius, tmp);
-    for (const b of tmp) {
-      const j = game.asteroidIndexMap.get(b);
-      if (j == null || j <= i) continue;
-      if (b.dead) continue;
+      tmp.length = 0;
+      game.asteroidSpatialHash.query(a.x, a.y, a.radius, tmp);
+      for (const b of tmp) {
+        const j = game.asteroidIndexMap.get(b);
+        if (j == null || j <= i) continue;
+        if (b.dead) continue;
 
-      const r = a.radius + b.radius;
-      const r2 = r * r;
+        const r = a.radius + b.radius;
+        const r2 = r * r;
 
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const d2 = dx * dx + dy * dy;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d2 = dx * dx + dy * dy;
 
-      if (d2 > r2 || d2 === 0) continue;
+        if (d2 > r2 || d2 === 0) continue;
 
-      const d = Math.sqrt(d2);
-      const nx = dx / d;
-      const ny = dy / d;
+        const d = Math.sqrt(d2);
+        const nx = dx / d;
+        const ny = dy / d;
 
-      const penetration = r - d;
-      const correctionPercent = 0.8;
-      const slop = 0.5;
-      const correction = Math.max(penetration - slop, 0) * correctionPercent;
-      const sep = correction * 0.5;
-      a.x -= nx * sep;
-      a.y -= ny * sep;
-      b.x += nx * sep;
-      b.y += ny * sep;
+        const mA = a.radius * a.radius;
+        const mB = b.radius * b.radius;
+        const invMA = 1 / mA;
+        const invMB = 1 / mB;
+        const invMassSum = invMA + invMB;
 
-      const rvx = a.vx - b.vx;
-      const rvy = a.vy - b.vy;
-      const velAlongNormal = dot(rvx, rvy, nx, ny);
-      if (velAlongNormal > 0) continue;
+        const rvx = b.vx - a.vx;
+        const rvy = b.vy - a.vy;
+        const velAlongNormal = dot(rvx, rvy, nx, ny);
 
-      const impulse = -velAlongNormal;
-      a.vx -= impulse * nx;
-      a.vy -= impulse * ny;
-      b.vx += impulse * nx;
-      b.vy += impulse * ny;
-      collisionCount += 1;
+        if (velAlongNormal <= 0) {
+          const jn = (-(1 + e) * velAlongNormal) / invMassSum;
+          const impulseX = jn * nx;
+          const impulseY = jn * ny;
+          a.vx -= impulseX * invMA;
+          a.vy -= impulseY * invMA;
+          b.vx += impulseX * invMB;
+          b.vy += impulseY * invMB;
+
+          const tvx = rvx - velAlongNormal * nx;
+          const tvy = rvy - velAlongNormal * ny;
+          const tLen2 = tvx * tvx + tvy * tvy;
+          if (tLen2 > 1e-12) {
+            const tLen = Math.sqrt(tLen2);
+            const tx = tvx / tLen;
+            const ty = tvy / tLen;
+            const jt = -dot(rvx, rvy, tx, ty) / invMassSum;
+            const maxFriction = mu * jn;
+            const jtClamped = Math.max(-maxFriction, Math.min(jt, maxFriction));
+            const frictionX = jtClamped * tx;
+            const frictionY = jtClamped * ty;
+            a.vx -= frictionX * invMA;
+            a.vy -= frictionY * invMA;
+            b.vx += frictionX * invMB;
+            b.vy += frictionY * invMB;
+          }
+
+          if (iter === 0) collisionCount += 1;
+        }
+
+        const penetration = r - d;
+        const correctionMag = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+        const correctionX = correctionMag * nx;
+        const correctionY = correctionMag * ny;
+        a.x -= correctionX * invMA;
+        a.y -= correctionY * invMA;
+        b.x += correctionX * invMB;
+        b.y += correctionY * invMB;
+      }
     }
   }
 
