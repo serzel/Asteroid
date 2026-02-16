@@ -120,6 +120,11 @@ export class Game {
       frameCount: 0,
       frameTimeTotal: 0,
     };
+    this.debugStats = {
+      asteroidCollisionCount: 0,
+      asteroidMaxSpeed: 0,
+      asteroidTotalKineticEnergy: 0,
+    };
 
     this.hudFx = {
       weaponFlashT: 0,
@@ -894,6 +899,9 @@ export class Game {
     ctx.fillText(`FPS: ${this._fps.toFixed(0)}`, 10, 10);
     ctx.fillText(`update: ${this._updateMs.toFixed(1)} ms`, 10, 28);
     ctx.fillText(`render: ${this._renderMs.toFixed(1)} ms`, 10, 46);
+    ctx.fillText(`asteroid collisions: ${this.debugStats.asteroidCollisionCount}`, 10, 64);
+    ctx.fillText(`asteroid max speed: ${this.debugStats.asteroidMaxSpeed.toFixed(2)}`, 10, 82);
+    ctx.fillText(`asteroid kinetic E: ${this.debugStats.asteroidTotalKineticEnergy.toFixed(1)}`, 10, 100);
     ctx.restore();
   }
 

@@ -29,6 +29,7 @@ export function rebuildAsteroidSpatialHash(game) {
 export function resolveAsteroidCollisions(game) {
   const A = game.asteroids;
   const tmp = game._queryTmp ?? (game._queryTmp = []);
+  let collisionCount = 0;
 
   for (let i = 0; i < A.length; i++) {
     const a = A[i];
@@ -74,8 +75,34 @@ export function resolveAsteroidCollisions(game) {
       a.vy -= impulse * ny;
       b.vx += impulse * nx;
       b.vy += impulse * ny;
+      collisionCount += 1;
     }
   }
+
+  let maxSpeed = 0;
+  let totalKineticEnergy = 0;
+  for (let i = 0; i < A.length; i++) {
+    const asteroid = A[i];
+    if (asteroid.dead) continue;
+    const speed2 = asteroid.vx * asteroid.vx + asteroid.vy * asteroid.vy;
+    const speed = Math.sqrt(speed2);
+    if (speed > maxSpeed) maxSpeed = speed;
+
+    const m = asteroid.radius * asteroid.radius;
+    totalKineticEnergy += 0.5 * m * speed2;
+  }
+
+  if (!game.debugStats) {
+    game.debugStats = {
+      asteroidCollisionCount: 0,
+      asteroidMaxSpeed: 0,
+      asteroidTotalKineticEnergy: 0,
+    };
+  }
+
+  game.debugStats.asteroidCollisionCount = collisionCount;
+  game.debugStats.asteroidMaxSpeed = maxSpeed;
+  game.debugStats.asteroidTotalKineticEnergy = totalKineticEnergy;
 }
 
 export function resolveBulletAsteroidCollisions(game) {
