@@ -46,11 +46,12 @@ export class Particle {
 }
 
 
-  static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax, acquire = null) {
+  static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax, acquire = null, maxToSpawn = count) {
     const out = [];
     const make = acquire ?? ((px, py, pvx, pvy, life, radius) => new Particle(px, py, pvx, pvy, life, radius));
+    const target = Math.max(0, Math.min(count, Math.floor(maxToSpawn)));
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < target; i++) {
       const a = rand(0, Math.PI * 2);
       const s = rand(speedMin, speedMax);
       out.push(make(

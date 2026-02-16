@@ -201,45 +201,89 @@ export function resolveBulletAsteroidCollisions(game) {
         };
         if (a.size === 3 && a.type === "dense") {
           explosionProfile.life = 0.35;
-          explosionProfile.ringCount = 3;
-          explosionProfile.maxRadius = 120;
+          explosionProfile.ringCount = 2;
+          explosionProfile.maxRadius = 102;
           explosionProfile.flashAlpha = 0.9;
         } else if (a.size === 3) {
           explosionProfile.life = 0.3;
           explosionProfile.ringCount = 2;
-          explosionProfile.maxRadius = 110;
+          explosionProfile.maxRadius = 95;
           explosionProfile.flashAlpha = 0.8;
         } else if (a.size === 2) {
           explosionProfile.life = 0.22;
-          explosionProfile.ringCount = 2;
-          explosionProfile.maxRadius = 75;
+          explosionProfile.ringCount = 1;
+          explosionProfile.maxRadius = 66;
           explosionProfile.flashAlpha = 0.72;
         } else {
           explosionProfile.life = 0.14;
           explosionProfile.ringCount = 1;
-          explosionProfile.maxRadius = 45;
+          explosionProfile.maxRadius = 40;
           explosionProfile.flashAlpha = 0.65;
         }
 
         game.pushCapped(game.explosions, new Explosion(a.x, a.y, explosionProfile), game.maxExplosions);
 
         const debrisCountBase = a.size === 3 ? rand(20, 34) : a.size === 2 ? rand(12, 20) : rand(7, 12);
-        const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1));
+        const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1) * 0.65);
         game.spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
-        game.pushCapped(
-          game.particles,
-          Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
-          Math.min(game.maxParticles, MAX_PARTICLES),
-          game.particlePool
-        );
+        {
+          const baseParticleCount = Math.round((18 + a.size * 8) * 0.65);
+          const particleBudgetLeft = Math.max(0, (game.fxParticleBudgetPerFrame ?? 0) - (game.fxSpawnedParticlesThisFrame ?? 0));
+          const totalBudgetLeft = Math.max(0, (game.fxSpawnBudgetTotal ?? 0) - (game.fxSpawnedThisFrame ?? 0));
+          const maxToSpawn = Math.min(baseParticleCount, particleBudgetLeft, totalBudgetLeft);
+          const spawnedParticles = Particle.burst(
+            a.x,
+            a.y,
+            baseParticleCount,
+            60,
+            260,
+            0.25,
+            0.85,
+            1,
+            2.6,
+            function () { return game.particlePool.acquire.apply(game.particlePool, arguments); },
+            maxToSpawn
+          );
+          const spawned = spawnedParticles.length;
+          game.fxSpawnedParticlesThisFrame += spawned;
+          game.fxSpawnedThisFrame += spawned;
+          game.pushCapped(
+            game.particles,
+            spawnedParticles,
+            Math.min(game.maxParticles, MAX_PARTICLES),
+            game.particlePool
+          );
+        }
       } else {
         game.spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
-        game.pushCapped(
-          game.particles,
-          Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
-          Math.min(game.maxParticles, MAX_PARTICLES),
-          game.particlePool
-        );
+        {
+          const baseParticleCount = Math.round(6 * 0.65);
+          const particleBudgetLeft = Math.max(0, (game.fxParticleBudgetPerFrame ?? 0) - (game.fxSpawnedParticlesThisFrame ?? 0));
+          const totalBudgetLeft = Math.max(0, (game.fxSpawnBudgetTotal ?? 0) - (game.fxSpawnedThisFrame ?? 0));
+          const maxToSpawn = Math.min(baseParticleCount, particleBudgetLeft, totalBudgetLeft);
+          const spawnedParticles = Particle.burst(
+            a.x,
+            a.y,
+            baseParticleCount,
+            30,
+            140,
+            0.12,
+            0.25,
+            1,
+            2,
+            function () { return game.particlePool.acquire.apply(game.particlePool, arguments); },
+            maxToSpawn
+          );
+          const spawned = spawnedParticles.length;
+          game.fxSpawnedParticlesThisFrame += spawned;
+          game.fxSpawnedThisFrame += spawned;
+          game.pushCapped(
+            game.particles,
+            spawnedParticles,
+            Math.min(game.maxParticles, MAX_PARTICLES),
+            game.particlePool
+          );
+        }
       }
     }
   }
