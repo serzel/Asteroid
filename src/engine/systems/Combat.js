@@ -79,90 +79,96 @@ export function resolveBulletAsteroidCollisions(game) {
     if (b.dead) continue;
 
     const candidates = game.asteroidSpatialHash.query(b.x, b.y, b.radius, game.asteroidSpatialQuery);
+    let target = null;
+    let minD2 = Infinity;
 
     for (const a of candidates) {
       if (a.dead) continue;
       const r = b.radius + a.radius;
-      if (dist2(b.x, b.y, a.x, a.y) <= r * r) {
-        b.dead = true;
+      const d2 = dist2(b.x, b.y, a.x, a.y);
+      if (d2 > r * r || d2 >= minD2) continue;
+      minD2 = d2;
+      target = a;
+    }
 
-        a.hitFlash = 1;
-        const destroyed = a.hit();
-        game.comboTimer = Math.min(game.comboTimer + 0.5, game.getCurrentComboWindow());
+    if (target) {
+      const a = target;
+      b.dead = true;
 
-        if (destroyed) {
-          const prevWeaponLevel = game.ship.weaponLevel;
-          game.combo += a.comboValue;
-          game.ship.updateWeaponLevel(game.combo);
-          game.comboTimer = game.getCurrentComboWindow();
-          game.hudFx.comboPulseT = 0.12;
-          if (game.ship.weaponLevel > prevWeaponLevel) {
-            game.hudFx.weaponFlashT = 0.20;
-            game.addHitStop(HIT_STOP_WEAPON_UP);
-          }
+      a.hitFlash = 1;
+      const destroyed = a.hit();
+      game.comboTimer = Math.min(game.comboTimer + 0.5, game.getCurrentComboWindow());
 
-          const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
-          game.score += Math.round(100 * a.size * cfg.scoreMul * game.combo);
-
-          const kids = a.split();
-          game.asteroids.push(...kids);
-
-          const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
-          game.addShake(shakeCfg.amp, shakeCfg.dur);
-          if (a.size === 3) game.addHitStop(HIT_STOP_BIG);
-          if (a.type === "dense") game.addHitStop(HIT_STOP_DENSE);
-
-          const explosionProfile = {
-            life: 0.3,
-            ringCount: 2,
-            maxRadius: a.radius * 3,
-            flashAlpha: 0.8,
-            colorMode: a.type === "dense" ? "dense" : a.type === "fast" ? "fast" : "normal",
-          };
-          if (a.size === 3 && a.type === "dense") {
-            explosionProfile.life = 0.35;
-            explosionProfile.ringCount = 3;
-            explosionProfile.maxRadius = 120;
-            explosionProfile.flashAlpha = 0.9;
-          } else if (a.size === 3) {
-            explosionProfile.life = 0.3;
-            explosionProfile.ringCount = 2;
-            explosionProfile.maxRadius = 110;
-            explosionProfile.flashAlpha = 0.8;
-          } else if (a.size === 2) {
-            explosionProfile.life = 0.22;
-            explosionProfile.ringCount = 2;
-            explosionProfile.maxRadius = 75;
-            explosionProfile.flashAlpha = 0.72;
-          } else {
-            explosionProfile.life = 0.14;
-            explosionProfile.ringCount = 1;
-            explosionProfile.maxRadius = 45;
-            explosionProfile.flashAlpha = 0.65;
-          }
-
-          game.pushCapped(game.explosions, new Explosion(a.x, a.y, explosionProfile), game.maxExplosions);
-
-          const debrisCountBase = a.size === 3 ? rand(20, 34) : a.size === 2 ? rand(12, 20) : rand(7, 12);
-          const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1));
-          game.spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
-          game.pushCapped(
-            game.particles,
-            Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, (...args) => game.particlePool.acquire(...args)),
-            game.maxParticles,
-            game.particlePool
-          );
-        } else {
-          game.spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
-          game.pushCapped(
-            game.particles,
-            Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, (...args) => game.particlePool.acquire(...args)),
-            game.maxParticles,
-            game.particlePool
-          );
+      if (destroyed) {
+        const prevWeaponLevel = game.ship.weaponLevel;
+        game.combo += a.comboValue;
+        game.ship.updateWeaponLevel(game.combo);
+        game.comboTimer = game.getCurrentComboWindow();
+        game.hudFx.comboPulseT = 0.12;
+        if (game.ship.weaponLevel > prevWeaponLevel) {
+          game.hudFx.weaponFlashT = 0.20;
+          game.addHitStop(HIT_STOP_WEAPON_UP);
         }
 
-        break;
+        const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
+        game.score += Math.round(100 * a.size * cfg.scoreMul * game.combo);
+
+        const kids = a.split();
+        game.asteroids.push(...kids);
+
+        const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
+        game.addShake(shakeCfg.amp, shakeCfg.dur);
+        if (a.size === 3) game.addHitStop(HIT_STOP_BIG);
+        if (a.type === "dense") game.addHitStop(HIT_STOP_DENSE);
+
+        const explosionProfile = {
+          life: 0.3,
+          ringCount: 2,
+          maxRadius: a.radius * 3,
+          flashAlpha: 0.8,
+          colorMode: a.type === "dense" ? "dense" : a.type === "fast" ? "fast" : "normal",
+        };
+        if (a.size === 3 && a.type === "dense") {
+          explosionProfile.life = 0.35;
+          explosionProfile.ringCount = 3;
+          explosionProfile.maxRadius = 120;
+          explosionProfile.flashAlpha = 0.9;
+        } else if (a.size === 3) {
+          explosionProfile.life = 0.3;
+          explosionProfile.ringCount = 2;
+          explosionProfile.maxRadius = 110;
+          explosionProfile.flashAlpha = 0.8;
+        } else if (a.size === 2) {
+          explosionProfile.life = 0.22;
+          explosionProfile.ringCount = 2;
+          explosionProfile.maxRadius = 75;
+          explosionProfile.flashAlpha = 0.72;
+        } else {
+          explosionProfile.life = 0.14;
+          explosionProfile.ringCount = 1;
+          explosionProfile.maxRadius = 45;
+          explosionProfile.flashAlpha = 0.65;
+        }
+
+        game.pushCapped(game.explosions, new Explosion(a.x, a.y, explosionProfile), game.maxExplosions);
+
+        const debrisCountBase = a.size === 3 ? rand(20, 34) : a.size === 2 ? rand(12, 20) : rand(7, 12);
+        const debrisCount = Math.round(debrisCountBase * (a.type === "dense" ? 1.4 : a.type === "fast" ? 1.15 : 1));
+        game.spawnDebris(a.x, a.y, debrisCount, a.type, 70, 230);
+        game.pushCapped(
+          game.particles,
+          Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, (...args) => game.particlePool.acquire(...args)),
+          game.maxParticles,
+          game.particlePool
+        );
+      } else {
+        game.spawnDebris(b.x, b.y, Math.round(rand(4, 8)), a.type, 45, 170);
+        game.pushCapped(
+          game.particles,
+          Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, (...args) => game.particlePool.acquire(...args)),
+          game.maxParticles,
+          game.particlePool
+        );
       }
     }
   }
