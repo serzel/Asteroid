@@ -297,15 +297,15 @@ export function drawHUD(ctx, game) {
   const spacing = 16;
   const livesX = M;
   const livesY = h - M - size;
+  ctx.save();
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
     const dx = livesX + i * (size + spacing);
-    ctx.save();
     ctx.shadowColor = i < game.lives ? "rgba(255, 115, 227, 0.9)" : "rgba(88, 126, 173, 0.45)";
     ctx.shadowBlur = i < game.lives ? 14 : 8;
     ctx.drawImage(img, dx, livesY, size, size);
-    ctx.restore();
   }
+  ctx.restore();
 
   drawNeonPanel(ctx, weaponPanel.x, weaponPanel.y, weaponPanel.w, weaponPanel.h, {
     skew: weaponPanel.skew,

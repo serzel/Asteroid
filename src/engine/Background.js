@@ -350,6 +350,8 @@ export class Background {
   #drawNebula(ctx) {
     if (!this.nebulae.length) return;
 
+    ctx.save();
+
     for (const nebula of this.nebulae) {
       if (!this.#isImageReady(nebula.img)) continue;
 
@@ -357,8 +359,6 @@ export class Background {
       const drawY = nebula.y - nebula.size * 0.5;
       const alpha = Math.max(0.16, nebula.alpha);
       const glowAlpha = Math.max(0.06, nebula.glowAlpha);
-
-      ctx.save();
 
       // Passe 1 — matière de la nébuleuse (toujours visible sur fond sombre).
       ctx.globalCompositeOperation = "source-over";
@@ -392,9 +392,9 @@ export class Background {
       ctx.globalAlpha = 1;
       ctx.fillStyle = tint;
       ctx.fillRect(drawX, drawY, nebula.size, nebula.size);
-
-      ctx.restore();
     }
+
+    ctx.restore();
 
     this.#resetLayerState(ctx);
   }
@@ -413,10 +413,9 @@ export class Background {
 
         if (star.large && glowReady) {
           const glowSize = star.r * star.glowMul;
-          ctx.save();
           ctx.globalAlpha = star.glowAlpha * alpha;
           ctx.drawImage(this.glowImg, star.x - glowSize * 0.5, star.y - glowSize * 0.5, glowSize, glowSize);
-          ctx.restore();
+          ctx.globalAlpha = 1;
         }
 
         ctx.fillStyle = `hsla(${star.h.toFixed(1)}, ${star.s.toFixed(1)}%, ${star.l.toFixed(1)}%, ${alpha.toFixed(4)})`;
@@ -460,6 +459,7 @@ export class Background {
     const glowReady = this.#isImageReady(this.glowImg);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
 
     for (const streak of this.shootingStars) {
       const t = streak.life / streak.maxLife;
@@ -470,7 +470,6 @@ export class Background {
       const nx = -dy;
       const ny = dx;
 
-      ctx.lineCap = "round";
       ctx.strokeStyle = `rgba(${streak.r}, ${streak.g}, ${streak.b}, ${alpha.toFixed(4)})`;
       ctx.lineWidth = streak.width;
       ctx.beginPath();
