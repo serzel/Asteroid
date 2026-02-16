@@ -906,18 +906,29 @@ export class Game {
     for (const p of this.particles) p.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
 
-    const comboWindow = this.getCurrentComboWindow();
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
-    const pulseWindow = comboWindow * 0.25;
-    const pulse = this.comboTimer < pulseWindow ? COMBO_OVERLAY.pulseAlpha * this.clamp01(1 - this.comboTimer / pulseWindow) : 0;
     this.background.setAmbienceFactor(amb);
 
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = COMBO_OVERLAY.baseAlpha * amb + pulse;
-    ctx.fillStyle = COMBO_OVERLAY.color;
-    ctx.fillRect(0, 0, this.world.w, this.world.h);
-    ctx.restore();
+    const WARN = 3.0;
+    const t = this.comboTimer;
+    if (t <= WARN) {
+      const progress = 1 - (t / WARN);
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.01 * 4.0);
+      const alpha = 0.08 + 0.18 * progress * pulse;
+      const thickness = 8 + 6 * progress;
+
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, 0, this.world.w, 0);
+      grad.addColorStop(0, `rgba(255, 80, 220, ${alpha})`);
+      grad.addColorStop(1, `rgba(0, 220, 255, ${alpha})`);
+      ctx.fillStyle = grad;
+
+      ctx.fillRect(0, 0, this.world.w, thickness);
+      ctx.fillRect(0, this.world.h - thickness, this.world.w, thickness);
+      ctx.fillRect(0, 0, thickness, this.world.h);
+      ctx.fillRect(this.world.w - thickness, 0, thickness, this.world.h);
+      ctx.restore();
+    }
   }
 
 
