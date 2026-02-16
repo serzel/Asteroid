@@ -2,6 +2,7 @@ import { dist2, rand, dot } from "../math.js";
 import { Asteroid } from "../../entities/Asteroid.js";
 import { Particle } from "../../entities/effects/Particle.js";
 import { Explosion } from "../../entities/effects/Explosion.js";
+import { MAX_PARTICLES } from "./Effects.js";
 
 const SHAKE_BY_ASTEROID_SIZE = {
   3: { amp: 6, dur: 0.12 },
@@ -167,7 +168,7 @@ export function resolveBulletAsteroidCollisions(game) {
         game.pushCapped(
           game.particles,
           Particle.burst(a.x, a.y, 18 + a.size * 8, 60, 260, 0.25, 0.85, 1, 2.6, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
-          game.maxParticles,
+          Math.min(game.maxParticles, MAX_PARTICLES),
           game.particlePool
         );
       } else {
@@ -175,7 +176,7 @@ export function resolveBulletAsteroidCollisions(game) {
         game.pushCapped(
           game.particles,
           Particle.burst(a.x, a.y, 6, 30, 140, 0.12, 0.25, 1, 2, function () { return game.particlePool.acquire.apply(game.particlePool, arguments); }),
-          game.maxParticles,
+          Math.min(game.maxParticles, MAX_PARTICLES),
           game.particlePool
         );
       }
