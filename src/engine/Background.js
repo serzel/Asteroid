@@ -111,6 +111,40 @@ export class Background {
     }
 
     this.resize(width, height);
+
+    this.debugSeams = false;
+    this.debugForceNearestSmoothing = false;
+    this.debugDrawCalls = [];
+  }
+
+  #roundPx(value) {
+    return Math.round(value);
+  }
+
+  #alignedRect(x, y, w, h, overlapX = 0, overlapY = 0) {
+    const drawX = this.#roundPx(x - overlapX);
+    const drawY = this.#roundPx(y - overlapY);
+    const drawW = Math.max(1, this.#roundPx(w + overlapX * 2));
+    const drawH = Math.max(1, this.#roundPx(h + overlapY * 2));
+    return { x: drawX, y: drawY, w: drawW, h: drawH };
+  }
+
+  #setTextureSmoothing(ctx) {
+    ctx.imageSmoothingEnabled = !this.debugForceNearestSmoothing;
+  }
+
+  #drawImageAligned(ctx, img, x, y, w, h, options = {}) {
+    const {
+      overlapX = 0,
+      overlapY = 0,
+      label = null,
+    } = options;
+    const rect = this.#alignedRect(x, y, w, h, overlapX, overlapY);
+    ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+
+    if (this.debugSeams && label) {
+      this.debugDrawCalls.push({ label, ...rect });
+    }
   }
 
   #isImageReady(img) {
@@ -120,7 +154,7 @@ export class Background {
   #resetLayerState(ctx) {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
-    ctx.imageSmoothingEnabled = true;
+    this.#setTextureSmoothing(ctx);
   }
 
   #planetRadiusFor(img, scale) {
@@ -351,6 +385,7 @@ export class Background {
     if (!this.nebulae.length) return;
 
     ctx.save();
+    this.#setTextureSmoothing(ctx);
 
     for (const nebula of this.nebulae) {
       if (!this.#isImageReady(nebula.img)) continue;
@@ -363,17 +398,19 @@ export class Background {
       // Passe 1 — matière de la nébuleuse (toujours visible sur fond sombre).
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = alpha;
-      ctx.drawImage(nebula.img, drawX, drawY, nebula.size, nebula.size);
+      this.#drawImageAligned(ctx, nebula.img, drawX, drawY, nebula.size, nebula.size, { label: "nebula/base" });
 
       // Passe 2 — coeur lumineux pour renforcer l'énergie colorée.
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = glowAlpha;
-      ctx.drawImage(
+      this.#drawImageAligned(
+        ctx,
         nebula.img,
         nebula.x - nebula.size * 0.54,
         nebula.y - nebula.size * 0.54,
         nebula.size * 1.08,
         nebula.size * 1.08,
+        { label: "nebula/glow" },
       );
 
       // Passe 3 — voile coloré doux pour conserver la signature néon dans les zones sombres.
@@ -414,7 +451,15 @@ export class Background {
         if (star.large && glowReady) {
           const glowSize = star.r * star.glowMul;
           ctx.globalAlpha = star.glowAlpha * alpha;
-          ctx.drawImage(this.glowImg, star.x - glowSize * 0.5, star.y - glowSize * 0.5, glowSize, glowSize);
+          this.#drawImageAligned(
+            ctx,
+            this.glowImg,
+            star.x - glowSize * 0.5,
+            star.y - glowSize * 0.5,
+            glowSize,
+            glowSize,
+            { label: "stars/glow" },
+          );
           ctx.globalAlpha = 1;
         }
 
@@ -437,7 +482,9 @@ export class Background {
 
       if (this.#isImageReady(img)) {
         ctx.globalAlpha = planet.alpha;
-        ctx.drawImage(img, planet.x - radius, planet.y - radius, radius * 2, radius * 2);
+        this.#drawImageAligned(ctx, img, planet.x - radius, planet.y - radius, radius * 2, radius * 2, {
+          label: "planet",
+        });
       } else {
         const fallback = ctx.createRadialGradient(planet.x, planet.y, radius * 0.2, planet.x, planet.y, radius);
         fallback.addColorStop(0, "rgba(210,230,255,0.25)");
@@ -489,7 +536,15 @@ export class Background {
       if (glowReady) {
         const glowSize = streak.width * 14;
         ctx.globalAlpha = streak.headGlowAlpha * t;
-        ctx.drawImage(this.glowImg, streak.x - glowSize * 0.5, streak.y - glowSize * 0.5, glowSize, glowSize);
+        this.#drawImageAligned(
+          ctx,
+          this.glowImg,
+          streak.x - glowSize * 0.5,
+          streak.y - glowSize * 0.5,
+          glowSize,
+          glowSize,
+          { label: "shooting-star/glow" },
+        );
         ctx.globalAlpha = 1;
       }
     }
@@ -532,19 +587,68 @@ export class Background {
     this.#resetLayerState(ctx);
     ctx.globalCompositeOperation = "overlay";
     ctx.globalAlpha = alpha;
+    this.#setTextureSmoothing(ctx);
     const tileW = img.naturalWidth;
     const tileH = img.naturalHeight;
 
     for (let y = 0; y < this.h; y += tileH) {
       for (let x = 0; x < this.w; x += tileW) {
-        ctx.drawImage(img, x, y, tileW, tileH);
+        this.#drawImageAligned(ctx, img, x, y, tileW, tileH, {
+          overlapX: 1,
+          label: "noise/tile",
+        });
       }
     }
     this.#resetLayerState(ctx);
   }
 
-  draw(ctx) {
+  #drawSeamDebugOverlay(ctx) {
+    if (!this.debugSeams) return;
+
+    const transform = ctx.getTransform();
+    const dpr = window.devicePixelRatio || 1;
+    const lines = [
+      `DPR: ${dpr.toFixed(2)}`,
+      `smoothing: ${ctx.imageSmoothingEnabled ? "on" : "off"}`,
+      `transform: a=${transform.a.toFixed(3)} b=${transform.b.toFixed(3)} c=${transform.c.toFixed(3)} d=${transform.d.toFixed(3)} e=${transform.e.toFixed(3)} f=${transform.f.toFixed(3)}`,
+    ];
+
+    const drawCalls = this.debugDrawCalls.slice(0, 6);
+    for (const call of drawCalls) {
+      lines.push(`${call.label}: x=${call.x} y=${call.y} w=${call.w} h=${call.h}`);
+    }
+
+    ctx.save();
     this.#resetLayerState(ctx);
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    for (let x = 0.5; x < this.w; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.h);
+      ctx.stroke();
+    }
+
+    const x = 12;
+    const y = 12;
+    const lh = 16;
+    const boxW = Math.min(this.w - 24, 760);
+    const boxH = lines.length * lh + 12;
+    ctx.fillStyle = "rgba(4, 8, 18, 0.72)";
+    ctx.fillRect(x - 6, y - 6, boxW, boxH);
+    ctx.fillStyle = "rgba(210, 240, 255, 0.94)";
+    ctx.font = "12px monospace";
+    ctx.textBaseline = "top";
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], x, y + i * lh);
+    }
+    ctx.restore();
+  }
+
+  draw(ctx) {
+    this.debugDrawCalls = [];
+    this.#resetLayerState(ctx);
+    this.#setTextureSmoothing(ctx);
     const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
     bg.addColorStop(0, "hsl(224, 72%, 6%)");
     bg.addColorStop(0.5, "hsl(238, 70%, 5%)");
@@ -560,6 +664,7 @@ export class Background {
     this.#drawNeonGrade(ctx);
     this.#drawNoiseTile(ctx, this.noiseGrainImg, 0.025);
     this.#drawNoiseTile(ctx, this.noiseScanlinesImg, 0.018);
+    this.#drawSeamDebugOverlay(ctx);
     this.#resetLayerState(ctx);
   }
 

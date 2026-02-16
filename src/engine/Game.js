@@ -113,6 +113,7 @@ export class Game {
     this.debugEnabled = false;
     this.debugColliders = false;
     this.debugProfiler = false;
+    this.debugSeams = false;
     this._fps = 0;
     this._frameCount = 0;
     this._fpsTimer = 0;
@@ -662,6 +663,17 @@ export class Game {
     if (this.input.wasPressed("debugProfilerFreeze")) {
       this.profView.freezeT = 2;
       this.profView.accTime = 0;
+    }
+
+    if (this.input.wasPressed("debugSeams")) {
+      this.debugSeams = !this.debugSeams;
+      this.background.debugSeams = this.debugSeams;
+      console.log(`[DEBUG] Seams ${this.debugSeams ? "ON" : "OFF"}`);
+    }
+
+    if (this.input.wasPressed("debugSeamsNearest")) {
+      this.background.debugForceNearestSmoothing = !this.background.debugForceNearestSmoothing;
+      console.log(`[DEBUG] Seam smoothing mode: ${this.background.debugForceNearestSmoothing ? "nearest (OFF)" : "linear (ON)"}`);
     }
 
     this.debugLogAccum += dt;
