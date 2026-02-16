@@ -39,12 +39,13 @@ export function resolveAsteroidCollisions(game) {
       if (b.dead) continue;
 
       const r = a.radius + b.radius;
+      const r2 = r * r;
 
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d2 = dx * dx + dy * dy;
 
-      if (d2 > r * r || d2 === 0) continue;
+      if (d2 > r2 || d2 === 0) continue;
 
       const d = Math.sqrt(d2);
       const nx = dx / d;
@@ -85,8 +86,9 @@ export function resolveBulletAsteroidCollisions(game) {
     for (const a of candidates) {
       if (a.dead) continue;
       const r = b.radius + a.radius;
+      const r2 = r * r;
       const d2 = dist2(b.x, b.y, a.x, a.y);
-      if (d2 > r * r || d2 >= minD2) continue;
+      if (d2 > r2 || d2 >= minD2) continue;
       minD2 = d2;
       target = a;
     }
