@@ -105,6 +105,12 @@ export class Game {
 
     this.debugEnabled = false;
     this.debugColliders = false;
+    this.debugProfiler = false;
+    this._fps = 0;
+    this._frameCount = 0;
+    this._fpsTimer = 0;
+    this._updateMs = 0;
+    this._renderMs = 0;
     this.debugLogAccum = 0;
     this.debugPerfAccum = 0;
     this.debugPerf = {
@@ -380,39 +386,30 @@ export class Game {
     if (!this.running) return;
 
     const dt = Math.min(0.033, (t - this.last) / 1000 || 0);
-    const frameStart = this.debugEnabled ? performance.now() : 0;
     this.last = t;
 
     this.#applyResizeIfNeeded();
 
-    let updateStart = 0;
-    let drawStart = 0;
-    if (this.debugEnabled) {
-      performance.mark("game:update:start");
-      updateStart = performance.now();
-    }
+    const updateStart = performance.now();
     this.#update(dt);
-    if (this.debugEnabled) {
-      this.debugPerf.updateMs += performance.now() - updateStart;
-      performance.mark("game:update:end");
-      performance.measure("game:update", "game:update:start", "game:update:end");
-      performance.clearMeasures("game:update");
-      performance.clearMarks("game:update:start");
-      performance.clearMarks("game:update:end");
+    this._updateMs = performance.now() - updateStart;
 
-      performance.mark("game:draw:start");
-      drawStart = performance.now();
-    }
+    const renderStart = performance.now();
     this.#draw();
-    if (this.debugEnabled) {
-      this.debugPerf.drawMs += performance.now() - drawStart;
-      performance.mark("game:draw:end");
-      performance.measure("game:draw", "game:draw:start", "game:draw:end");
-      performance.clearMeasures("game:draw");
-      performance.clearMarks("game:draw:start");
-      performance.clearMarks("game:draw:end");
+    this._renderMs = performance.now() - renderStart;
 
-      this.debugPerf.frameTimeTotal += performance.now() - frameStart;
+    this._frameCount += 1;
+    this._fpsTimer += dt;
+    if (this._fpsTimer >= 0.5) {
+      this._fps = this._fpsTimer > 0 ? this._frameCount / this._fpsTimer : 0;
+      this._frameCount = 0;
+      this._fpsTimer = 0;
+    }
+
+    if (this.debugEnabled) {
+      this.debugPerf.updateMs += this._updateMs;
+      this.debugPerf.drawMs += this._renderMs;
+      this.debugPerf.frameTimeTotal += this._updateMs + this._renderMs;
       this.debugPerf.frameCount += 1;
     }
 
@@ -578,6 +575,10 @@ export class Game {
     if (this.input.wasPressed("debugToggle")) {
       this.debugColliders = !this.debugColliders;
       console.log(`[DEBUG] Colliders ${this.debugColliders ? "ON" : "OFF"}`);
+    }
+
+    if (this.input.wasPressed("debugProfiler")) {
+      this.debugProfiler = !this.debugProfiler;
     }
 
     this.debugLogAccum += dt;
@@ -880,6 +881,21 @@ export class Game {
     drawText(ctx, "[M] Menu", this.world.w * 0.5 - 52, this.world.h * 0.64, 20);
   }
 
+  #drawProfilerOverlay() {
+    if (!this.debugProfiler) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = "14px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(220, 245, 255, 0.95)";
+    ctx.fillText(`FPS: ${this._fps.toFixed(0)}`, 10, 10);
+    ctx.fillText(`update: ${this._updateMs.toFixed(1)} ms`, 10, 28);
+    ctx.fillText(`render: ${this._renderMs.toFixed(1)} ms`, 10, 46);
+    ctx.restore();
+  }
+
   #draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.world.w, this.world.h);
@@ -900,5 +916,6 @@ export class Game {
     ctx.restore();
 
     drawHUD(ctx, this);
+    this.#drawProfilerOverlay();
   }
 }
