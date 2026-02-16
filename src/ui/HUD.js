@@ -17,7 +17,7 @@ const WEAPON_HUD_STYLES = {
   4: {
     color: "#ff8dbb",
     glow: "rgba(255, 141, 187, 0.95)",
-    label: "SHOTGUN",
+    label: "FUSIL À POMPE",
   },
 };
 
@@ -56,8 +56,20 @@ function formatCombo(combo) {
   return combo.toFixed(1);
 }
 
-function formatScore(score) {
-  return Math.floor(score).toLocaleString("fr-FR");
+function formatScoreFr(score) {
+  const value = Math.max(0, Math.floor(score));
+  const digits = String(value);
+  let out = "";
+
+  for (let i = 0; i < digits.length; i += 1) {
+    const indexFromEnd = digits.length - i;
+    out += digits[i];
+    if (indexFromEnd > 1 && indexFromEnd % 3 === 1) {
+      out += " ";
+    }
+  }
+
+  return out;
 }
 
 function buildPanelPath(ctx, x, y, w, h, skew = 18) {
@@ -200,6 +212,19 @@ function getWeaponHUDStyle(level) {
 export function drawHUD(ctx, game) {
   if (!game?.ship) return;
 
+  if (!game.uiCache) {
+    game.uiCache = {
+      lastScoreInt: null,
+      scoreText: "0",
+    };
+  }
+
+  const scoreInt = Math.max(0, Math.floor(game.score));
+  if (game.uiCache.lastScoreInt !== scoreInt) {
+    game.uiCache.lastScoreInt = scoreInt;
+    game.uiCache.scoreText = formatScoreFr(scoreInt);
+  }
+
   const M = 28;
   const { w, h } = game.world;
   const level = game.ship.weaponLevel ?? 1;
@@ -262,7 +287,7 @@ export function drawHUD(ctx, game) {
     glowColor: "rgba(244, 92, 255, 0.95)",
     fillAlpha: 0.76,
   });
-  drawNeonText(ctx, `WAVE ${formatWave(game.level)}`, wavePanel.x + wavePanel.w * 0.5, wavePanel.y + wavePanel.h * 0.56, {
+  drawNeonText(ctx, `VAGUE ${formatWave(game.level)}`, wavePanel.x + wavePanel.w * 0.5, wavePanel.y + wavePanel.h * 0.56, {
     size: 64,
     align: "center",
     color: "#ff9bf5",
@@ -284,7 +309,7 @@ export function drawHUD(ctx, game) {
     glowColor: "rgba(117, 233, 255, 0.95)",
     baseline: "middle",
   });
-  drawNeonText(ctx, formatScore(game.score), scorePanel.x + scorePanel.w * 0.55, scorePanel.y + 66, {
+  drawNeonText(ctx, game.uiCache.scoreText, scorePanel.x + scorePanel.w * 0.55, scorePanel.y + 66, {
     size: 54,
     align: "center",
     color: "#c9fdff",
@@ -313,7 +338,7 @@ export function drawHUD(ctx, game) {
     glowColor: "rgba(113, 231, 255, 0.95)",
     fillAlpha: 0.84,
   });
-  drawNeonText(ctx, "WEAPON", weaponPanel.x + 34, weaponPanel.y + 24, {
+  drawNeonText(ctx, "ARME", weaponPanel.x + 34, weaponPanel.y + 24, {
     size: 32,
     color: "#8feaff",
     glowColor: "rgba(143, 234, 255, 0.95)",
