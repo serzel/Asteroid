@@ -376,13 +376,25 @@ export class Background {
       this.shootTimer = randomRange(7, 13);
     }
 
-    this.shootingStars = this.shootingStars.filter((star) => {
+    const stars = this.shootingStars;
+    const xMin = -300;
+    const yMin = -300;
+    const xMax = this.w + 300;
+    const yMax = this.h + 300;
+
+    let write = 0;
+    for (let read = 0; read < stars.length; read += 1) {
+      const star = stars[read];
       star.x += star.vx * dt;
       star.y += star.vy * dt;
       star.life -= dt;
 
-      return star.life > 0 && star.x > -300 && star.y > -300 && star.x < this.w + 300 && star.y < this.h + 300;
-    });
+      if (star.life > 0 && star.x > xMin && star.y > yMin && star.x < xMax && star.y < yMax) {
+        stars[write] = star;
+        write += 1;
+      }
+    }
+    stars.length = write;
   }
 
   #drawNebula(ctx) {
