@@ -20,7 +20,7 @@ import { DIFFICULTY_PRESETS, COMBO_OVERLAY, COMBO_WINDOW } from "../config/gamep
 import { UIRenderer } from "../ui/UIRenderer.js";
 import { mouseToCanvas } from "../ui/UIInput.js";
 import { UI_ACTION } from "../ui/UIActionTypes.js";
-import AudioManager from "../audio/AudioManager.js";
+import AudioManager, { DEFAULT_AUDIO_MANIFEST } from "../audio/AudioManager.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
@@ -74,30 +74,6 @@ const GAME_STATE = {
   PLAY: "PLAY",
   GAME_OVER_ANIM: "GAME_OVER_ANIM",
   GAME_OVER_READY: "GAME_OVER_READY",
-};
-
-const AUDIO_MANIFEST = {
-  shoot_lvl1: { url: "assets/audio/shoot_lvl1.wav", bus: "sfx" },
-  shoot_lvl2: { url: "assets/audio/shoot_lvl2.wav", bus: "sfx" },
-  shoot_lvl3: { url: "assets/audio/shoot_lvl3.wav", bus: "sfx" },
-  shoot_lvl4: { url: "assets/audio/shoot_lvl4.wav", bus: "sfx" },
-  asteroid_explosion_small: { url: "assets/audio/asteroid_explosion_small.wav", bus: "sfx" },
-  asteroid_explosion_medium: { url: "assets/audio/asteroid_explosion_medium.wav", bus: "sfx" },
-  asteroid_explosion_large: { url: "assets/audio/asteroid_explosion_large.wav", bus: "sfx" },
-  weapon_upgrade: { url: "assets/audio/weapon_upgrade.wav", bus: "sfx" },
-  weapon_downgrade: { url: "assets/audio/weapon_downgrade.wav", bus: "sfx" },
-  weapon_electric: { url: "assets/audio/weapon_electric.wav", bus: "sfx" },
-  bullet_hit: { url: "assets/audio/bullet_hit.wav", bus: "sfx" },
-  ui_hover: { url: "assets/audio/ui_hover.wav", bus: "sfx" },
-  ui_click: { url: "assets/audio/ui_click.wav", bus: "sfx" },
-  engine_loop: { url: "assets/audio/engine_loop.wav", bus: "sfx", loop: true },
-  music_theme: {
-    url: "assets/audio/Asteroid_theme.mp3",
-    bus: "music",
-    loop: true,
-    loopStart: 24.5,
-    loopEnd: 147.5,
-  },
 };
 
 const SHOOT_SFX_BY_LEVEL = {
@@ -547,7 +523,7 @@ export class Game {
 
     try {
       await this.audio.init();
-      await this.audio.load(AUDIO_MANIFEST);
+      await this.audio.load(DEFAULT_AUDIO_MANIFEST);
       this.audio.setVolume("music", this.settings.music);
       this.audio.setVolume("sfx", this.settings.sfx);
       this.audioReady = true;
