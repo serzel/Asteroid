@@ -27,6 +27,7 @@ const WEAPON_HALF_COLORS = {
 const SHIP_TRAIL = {
   maxPoints: 12,
   spacingSec: 0.015,
+  minPointDistancePx: 2,
   flameJitterRefreshSec: 1 / 30,
   flameJitterBase: 0.75,
   flameJitterRange: 0.5,
@@ -75,6 +76,7 @@ export class Ship {
     this.trail = [];
     this.trailMax = SHIP_TRAIL.maxPoints;
     this.trailSpacing = SHIP_TRAIL.spacingSec;
+    this.trailMinPointDistanceSq = SHIP_TRAIL.minPointDistancePx * SHIP_TRAIL.minPointDistancePx;
     this._trailAcc = 0;
     this._flameJitter = 1;
     this._flameJitterTimer = 0;
@@ -145,7 +147,12 @@ export class Ship {
 
     this._trailAcc += dt;
     while (this._trailAcc >= this.trailSpacing) {
-      this.trail.push({ x: this.x, y: this.y, a: this.angle });
+      const last = this.trail[this.trail.length - 1];
+      const dx = this.x - (last?.x ?? this.x + SHIP_TRAIL.minPointDistancePx);
+      const dy = this.y - (last?.y ?? this.y + SHIP_TRAIL.minPointDistancePx);
+      if ((dx * dx + dy * dy) >= this.trailMinPointDistanceSq) {
+        this.trail.push({ x: this.x, y: this.y, a: this.angle });
+      }
       if (this.trail.length > this.trailMax) this.trail.shift();
       this._trailAcc -= this.trailSpacing;
     }

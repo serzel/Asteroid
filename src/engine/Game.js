@@ -55,6 +55,8 @@ const DEBUG = {
     nearest: "nearest (OFF)",
     linear: "linear (ON)",
   },
+  projectileDiagnostics: false,
+  canvasStateChecks: false,
 };
 
 const COMBO_WARN_FX = {
@@ -215,6 +217,9 @@ export class Game {
     this.debugColliders = false;
     this.debugProfiler = false;
     this.debugSeams = false;
+    this.debugStickyBulletTime = 0;
+    this.debugStickyBulletId = null;
+    this.debugBulletIdSeed = 0;
     this._fps = 0;
     this._frameCount = 0;
     this._fpsTimer = 0;
@@ -801,6 +806,7 @@ export class Game {
 
     this.#updateShooting();
     this.#updateEntities(dt);
+    this.#debugTrackProjectileAnomalies(dt);
 
     if (this.#resolveCollisions()) return;
 
@@ -1129,6 +1135,76 @@ export class Game {
     this.#spawnDebris(x, y, count, type, speedMin, speedMax);
   }
 
+  #debugTrackProjectileAnomalies(dt) {
+    if (!DEBUG.projectileDiagnostics || this.state !== GAME_STATE.PLAY || !this.ship) return;
+
+    const shootHeld = this.input.isDown("shoot") || this.input.wasPressed("shoot");
+    if (shootHeld) {
+      this.debugStickyBulletTime = 0;
+      this.debugStickyBulletId = null;
+      return;
+    }
+
+    if (this.bullets.length === 0) {
+      this.debugStickyBulletTime = 0;
+      this.debugStickyBulletId = null;
+      return;
+    }
+
+    let nearest = null;
+    let nearestDist = Infinity;
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      b.debugId ??= ++this.debugBulletIdSeed;
+      const dx = b.x - this.ship.x;
+      const dy = b.y - this.ship.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = b;
+      }
+    }
+
+    if (!nearest) return;
+
+    const age = Number.isFinite(nearest.maxLife) ? (nearest.maxLife - nearest.life) : NaN;
+    this.logDebug(
+      "projectile",
+      `idle bullets=${this.bullets.length} nearest={id:${nearest.debugId},x:${nearest.x.toFixed(1)},y:${nearest.y.toFixed(1)},vx:${nearest.vx.toFixed(1)},vy:${nearest.vy.toFixed(1)},life:${nearest.life.toFixed(3)},age:${Number.isFinite(age) ? age.toFixed(3) : "n/a"},dist:${nearestDist.toFixed(2)}}`
+    );
+
+    if (nearestDist < 2) {
+      if (this.debugStickyBulletId === nearest.debugId) this.debugStickyBulletTime += dt;
+      else {
+        this.debugStickyBulletId = nearest.debugId;
+        this.debugStickyBulletTime = dt;
+      }
+
+      if (this.debugStickyBulletTime > 0.2) {
+        this.logDebug("projectile", `sticky-bullet id=${nearest.debugId} dist=${nearestDist.toFixed(2)} hold=${this.debugStickyBulletTime.toFixed(3)}s`);
+      }
+    } else {
+      this.debugStickyBulletTime = 0;
+      this.debugStickyBulletId = null;
+    }
+  }
+
+  #debugAssertCanvasState(label) {
+    if (!DEBUG.canvasStateChecks) return;
+    const ctx = this.ctx;
+    const t = ctx.getTransform();
+    const matrixOk = t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1 && t.e === 0 && t.f === 0;
+    const compositeOk = ctx.globalCompositeOperation === "source-over";
+    const alphaOk = Math.abs(ctx.globalAlpha - 1) <= 1e-6;
+    const shadowBlurOk = ctx.shadowBlur === 0;
+    if (!matrixOk || !compositeOk || !alphaOk || !shadowBlurOk) {
+      this.logDebug(
+        "canvas",
+        `${label} leaked state composite=${ctx.globalCompositeOperation} alpha=${ctx.globalAlpha.toFixed(3)} shadowBlur=${ctx.shadowBlur} transform=[${t.a.toFixed(3)},${t.b.toFixed(3)},${t.c.toFixed(3)},${t.d.toFixed(3)},${t.e.toFixed(3)},${t.f.toFixed(3)}]`
+      );
+    }
+  }
+
   #drawPlayScene() {
     const ctx = this.ctx;
     this.background.draw(ctx);
@@ -1209,6 +1285,7 @@ export class Game {
       this.background.setAmbienceFactor(0);
       this.background.render(ctx);
       this.uiRenderer.drawTitleScreen(ctx, uiModel);
+      this.#debugAssertCanvasState("after-title-ui");
       return;
     }
 
@@ -1223,6 +1300,8 @@ export class Game {
     ctx.restore();
 
     drawHUD(ctx, this);
+    this.#debugAssertCanvasState("after-hud");
     this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
+    this.#debugAssertCanvasState("after-profiler");
   }
 }
