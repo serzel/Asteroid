@@ -240,6 +240,9 @@ export function resolveBulletAsteroidCollisions(game) {
 
       a.hitFlash = 1;
       const destroyed = a.hit();
+      if (game.audioReady && game.audio) {
+        game.audio.play("bullet_hit");
+      }
       game.comboTimer = Math.min(game.comboTimer + 0.5, game.getComboWindow());
 
       if (destroyed) {
@@ -251,6 +254,12 @@ export function resolveBulletAsteroidCollisions(game) {
         if (game.ship.weaponLevel > prevWeaponLevel) {
           game.hudFx.weaponFlashT = 0.20;
           game.addHitStop(HIT_STOP_WEAPON_UP);
+          if (game.audioReady && game.audio) {
+            game.audio.play("weapon_upgrade");
+          }
+          if ((game.ship.weaponLevel === 3 || game.ship.weaponLevel === 4) && game.audioReady && game.audio) {
+            game.audio.play("weapon_electric");
+          }
         }
 
         const cfg = Asteroid.TYPE[a.type] ?? Asteroid.TYPE.normal;
