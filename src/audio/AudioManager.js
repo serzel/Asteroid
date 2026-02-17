@@ -50,6 +50,15 @@ export const DEFAULT_AUDIO_MANIFEST = {
     defaultVolume: 1,
     maxInstances: 3,
     priority: 5
+  },
+  music_theme: {
+    url: "assets/audio/Asteroid_theme.mp3",
+    bus: "music",
+    loop: true,
+    loopStart: 24.5,
+    loopEnd: 147.5,
+    defaultVolume: 0.8,
+    priority: 0
   }
 };
 
@@ -65,7 +74,7 @@ const GLOBAL_SFX_LIMITER = 20;
  *
  * - Un seul AudioContext pour toute la durée de vie de l'instance.
  * - Cache des AudioBuffer décodés.
- * - Bus de volume: master / sfx.
+ * - Bus de volume: master / sfx / music.
  */
 export class AudioManager {
   /**
@@ -80,12 +89,14 @@ export class AudioManager {
 
     this._buses = {
       master: null,
-      sfx: null
+      sfx: null,
+      music: null
     };
 
     this._volumes = {
       master: 1,
-      sfx: 1
+      sfx: 1,
+      music: 1
     };
 
     this._muted = false;
@@ -115,8 +126,10 @@ export class AudioManager {
 
     this._buses.master = this.ctx.createGain();
     this._buses.sfx = this.ctx.createGain();
+    this._buses.music = this.ctx.createGain();
 
     this._buses.sfx.connect(this._buses.master);
+    this._buses.music.connect(this._buses.master);
     this._buses.master.connect(this.ctx.destination);
 
     for (const busName of Object.keys(this._buses)) {
@@ -142,7 +155,7 @@ export class AudioManager {
 
   /**
    * Précharge et décode les sons déclarés dans un manifest.
-   * @param {Record<string, {url: string, bus?: string, loop?: boolean, defaultVolume?: number, maxInstances?: number, priority?: number}>} manifest
+   * @param {Record<string, {url: string, bus?: string, loop?: boolean, loopStart?: number, loopEnd?: number, defaultVolume?: number, maxInstances?: number, priority?: number}>} manifest
    * @returns {Promise<void>}
    */
   async load(manifest) {
@@ -176,10 +189,22 @@ export class AudioManager {
       }
 
       this._buffers.set(name, audioBuffer);
+
+      const loopStart = Number.isFinite(definition.loopStart)
+        ? Math.max(0, definition.loopStart)
+        : undefined;
+      const loopEnd = Number.isFinite(definition.loopEnd)
+        ? Math.max(0, definition.loopEnd)
+        : undefined;
+
       this._manifest.set(name, {
         url: definition.url,
         bus,
         loop: Boolean(definition.loop),
+        loopStart,
+        loopEnd: typeof loopStart === "number" && typeof loopEnd === "number" && loopEnd > loopStart
+          ? loopEnd
+          : undefined,
         defaultVolume: this._clamp(definition.defaultVolume ?? 1, 0, 1),
         maxInstances: Math.max(1, Math.floor(definition.maxInstances ?? Number.POSITIVE_INFINITY)),
         priority: Math.max(0, Math.floor(definition.priority ?? 0))
@@ -246,7 +271,13 @@ export class AudioManager {
   playLoop(name, options = {}) {
     const { source, gain, busNode, busName, meta } = this._createPlayableNodes(name, options.bus);
 
-    source.loop = true;
+    source.loop = meta.loop !== false;
+    if (typeof meta.loopStart === "number") {
+      source.loopStart = meta.loopStart;
+    }
+    if (typeof meta.loopEnd === "number") {
+      source.loopEnd = meta.loopEnd;
+    }
     source.playbackRate.value = this._clamp(options.playbackRate ?? 1, 0.5, 2);
 
     if (typeof options.detune === "number") {
@@ -325,8 +356,8 @@ export class AudioManager {
   }
 
   /**
-   * Définit le volume d'un bus (0..1): master, sfx.
-   * @param {"master" | "sfx"} busName
+   * Définit le volume d'un bus (0..1): master, sfx, music.
+   * @param {"master" | "sfx" | "music"} busName
    * @param {number} value01
    */
   setVolume(busName, value01) {
@@ -337,14 +368,17 @@ export class AudioManager {
 
   /**
    * Raccourci pour configurer les catégories disponibles.
-   * @param {{master?: number, sfx?: number}} categories
+   * @param {{master?: number, sfx?: number, music?: number}} categories
    */
-  setCategoryVolume({ master, sfx } = {}) {
+  setCategoryVolume({ master, sfx, music } = {}) {
     if (typeof master === "number") {
       this.setVolume("master", master);
     }
     if (typeof sfx === "number") {
       this.setVolume("sfx", sfx);
+    }
+    if (typeof music === "number") {
+      this.setVolume("music", music);
     }
   }
 
@@ -364,7 +398,7 @@ export class AudioManager {
   async dispose() {
     this.stopAll();
 
-    for (const busName of ["sfx", "master"]) {
+    for (const busName of ["music", "sfx", "master"]) {
       if (this._buses[busName]) {
         this._buses[busName].disconnect();
         this._buses[busName] = null;
@@ -399,6 +433,8 @@ export class AudioManager {
     const meta = this._manifest.get(name) || {
       bus: "sfx",
       loop: false,
+      loopStart: undefined,
+      loopEnd: undefined,
       defaultVolume: 1,
       maxInstances: Number.POSITIVE_INFINITY,
       priority: 0
@@ -540,7 +576,7 @@ export class AudioManager {
 
   _assertBus(busName) {
     if (!Object.prototype.hasOwnProperty.call(this._buses, busName)) {
-      throw new Error(`Bus audio inconnu '${busName}'. Bus supportés: master, sfx.`);
+      throw new Error(`Bus audio inconnu '${busName}'. Bus supportés: master, sfx, music.`);
     }
   }
 
