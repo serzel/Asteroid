@@ -501,22 +501,26 @@ export class Game {
   }
 
   #updateGameplay(dt) {
-    this.fxSpawnedThisFrame = 0;
-    this.fxSpawnedParticlesThisFrame = 0;
-    this.fxSpawnedDebrisThisFrame = 0;
-
-    this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
-    this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
-    this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
-
-    if (this.comboTimer > 0) this.comboTimer -= dt;
-    if (this.comboTimer <= 0) {
-      this.applyComboBreak();
-      this.comboTimer = this.getComboWindow();
-    }
+    this.#updateTimersAndScore(dt);
 
     this.ship.update(dt, this.input, this.world);
 
+    this.#updateShooting();
+    this.#updateEntities(dt);
+
+    if (this.#resolveCollisions()) return;
+
+    this.#compactAlive(this.bullets, this.bulletPool);
+    this.#compactAlive(this.asteroids);
+    this.#compactAlive(this.particles, this.particlePool);
+    this.#compactAlive(this.explosions);
+    this.#compactAlive(this.debris, this.debrisPool);
+
+    this.#updateWaveOrSpawner();
+    this.#updateTimersAndScore(dt, true);
+  }
+
+  #updateShooting() {
     if (this.input.wasPressed("shoot") || this.input.isDown("shoot")) {
       const bulletsBeforeShot = this.bullets.length;
       this.ship.tryShoot(this.bullets, (...args) => this.bulletPool.acquire(...args));
@@ -528,7 +532,9 @@ export class Game {
         this.bulletPool.releaseMany(removed);
       }
     }
+  }
 
+  #updateEntities(dt) {
     for (const b of this.bullets) b.update(dt, this.world);
 
     for (const a of this.asteroids) {
@@ -592,7 +598,9 @@ export class Game {
     for (const p of this.particles) p.update(dt, this.world);
     for (const e of this.explosions) e.update(dt);
     for (const d of this.debris) d.update(dt, this.world);
+  }
 
+  #resolveCollisions() {
     resolveBulletAsteroidCollisions(this);
 
     if (this.ship.invincible <= 0) {
@@ -653,19 +661,37 @@ export class Game {
             this.ship.respawn(this.world.w / 2, this.world.h / 2);
           }
 
-          return;
+          return true;
         }
       }
     }
 
-    this.#compactAlive(this.bullets, this.bulletPool);
-    this.#compactAlive(this.asteroids);
-    this.#compactAlive(this.particles, this.particlePool);
-    this.#compactAlive(this.explosions);
-    this.#compactAlive(this.debris, this.debrisPool);
+    return false;
+  }
 
+  #updateWaveOrSpawner() {
     if (this.asteroids.length <= 1 && !this.waveQueued) {
       this.#nextLevel();
+    }
+  }
+
+  #updateTimersAndScore(dt, scoreOnly = false) {
+    if (!scoreOnly) {
+      this.fxSpawnedThisFrame = 0;
+      this.fxSpawnedParticlesThisFrame = 0;
+      this.fxSpawnedDebrisThisFrame = 0;
+
+      this.hudFx.weaponFlashT = Math.max(0, this.hudFx.weaponFlashT - dt);
+      this.hudFx.comboPulseT = Math.max(0, this.hudFx.comboPulseT - dt);
+      this.hudFx.waveIntroT = Math.max(0, this.hudFx.waveIntroT - dt);
+
+      if (this.comboTimer > 0) this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.applyComboBreak();
+        this.comboTimer = this.getComboWindow();
+      }
+
+      return;
     }
 
     if (this.combo === 1) {
