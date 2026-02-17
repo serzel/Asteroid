@@ -66,7 +66,6 @@ function buildLayout(world) {
     scorePanel,
     weaponPanel,
     topLineY: wavePanel.y + wavePanel.h * 0.5,
-    bottomLineY: h - M - 24,
     margin: M,
   };
 }
@@ -126,60 +125,40 @@ function rebuildStaticLayer(game, layout) {
   const c = cache.staticCanvas.getContext('2d');
   c.clearRect(0, 0, w, h);
 
-  neonLine(c, layout.margin, layout.topLineY, w - layout.margin, layout.topLineY, {
+  neonLine(c, layout.margin, layout.topLineY, w * 0.5, layout.topLineY, {
     color: '#ff56df',
-    width: 4,
-    coreWidth: 1.9,
-    intensity: 1,
-    largeBlur: 22,
+    width: 4.6,
+    coreWidth: 3.8,
+    intensity: 1.08,
+    mediumBlur: 11,
+    largeBlur: 26,
   });
   neonLine(c, w * 0.5, layout.topLineY, w - layout.margin, layout.topLineY, {
     color: '#53d8ff',
-    width: 4,
-    coreWidth: 1.9,
-    intensity: 1,
-    largeBlur: 22,
+    width: 4.6,
+    coreWidth: 3.8,
+    intensity: 1.08,
+    mediumBlur: 11,
+    largeBlur: 26,
   });
 
-  neonPanel(c, layout.comboPanel, { color: '#ff56df', width: 3.2, skew: layout.comboPanel.skew, intensity: 1.05 });
-  neonPanel(c, layout.comboBarPanel, { color: '#ff56df', width: 2.6, skew: layout.comboBarPanel.skew, intensity: 0.86 });
+  neonPanel(c, layout.comboPanel, { color: '#ff56df', width: 3.9, skew: layout.comboPanel.skew, intensity: 1.12 });
+  neonPanel(c, layout.comboBarPanel, { color: '#ff56df', width: 3.2, skew: layout.comboBarPanel.skew, intensity: 0.94 });
   neonPanel(c, layout.wavePanel, {
     color: '#ff56df',
-    width: 4.8,
+    width: 6.4,
     radius: layout.wavePanel.radius,
-    intensity: 1.3,
+    intensity: 1.4,
     fillTop: 'rgba(36, 14, 72, 0.72)',
     fillBottom: 'rgba(8, 10, 30, 0.84)',
   });
-  neonPanel(c, layout.scorePanel, { color: '#53d8ff', width: 3.2, skew: layout.scorePanel.skew, intensity: 1.05 });
-
-  neonLine(c, layout.margin, layout.bottomLineY, w - layout.margin, layout.bottomLineY, {
-    color: '#ff56df',
-    width: 4.6,
-    coreWidth: 2.2,
-    intensity: 1.1,
-    largeBlur: 26,
-  });
-  neonLine(c, layout.margin, layout.bottomLineY, w * 0.42, layout.bottomLineY, {
-    color: '#53d8ff',
-    width: 4.6,
-    coreWidth: 2.2,
-    intensity: 1.1,
-    largeBlur: 26,
-  });
-  neonLine(c, w * 0.58, layout.bottomLineY, w - layout.margin, layout.bottomLineY, {
-    color: '#f7da4b',
-    width: 3.8,
-    coreWidth: 1.8,
-    intensity: 0.95,
-    largeBlur: 24,
-  });
+  neonPanel(c, layout.scorePanel, { color: '#53d8ff', width: 3.9, skew: layout.scorePanel.skew, intensity: 1.12 });
 
   neonPanel(c, layout.weaponPanel, {
     color: '#ff56df',
-    width: 3.9,
+    width: 4.3,
     skew: layout.weaponPanel.skew,
-    intensity: 1.05,
+    intensity: 1.08,
     fillTop: 'rgba(46, 16, 88, 0.72)',
     fillBottom: 'rgba(6, 10, 28, 0.88)',
   });

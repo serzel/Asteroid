@@ -2,6 +2,27 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function neonColorWithAlpha(color, alpha) {
+  if (typeof color !== 'string') return `rgba(255,86,223,${alpha})`;
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    const to255 = (v) => Number.parseInt(v, 16);
+    if (hex.length === 3) {
+      const r = to255(hex[0] + hex[0]);
+      const g = to255(hex[1] + hex[1]);
+      const b = to255(hex[2] + hex[2]);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+    if (hex.length === 6) {
+      const r = to255(hex.slice(0, 2));
+      const g = to255(hex.slice(2, 4));
+      const b = to255(hex.slice(4, 6));
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+  }
+  return color;
+}
+
 export function roundRectPath(ctx, x, y, w, h, r = 10) {
   const rr = Math.max(0, Math.min(r, Math.min(w, h) * 0.5));
   ctx.beginPath();
@@ -32,13 +53,13 @@ function tubeStroke(ctx, drawPath, opts = {}) {
     color = '#ff56df',
     width = 3,
     intensity = 1,
-    coreWidth = Math.max(1.1, width * 0.45),
-    mediumBlur = 9,
+    coreWidth = Math.max(1.2, width * 0.82),
+    mediumBlur = 10,
     largeBlur = 24,
-    mediumAlpha = 0.64,
-    largeAlpha = 0.18,
-    coreAlpha = 0.96,
-    coreColor = 'rgba(255,255,255,0.96)',
+    mediumAlpha = 0.36,
+    largeAlpha = 0.14,
+    coreAlpha = 1,
+    coreColor = 'rgba(255,255,255,1)',
     highlight = true,
   } = opts;
 
@@ -47,33 +68,33 @@ function tubeStroke(ctx, drawPath, opts = {}) {
   // A) large halo
   ctx.save();
   drawPath();
-  ctx.globalAlpha = largeAlpha * (0.7 + t * 0.35);
+  ctx.globalAlpha = largeAlpha * (0.76 + t * 0.24);
   ctx.strokeStyle = color;
-  ctx.lineWidth = width * 2.45;
+  ctx.lineWidth = width * 3.15;
   ctx.shadowColor = color;
-  ctx.shadowBlur = largeBlur * (0.75 + t * 0.35);
+  ctx.shadowBlur = largeBlur * (0.82 + t * 0.25);
   ctx.stroke();
   ctx.restore();
 
   // B) medium halo
   ctx.save();
   drawPath();
-  ctx.globalAlpha = mediumAlpha * (0.7 + t * 0.3);
+  ctx.globalAlpha = mediumAlpha * (0.72 + t * 0.28);
   ctx.strokeStyle = color;
-  ctx.lineWidth = width * 1.35;
+  ctx.lineWidth = width * 2.05;
   ctx.shadowColor = color;
-  ctx.shadowBlur = mediumBlur * (0.8 + t * 0.3);
+  ctx.shadowBlur = mediumBlur * (0.82 + t * 0.25);
   ctx.stroke();
   ctx.restore();
 
   // C) colored tube
   ctx.save();
   drawPath();
-  ctx.globalAlpha = 0.95;
+  ctx.globalAlpha = 0.8;
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 1;
+  ctx.shadowBlur = 8;
   ctx.stroke();
   ctx.restore();
 
@@ -83,7 +104,7 @@ function tubeStroke(ctx, drawPath, opts = {}) {
   ctx.globalAlpha = coreAlpha;
   ctx.strokeStyle = coreColor;
   ctx.lineWidth = coreWidth;
-  ctx.shadowColor = 'rgba(255,255,255,0.98)';
+  ctx.shadowColor = 'rgba(255,255,255,1)';
   ctx.shadowBlur = 1;
   ctx.stroke();
   ctx.restore();
@@ -92,7 +113,7 @@ function tubeStroke(ctx, drawPath, opts = {}) {
   if (highlight) {
     ctx.save();
     drawPath();
-    ctx.globalAlpha = 0.24;
+    ctx.globalAlpha = 0.2;
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = Math.max(0.8, coreWidth * 0.48);
     ctx.shadowBlur = 0;
@@ -152,13 +173,28 @@ export function neonPanel(ctx, rect, opts = {}) {
   ctx.fillStyle = sheen;
   ctx.fill();
 
+  const innerGlow = ctx.createLinearGradient(x, y, x, y + h);
+  innerGlow.addColorStop(0, neonColorWithAlpha(color, 0.14));
+  innerGlow.addColorStop(0.45, neonColorWithAlpha(color, 0.1));
+  innerGlow.addColorStop(1, neonColorWithAlpha(color, 0.04));
+  ctx.save();
+  drawPath();
+  ctx.fillStyle = innerGlow;
+  ctx.globalAlpha = 0.72;
+  ctx.shadowColor = neonColorWithAlpha(color, 0.6);
+  ctx.shadowBlur = 8;
+  ctx.fill();
+  ctx.restore();
+
   tubeStroke(ctx, drawPath, {
     color,
     width,
     intensity,
-    coreWidth: Math.max(1.4, width * 0.44),
-    mediumBlur: 11,
-    largeBlur: 26,
+    coreWidth: Math.max(1.4, width * 0.84),
+    mediumBlur: 12,
+    largeBlur: 28,
+    mediumAlpha: 0.4,
+    largeAlpha: 0.16,
   });
   ctx.restore();
 }
@@ -174,8 +210,8 @@ export function neonText(ctx, text, x, y, opts = {}) {
 
   const m = /(\d+(?:\.\d+)?)px/.exec(font);
   const px = m ? Number(m[1]) : 24;
-  const width = Math.max(1.8, px * 0.078);
-  const coreWidth = Math.max(1.2, width * 0.46);
+  const width = Math.max(1.8, px * 0.082);
+  const coreWidth = Math.max(1.3, width * 0.88);
 
   const drawPath = () => {
     ctx.font = font;
@@ -192,10 +228,10 @@ export function neonText(ctx, text, x, y, opts = {}) {
     coreWidth,
     intensity,
     mediumBlur: 9,
-    largeBlur: 20,
-    mediumAlpha: 0.58,
-    largeAlpha: 0.14,
-    coreAlpha: 0.98,
+    largeBlur: 22,
+    mediumAlpha: 0.34,
+    largeAlpha: 0.12,
+    coreAlpha: 1,
   });
   ctx.font = font;
   ctx.textAlign = align;
