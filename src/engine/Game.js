@@ -196,12 +196,17 @@ export class Game {
     return Math.max(COMBO_WINDOW.min, COMBO_WINDOW.base - (level - 1) * COMBO_WINDOW.perWeaponLevel);
   }
 
-  getCurrentComboWindow() {
-    return this.getComboWindowForWeaponLevel(this.ship?.weaponLevel ?? 1);
-  }
-
   getComboWindow() {
-    return this.getCurrentComboWindow();
+    const level = this.ship?.weaponLevel ?? 1;
+    const comboWindow = this.getComboWindowForWeaponLevel(level);
+    if (this.debugEnabled) {
+      const legacyComboWindow = Math.max(COMBO_WINDOW.min, COMBO_WINDOW.base - (level - 1) * COMBO_WINDOW.perWeaponLevel);
+      console.assert(
+        comboWindow === legacyComboWindow,
+        `[DEBUG] Combo window mismatch: ${comboWindow} vs legacy ${legacyComboWindow}`,
+      );
+    }
+    return comboWindow;
   }
 
   logDebug(message) {
@@ -363,7 +368,7 @@ export class Game {
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
-    this.comboTimer = this.getCurrentComboWindow();
+    this.comboTimer = this.getComboWindow();
     this.hudFx.waveIntroT = 1.10;
 
     this.#spawnLevel();
@@ -507,7 +512,7 @@ export class Game {
     if (this.comboTimer > 0) this.comboTimer -= dt;
     if (this.comboTimer <= 0) {
       this.applyComboBreak();
-      this.comboTimer = this.getCurrentComboWindow();
+      this.comboTimer = this.getComboWindow();
     }
 
     this.ship.update(dt, this.input, this.world);
