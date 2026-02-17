@@ -51,6 +51,56 @@ export const DEFAULT_AUDIO_MANIFEST = {
     maxInstances: 3,
     priority: 5
   },
+  weapon_upgrade: {
+    url: "assets/audio/weapon_upgrade.wav",
+    bus: "sfx",
+    defaultVolume: 0.8,
+    maxInstances: 2,
+    priority: 4
+  },
+  weapon_downgrade: {
+    url: "assets/audio/weapon_downgrade.wav",
+    bus: "sfx",
+    defaultVolume: 0.8,
+    maxInstances: 2,
+    priority: 4
+  },
+  weapon_electric: {
+    url: "assets/audio/weapon_electric.wav",
+    bus: "sfx",
+    defaultVolume: 0.75,
+    maxInstances: 3,
+    priority: 3
+  },
+  bullet_hit: {
+    url: "assets/audio/bullet_hit.wav",
+    bus: "sfx",
+    defaultVolume: 0.6,
+    maxInstances: 8,
+    priority: 1
+  },
+  ui_hover: {
+    url: "assets/audio/ui_hover.wav",
+    bus: "sfx",
+    defaultVolume: 0.5,
+    maxInstances: 2,
+    priority: 2
+  },
+  ui_click: {
+    url: "assets/audio/ui_click.wav",
+    bus: "sfx",
+    defaultVolume: 0.6,
+    maxInstances: 2,
+    priority: 2
+  },
+  engine_loop: {
+    url: "assets/audio/engine_loop.wav",
+    bus: "sfx",
+    loop: true,
+    defaultVolume: 0.55,
+    maxInstances: 1,
+    priority: 2
+  },
   music_theme: {
     url: "assets/audio/Asteroid_theme.mp3",
     bus: "music",

@@ -84,6 +84,13 @@ const AUDIO_MANIFEST = {
   asteroid_explosion_small: { url: "assets/audio/asteroid_explosion_small.wav", bus: "sfx" },
   asteroid_explosion_medium: { url: "assets/audio/asteroid_explosion_medium.wav", bus: "sfx" },
   asteroid_explosion_large: { url: "assets/audio/asteroid_explosion_large.wav", bus: "sfx" },
+  weapon_upgrade: { url: "assets/audio/weapon_upgrade.wav", bus: "sfx" },
+  weapon_downgrade: { url: "assets/audio/weapon_downgrade.wav", bus: "sfx" },
+  weapon_electric: { url: "assets/audio/weapon_electric.wav", bus: "sfx" },
+  bullet_hit: { url: "assets/audio/bullet_hit.wav", bus: "sfx" },
+  ui_hover: { url: "assets/audio/ui_hover.wav", bus: "sfx" },
+  ui_click: { url: "assets/audio/ui_click.wav", bus: "sfx" },
+  engine_loop: { url: "assets/audio/engine_loop.wav", bus: "sfx", loop: true },
   music_theme: {
     url: "assets/audio/Asteroid_theme.mp3",
     bus: "music",
@@ -115,6 +122,8 @@ export class Game {
     this.audioUnlockAttached = false;
     this.musicStarted = false;
     this.musicLoopHandle = null;
+    this.engineLoopHandle = null;
+    this.wasThrusting = false;
     this.settings = { music: 0.6, sfx: 0.8 };
     this.hudVolumeUI = {
       musicVolume: this.settings.music,
@@ -279,6 +288,9 @@ export class Game {
 
     this.combo = Math.max(1, c);
     this.ship.updateWeaponLevel(this.combo);
+    if (this.ship.weaponLevel < oldLevel && this.audioReady && this.audio) {
+      this.audio.play("weapon_downgrade");
+    }
     this.logDebug("combo", `Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
   }
 
@@ -376,7 +388,12 @@ export class Game {
       return;
     }
 
+    const previousHoveredButtonId = this.hoveredButtonId;
     this.hoveredButtonId = this.uiRenderer.handlePointerMove(this.#createUIModel(), mx, my);
+    const hoveredChangedToButton = this.hoveredButtonId && this.hoveredButtonId !== previousHoveredButtonId;
+    if (hoveredChangedToButton && this.audioReady && this.audio) {
+      this.audio.play("ui_hover");
+    }
     this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
   }
 
@@ -446,11 +463,14 @@ export class Game {
     if (!action) return;
 
     if (action.type === UI_ACTION.START_GAME) {
+      if (this.audioReady && this.audio) this.audio.play("ui_click");
       this.#startWithDifficulty(action.difficulty);
       return;
     }
 
     if (action.type === UI_ACTION.GO_TO_MENU) {
+      if (this.audioReady && this.audio) this.audio.play("ui_click");
+      this.#stopEngineLoop();
       this.state = GAME_STATE.TITLE;
       this.hoveredButtonId = null;
     }
@@ -504,6 +524,8 @@ export class Game {
     this.canvas.removeEventListener("pointercancel", this.pointerCancelHandler);
     this.#detachAudioUnlockListeners();
     if (this.audio) {
+      this.#stopEngineLoop();
+      this.wasThrusting = false;
       if (this.musicLoopHandle) {
         this.audio.stopLoop(this.musicLoopHandle);
         this.musicLoopHandle = null;
@@ -574,6 +596,27 @@ export class Game {
     }
   }
 
+  #startEngineLoop() {
+    if (!this.audioReady || !this.audio || this.engineLoopHandle) return;
+    this.engineLoopHandle = this.audio.playLoop("engine_loop");
+  }
+
+  #stopEngineLoop() {
+    if (!this.audio || !this.engineLoopHandle) return;
+    this.audio.stopLoop(this.engineLoopHandle);
+    this.engineLoopHandle = null;
+  }
+
+  #syncEngineLoop() {
+    const thrusting = Boolean(this.ship?.thrusting);
+    if (thrusting && !this.wasThrusting) {
+      this.#startEngineLoop();
+    } else if (!thrusting && this.wasThrusting) {
+      this.#stopEngineLoop();
+    }
+    this.wasThrusting = thrusting;
+  }
+
   #newGame() {
     this.score = 0;
     this.combo = 1;
@@ -598,6 +641,8 @@ export class Game {
     this.shakeX = 0;
     this.shakeY = 0;
     this.hitStop = 0;
+    this.#stopEngineLoop();
+    this.wasThrusting = false;
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
@@ -752,6 +797,7 @@ export class Game {
     this.#updateTimersAndScore(dt);
 
     this.ship.update(dt, this.input, this.world);
+    this.#syncEngineLoop();
 
     this.#updateShooting();
     this.#updateEntities(dt);
@@ -1040,6 +1086,8 @@ export class Game {
     }
 
     if (this.state === GAME_STATE.TITLE) {
+      this.#stopEngineLoop();
+      this.wasThrusting = false;
       this.#ensureMusicStarted();
       updateTitleState(this, (id) => this.#startWithDifficulty(id));
       return;
@@ -1052,11 +1100,15 @@ export class Game {
 
     // GAME_OVER_ANIM: on laisse tourner effets/anim 2s avant prompt restart.
     if (this.state === GAME_STATE.GAME_OVER_ANIM) {
+      this.#stopEngineLoop();
+      this.wasThrusting = false;
       updateGameOverAnimState(this, dt, (dtSec) => this.#updateEffectsOnly(dtSec));
       return;
     }
 
     if (this.state === GAME_STATE.GAME_OVER_READY) {
+      this.#stopEngineLoop();
+      this.wasThrusting = false;
       updateGameOverReadyState(this, () => this.#updateEffectsOnly(dt), () => this.#newGame());
     }
   }
