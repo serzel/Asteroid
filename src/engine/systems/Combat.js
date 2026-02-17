@@ -232,13 +232,13 @@ export function resolveBulletAsteroidCollisions(game) {
 
       a.hitFlash = 1;
       const destroyed = a.hit();
-      game.comboTimer = Math.min(game.comboTimer + 0.5, game.getCurrentComboWindow());
+      game.comboTimer = Math.min(game.comboTimer + 0.5, game.getComboWindow());
 
       if (destroyed) {
         const prevWeaponLevel = game.ship.weaponLevel;
         game.combo += a.comboValue;
         game.ship.updateWeaponLevel(game.combo);
-        game.comboTimer = game.getCurrentComboWindow();
+        game.comboTimer = game.getComboWindow();
         game.hudFx.comboPulseT = 0.12;
         if (game.ship.weaponLevel > prevWeaponLevel) {
           game.hudFx.weaponFlashT = 0.20;
