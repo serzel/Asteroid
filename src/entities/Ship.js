@@ -174,12 +174,14 @@ export class Ship {
 
     const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
 
+    const muzzleOffset = Math.max(this.radius + 2, this.spriteSize * 0.42);
+
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
       const dirY = Math.sin(ang);
-      const bx = this.x + nx * (this.radius + 2) + tx * sideOffset;
-      const by = this.y + ny * (this.radius + 2) + ty * sideOffset;
+      const bx = this.x + nx * muzzleOffset + tx * sideOffset;
+      const by = this.y + ny * muzzleOffset + ty * sideOffset;
       const bulletSpeed = baseSpeed * speedMul;
       const bvx = dirX * bulletSpeed + this.vx;
       const bvy = dirY * bulletSpeed + this.vy;
