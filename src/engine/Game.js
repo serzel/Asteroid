@@ -111,7 +111,6 @@ export class Game {
     this.hoveredButtonId = null;
     this.titleButtons = [];
     this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
-    this.titleButtonDrawState = { hovered: false, pressed: false };
 
     this.debugEnabled = false;
     this.debugColliders = false;
@@ -246,15 +245,29 @@ export class Game {
     this.menuButton.y = this.world.h * 0.6;
   }
 
+  #createUIModel() {
+    return {
+      state: this.state,
+      GAME_STATE: this.GAME_STATE,
+      world: this.world,
+      hoveredButtonId: this.hoveredButtonId,
+      titleButtons: this.titleButtons,
+      menuButton: this.menuButton,
+      score: this.score,
+      debugProfiler: this.debugProfiler,
+      profView: this.profView,
+    };
+  }
+
   #onPointerMove(e) {
     const { mx, my } = this.#mouseToCanvas(e);
-    this.hoveredButtonId = this.uiRenderer.handlePointerMove(this, mx, my);
+    this.hoveredButtonId = this.uiRenderer.handlePointerMove(this.#createUIModel(), mx, my);
     this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
   }
 
   #onPointerDown(e) {
     const { mx, my } = this.#mouseToCanvas(e);
-    const action = this.uiRenderer.handlePointerDown(this, mx, my);
+    const action = this.uiRenderer.handlePointerDown(this.#createUIModel(), mx, my);
     this.#applyUIAction(action);
   }
 
@@ -837,10 +850,13 @@ export class Game {
   }
   #draw() {
     const ctx = this.ctx;
+    const uiModel = this.#createUIModel();
     ctx.clearRect(0, 0, this.world.w, this.world.h);
 
     if (this.state === GAME_STATE.TITLE) {
-      this.uiRenderer.drawTitleScreen(this);
+      this.background.setAmbienceFactor(0);
+      this.background.render(ctx);
+      this.uiRenderer.drawTitleScreen(ctx, uiModel);
       return;
     }
 
@@ -850,11 +866,11 @@ export class Game {
     this.#drawCollidersOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
-      this.uiRenderer.drawGameOverOverlay(this);
+      this.uiRenderer.drawGameOverOverlay(ctx, uiModel);
     }
     ctx.restore();
 
     drawHUD(ctx, this);
-    this.uiRenderer.drawProfilerOverlay(this);
+    this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
   }
 }
