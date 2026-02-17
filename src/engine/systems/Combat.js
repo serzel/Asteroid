@@ -329,7 +329,7 @@ export function resolveBulletAsteroidCollisions(game) {
             0.85,
             1,
             2.6,
-            function () { return game.particlePool.acquire.apply(game.particlePool, arguments); },
+            (...args) => game.particlePool.acquire(...args),
             maxToSpawn
           );
           const spawned = spawnedParticles.length;
@@ -359,7 +359,7 @@ export function resolveBulletAsteroidCollisions(game) {
             0.25,
             1,
             2,
-            function () { return game.particlePool.acquire.apply(game.particlePool, arguments); },
+            (...args) => game.particlePool.acquire(...args),
             maxToSpawn
           );
           const spawned = spawnedParticles.length;

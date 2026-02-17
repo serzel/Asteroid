@@ -2,8 +2,8 @@ export function updateGameOverAnimState(game, dt, updateEffectsOnly) {
   updateEffectsOnly(dt);
   game.gameOverDelay -= dt;
   if (game.gameOverDelay <= 0) {
-    game.state = "GAME_OVER_READY";
-    game.logDebug("State transition -> GAME_OVER_READY");
+    game.state = game.GAME_STATE.GAME_OVER_READY;
+    game.logDebug("state", "State transition -> GAME_OVER_READY");
   }
 }
 
