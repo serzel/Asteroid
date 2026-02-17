@@ -179,6 +179,8 @@ function rebuildStaticLayer(game, layout) {
 export function drawHUD(ctx, game) {
   if (!game?.ship) return;
 
+  ctx.save();
+
   if (!game.uiCache) {
     game.uiCache = { lastScoreInt: null, scoreText: '0', staticCanvas: null, staticKey: '' };
   }
@@ -296,4 +298,6 @@ export function drawHUD(ctx, game) {
     baseline: 'middle',
     intensity: 1.2,
   });
+
+  ctx.restore();
 }

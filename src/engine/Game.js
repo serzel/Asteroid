@@ -51,6 +51,7 @@ const DEBUG = {
   logIntervalSec: 1.0,
   perfLogIntervalSec: 1.0,
   profilerFreezeSec: 2,
+  frameStateReset: false,
   seamSampleSmoothingLabel: {
     nearest: "nearest (OFF)",
     linear: "linear (ON)",
@@ -1179,6 +1180,16 @@ export class Game {
   #draw() {
     const ctx = this.ctx;
     const uiModel = this.#createUIModel();
+
+    if (DEBUG.frameStateReset) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      ctx.filter = "none";
+    }
+
     ctx.clearRect(0, 0, this.world.w, this.world.h);
 
     if (this.state === GAME_STATE.TITLE) {

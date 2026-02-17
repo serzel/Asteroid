@@ -156,8 +156,12 @@ export class Background {
   }
 
   #resetLayerState(ctx) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+    ctx.filter = "none";
     this.#setTextureSmoothing(ctx);
   }
 
