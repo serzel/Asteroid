@@ -27,6 +27,11 @@ const PALETTE = {
   connector: "rgba(220, 128, 255, 0.85)",
 };
 
+const HUD_FONTS = {
+  neon: "'Audiowide', system-ui, sans-serif",
+  mono: "'Audiowide', monospace",
+};
+
 const HUD_LAYOUT = {
   wavePanel: { x: 0, y: 0, w: 360, h: 74, skew: 26 },
   comboPanel: { x: 0, y: 0, w: 360, h: 64, skew: 22 },
@@ -81,14 +86,21 @@ function buildPanelPath(ctx, x, y, w, h, skew = 18) {
   ctx.closePath();
 }
 
-function drawNeonPanel(ctx, x, y, w, h, options = {}) {
+function drawNeonPanel(ctx, rect, options = {}) {
   const {
+    color = PALETTE.magenta,
+    intensity = 1,
+    cornerRadius = 0,
+    flicker = 1,
     skew = 18,
-    borderColor = PALETTE.magenta,
-    glowColor = borderColor,
+    borderColor = color,
+    glowColor = color,
     fillAlpha = 0.6,
     mirror = false,
   } = options;
+  const { x, y, w, h } = rect;
+  const neonPulse = flicker * (0.75 + intensity * 0.25);
+  const innerInset = Math.max(0, cornerRadius * 0.12);
 
   ctx.save();
   if (mirror) {
@@ -113,14 +125,36 @@ function drawNeonPanel(ctx, x, y, w, h, options = {}) {
   ctx.fillStyle = sheen;
   ctx.fill();
 
+  ctx.shadowColor = "rgba(255,255,255,0.9)";
+  ctx.shadowBlur = 5 * neonPulse;
+  ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  buildPanelPath(ctx, x, y, w, h, skew);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.92;
   ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 16;
-  ctx.lineWidth = 2;
+  ctx.shadowBlur = 12 * neonPulse;
+  ctx.lineWidth = 1.8;
   ctx.strokeStyle = borderColor;
   buildPanelPath(ctx, x, y, w, h, skew);
   ctx.stroke();
 
+  ctx.globalAlpha = 0.35;
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = 26 * neonPulse;
+  ctx.lineWidth = 3.2;
+  buildPanelPath(ctx, x + innerInset, y + innerInset, w - innerInset * 2, h - innerInset * 2, skew);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1;
+  buildPanelPath(ctx, x, y, w, h, skew);
+  ctx.stroke();
+
   ctx.strokeStyle = "rgba(255,255,255,0.16)";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -133,28 +167,50 @@ function drawNeonPanel(ctx, x, y, w, h, options = {}) {
 
 function drawNeonText(ctx, text, x, y, options = {}) {
   const {
-    size = 24,
-    align = "left",
     color = "#fff",
-    glowColor = color,
-    weight = 700,
-    font = "'Audiowide', system-ui, sans-serif",
+    font = "700 24px 'Audiowide', system-ui, sans-serif",
+    align = "left",
     baseline = "middle",
+    intensity = 1,
+    flicker = 1,
   } = options;
+  const glow = flicker * (0.78 + intensity * 0.22);
+  const fontMatch = /(\d+(?:\.\d+)?)px/.exec(font);
+  const fontPx = fontMatch ? Number(fontMatch[1]) : 24;
+  const coreWidth = Math.max(0.9, fontPx * 0.028);
+  const midWidth = Math.max(1.2, fontPx * 0.045);
+  const haloWidth = Math.max(2.2, fontPx * 0.085);
 
   ctx.save();
-  ctx.font = `${weight} ${size}px ${font}`;
+  ctx.font = font;
   ctx.textAlign = align;
   ctx.textBaseline = baseline;
   ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(2, size * 0.09);
-  ctx.strokeStyle = "rgba(0,0,0,0.75)";
+
+  ctx.globalAlpha = 0.94;
+  ctx.lineWidth = coreWidth;
+  ctx.strokeStyle = "rgba(255,255,255,0.92)";
+  ctx.shadowColor = "rgba(255,255,255,0.95)";
+  ctx.shadowBlur = 3.2 * glow;
   ctx.strokeText(text, x, y);
 
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = Math.max(8, size * 0.3);
+  ctx.globalAlpha = 0.88;
+  ctx.lineWidth = midWidth;
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = Math.max(8, fontPx * 0.24) * glow;
+  ctx.strokeText(text, x, y);
+
+  ctx.globalAlpha = 0.34;
+  ctx.lineWidth = haloWidth;
+  ctx.shadowBlur = Math.max(16, fontPx * 0.5) * glow;
+  ctx.strokeText(text, x, y);
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
@@ -213,10 +269,11 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
   const intensity = active ? 0.95 : hovered ? 0.68 : 0.44;
 
   drawNeonText(ctx, label, x, y - 7, {
-    size: 18,
     color: style.labelColor,
-    glowColor: style.labelGlow,
+    font: `700 18px ${HUD_FONTS.neon}`,
     baseline: "bottom",
+    intensity: 0.86,
+    flicker: style.flicker,
   });
 
   const trackH = Math.max(8, h * 0.3);
@@ -228,11 +285,19 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
   ctx.strokeStyle = style.trackStroke;
   ctx.lineWidth = 1.3;
   ctx.shadowColor = style.trackGlow;
-  ctx.shadowBlur = 6.6 + intensity * 4.4;
+  ctx.shadowBlur = (6.2 + intensity * 4.6) * style.flicker;
   ctx.beginPath();
   ctx.roundRect(x, trackY, w, trackH, 6);
   ctx.fill();
   ctx.stroke();
+
+  ctx.shadowBlur = (14 + intensity * 6) * style.flicker;
+  ctx.globalAlpha = 0.38;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.roundRect(x, trackY, w, trackH, 6);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 
   if (fillW > 0) {
     const fillGrad = ctx.createLinearGradient(x, trackY, x + w, trackY);
@@ -240,24 +305,48 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
     fillGrad.addColorStop(1, style.fillEnd);
     ctx.fillStyle = fillGrad;
     ctx.shadowColor = style.fillGlow;
-    ctx.shadowBlur = 7 + intensity * 5.8;
+    ctx.shadowBlur = (8 + intensity * 5.8) * style.flicker;
     ctx.beginPath();
     ctx.roundRect(x, trackY + 1, fillW, Math.max(2, trackH - 2), 5);
     ctx.fill();
+
+    ctx.shadowBlur = (14 + intensity * 6) * style.flicker;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.roundRect(x, trackY + 1, fillW, Math.max(2, trackH - 2), 5);
+    ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   const handleX = x + fillW;
   const handleY = trackY + trackH * 0.5;
   const handleR = 5.2 + (active ? 1.05 : hovered ? 0.5 : 0);
+  const handleGlowBoost = active ? 1.16 : hovered ? 1.1 : 1;
   ctx.fillStyle = style.handleFill;
   ctx.strokeStyle = style.handleStroke;
   ctx.lineWidth = 1.4;
   ctx.shadowColor = style.handleGlow;
-  ctx.shadowBlur = 6.4 + intensity * 5.4;
+  ctx.shadowBlur = (6.4 + intensity * 5.4) * style.flicker * handleGlowBoost;
   ctx.beginPath();
   ctx.arc(handleX, handleY, handleR, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+
+  ctx.shadowColor = style.trackGlow;
+  ctx.shadowBlur = (10 + intensity * 6.8) * style.flicker * handleGlowBoost;
+  ctx.globalAlpha = 0.42;
+  ctx.beginPath();
+  ctx.arc(handleX, handleY, handleR + 1.4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.95;
+  ctx.shadowBlur = 2;
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.beginPath();
+  ctx.arc(handleX - 0.8, handleY - 0.8, Math.max(1.6, handleR * 0.34), 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
@@ -285,6 +374,8 @@ export function drawHUD(ctx, game) {
   const { w, h } = game.world;
   const level = game.ship.weaponLevel ?? 1;
   const weaponStyle = getWeaponHUDStyle(level);
+  const hudTime = (game.last || performance.now()) * 0.001;
+  const flicker = 1 + Math.sin(hudTime * 3) * 0.03;
 
   const comboWindow = typeof game.getComboWindow === "function" ? game.getComboWindow() : 1;
   const ratio = clamp(game.comboTimer / Math.max(comboWindow, 0.001), 0, 1);
@@ -322,69 +413,61 @@ export function drawHUD(ctx, game) {
   drawConnectorLine(ctx, comboPanel.x + comboPanel.w - 8, comboPanel.y + comboPanel.h * 0.5, wavePanel.x - 8, wavePanel.y + wavePanel.h * 0.5);
   drawConnectorLine(ctx, wavePanel.x + wavePanel.w + 8, wavePanel.y + wavePanel.h * 0.5, scorePanel.x + 14, scorePanel.y + scorePanel.h * 0.5, "rgba(126, 225, 255, 0.85)");
 
-  drawNeonPanel(ctx, comboPanel.x, comboPanel.y, comboPanel.w, comboPanel.h, {
-    skew: comboPanel.skew,
-    borderColor: PALETTE.magenta,
-    glowColor: "rgba(255, 79, 216, 0.95)",
-    fillAlpha: 0.72,
-  });
+  drawNeonPanel(ctx, comboPanel, { color: PALETTE.magenta, intensity: 0.9, skew: comboPanel.skew, glowColor: "rgba(255, 79, 216, 0.95)", fillAlpha: 0.72, flicker });
   drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.46, {
-    size: 44,
     color: "#89e8ff",
-    glowColor: "rgba(137, 232, 255, 1)",
+    font: `700 44px ${HUD_FONTS.neon}`,
+    intensity: 0.92,
+    flicker,
   });
 
-  drawNeonPanel(ctx, comboBarPanel.x, comboBarPanel.y, comboBarPanel.w, comboBarPanel.h, {
-    skew: comboBarPanel.skew,
-    borderColor: "#ff64df",
-    glowColor: "rgba(255, 100, 223, 0.9)",
-    fillAlpha: 0.66,
-  });
+  drawNeonPanel(ctx, comboBarPanel, { color: "#ff64df", intensity: 0.82, skew: comboBarPanel.skew, glowColor: "rgba(255, 100, 223, 0.9)", fillAlpha: 0.66, flicker });
   const barPad = 20;
   const timerText = game.comboTimer.toFixed(1).padStart(4, "0");
   drawComboBar(ctx, comboBarPanel.x + barPad, comboBarPanel.y + 16, comboBarPanel.w - 140, 24, ratio);
   drawNeonText(ctx, timerText, comboBarPanel.x + comboBarPanel.w - 26, comboBarPanel.y + comboBarPanel.h * 0.56, {
-    size: 38,
     align: "right",
     color: "#ff8cf4",
-    glowColor: "rgba(255, 125, 237, 0.95)",
-    font: "'Audiowide', monospace",
+    font: `700 38px ${HUD_FONTS.mono}`,
+    intensity: 0.82,
+    flicker,
   });
 
-  drawNeonPanel(ctx, wavePanel.x, wavePanel.y, wavePanel.w, wavePanel.h, {
-    skew: wavePanel.skew,
-    borderColor: "#f45cff",
-    glowColor: "rgba(244, 92, 255, 0.95)",
-    fillAlpha: 0.76,
-  });
+  drawNeonPanel(ctx, wavePanel, { color: "#f45cff", intensity: 0.95, skew: wavePanel.skew, glowColor: "rgba(244, 92, 255, 0.95)", fillAlpha: 0.76, flicker });
+  ctx.save();
+  ctx.globalAlpha = 0.26;
+  ctx.fillStyle = "rgba(255, 121, 241, 0.36)";
+  ctx.shadowColor = "rgba(255, 121, 241, 0.8)";
+  ctx.shadowBlur = 28 * flicker;
+  ctx.beginPath();
+  ctx.ellipse(wavePanel.x + wavePanel.w * 0.5, wavePanel.y + wavePanel.h * 0.56, wavePanel.w * 0.31, wavePanel.h * 0.24, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
   drawNeonText(ctx, `VAGUE ${formatWave(game.level)}`, wavePanel.x + wavePanel.w * 0.5, wavePanel.y + wavePanel.h * 0.56, {
-    size: 64,
     align: "center",
     color: "#ff9bf5",
-    glowColor: "rgba(255, 121, 241, 1)",
-    weight: 700,
+    font: `700 64px ${HUD_FONTS.neon}`,
+    intensity: 1,
+    flicker,
   });
 
-  drawNeonPanel(ctx, scorePanel.x, scorePanel.y, scorePanel.w, scorePanel.h, {
-    skew: scorePanel.skew,
-    borderColor: PALETTE.cyan,
-    glowColor: "rgba(83, 216, 255, 1)",
-    fillAlpha: 0.74,
-    mirror: true,
-  });
+  drawNeonPanel(ctx, scorePanel, { color: PALETTE.cyan, intensity: 0.96, skew: scorePanel.skew, glowColor: "rgba(83, 216, 255, 1)", fillAlpha: 0.74, mirror: true, flicker });
   drawNeonText(ctx, "SCORE", scorePanel.x + scorePanel.w * 0.68, scorePanel.y + 24, {
-    size: 26,
     align: "center",
     color: "#8be7ff",
-    glowColor: "rgba(117, 233, 255, 0.95)",
+    font: `700 26px ${HUD_FONTS.neon}`,
     baseline: "middle",
+    intensity: 0.84,
+    flicker,
   });
   drawNeonText(ctx, game.uiCache.scoreText, scorePanel.x + scorePanel.w * 0.55, scorePanel.y + 66, {
-    size: 54,
     align: "center",
     color: "#c9fdff",
-    glowColor: "rgba(144, 236, 255, 0.95)",
+    font: `700 54px ${HUD_FONTS.neon}`,
     baseline: "middle",
+    intensity: 0.95,
+    flicker,
   });
 
   if (volumeUI.sliderRects?.music) {
@@ -397,7 +480,7 @@ export function drawHUD(ctx, game) {
         hovered: volumeUI.hoveredSlider === "music",
         active: volumeUI.activeSlider === "music",
       },
-      volumeStyle,
+      { ...volumeStyle, flicker },
     );
   }
 
@@ -411,7 +494,7 @@ export function drawHUD(ctx, game) {
         hovered: volumeUI.hoveredSlider === "sfx",
         active: volumeUI.activeSlider === "sfx",
       },
-      volumeStyle,
+      { ...volumeStyle, flicker },
     );
   }
 
@@ -430,23 +513,20 @@ export function drawHUD(ctx, game) {
   }
   ctx.restore();
 
-  drawNeonPanel(ctx, weaponPanel.x, weaponPanel.y, weaponPanel.w, weaponPanel.h, {
-    skew: weaponPanel.skew,
-    borderColor: PALETTE.cyan,
-    glowColor: "rgba(113, 231, 255, 0.82)",
-    fillAlpha: 0.8,
-  });
+  drawNeonPanel(ctx, weaponPanel, { color: PALETTE.cyan, intensity: 0.9, skew: weaponPanel.skew, glowColor: "rgba(113, 231, 255, 0.82)", fillAlpha: 0.8, flicker });
   drawNeonText(ctx, "ARME", weaponPanel.x + 34, weaponPanel.y + 24, {
-    size: 32,
     color: "#8feaff",
-    glowColor: "rgba(143, 234, 255, 0.88)",
+    font: `700 32px ${HUD_FONTS.neon}`,
     baseline: "middle",
+    intensity: 0.86,
+    flicker,
   });
   drawNeonText(ctx, weaponStyle.label, weaponPanel.x + weaponPanel.w * 0.53, weaponPanel.y + 50, {
-    size: 56,
     align: "center",
     color: weaponStyle.color,
-    glowColor: weaponStyle.glow,
+    font: `700 56px ${HUD_FONTS.neon}`,
     baseline: "middle",
+    intensity: 0.94,
+    flicker,
   });
 }
