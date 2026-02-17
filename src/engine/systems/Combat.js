@@ -74,6 +74,7 @@ function findBulletAsteroidHit(bullet, asteroid) {
 }
 
 export function rebuildAsteroidSpatialHash(game) {
+  if (game.debugStats) game.debugStats.asteroidSpatialHashRebuilds += 1;
   game.asteroidSpatialHash.clear();
   game.asteroidIndexMap.clear();
 
@@ -192,6 +193,7 @@ export function resolveAsteroidCollisions(game) {
       asteroidCollisionCount: 0,
       asteroidMaxSpeed: 0,
       asteroidTotalKineticEnergy: 0,
+      asteroidSpatialHashRebuilds: 0,
     };
   }
 

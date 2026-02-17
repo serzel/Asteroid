@@ -170,6 +170,7 @@ export class Game {
       asteroidCollisionCount: 0,
       asteroidMaxSpeed: 0,
       asteroidTotalKineticEnergy: 0,
+      asteroidSpatialHashRebuilds: 0,
     };
 
     this.profView = {
@@ -181,6 +182,7 @@ export class Game {
       shownCollisions: 0,
       shownMaxSpeed: 0,
       shownKE: 0,
+      shownSpatialHashRebuilds: 0,
       peakWindow: 1.0,
       peakUpdateMs: 0,
       peakDrawMs: 0,
@@ -510,6 +512,7 @@ export class Game {
       this.profView.shownCollisions = this.debugStats.asteroidCollisionCount;
       this.profView.shownMaxSpeed = this.debugStats.asteroidMaxSpeed;
       this.profView.shownKE = this.debugStats.asteroidTotalKineticEnergy;
+      this.profView.shownSpatialHashRebuilds = this.debugStats.asteroidSpatialHashRebuilds;
       this.profView.accTime = 0;
     }
 
@@ -622,8 +625,11 @@ export class Game {
       }
     }
 
+    this.debugStats.asteroidSpatialHashRebuilds = 0;
     rebuildAsteroidSpatialHash(this);
     resolveAsteroidCollisions(this);
+    // Rebuild requis: resolveAsteroidCollisions corrige les positions, et les collisions balle->astéroïde
+    // doivent requêter la grille avec ces positions finales pour garder un résultat identique.
     rebuildAsteroidSpatialHash(this);
 
     for (const p of this.particles) p.update(dt, this.world);
