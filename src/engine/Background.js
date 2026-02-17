@@ -156,7 +156,6 @@ export class Background {
   }
 
   #resetLayerState(ctx) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.shadowBlur = 0;
@@ -704,6 +703,7 @@ export class Background {
 
   draw(ctx) {
     this.debugDrawCalls = [];
+    ctx.save();
     this.#resetLayerState(ctx);
     this.#setTextureSmoothing(ctx);
     const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
@@ -723,6 +723,7 @@ export class Background {
     this.#drawNoiseTile(ctx, this.noiseScanlinesImg, 0.018);
     this.#drawSeamDebugOverlay(ctx);
     this.#resetLayerState(ctx);
+    ctx.restore();
   }
 
   render(ctx) {

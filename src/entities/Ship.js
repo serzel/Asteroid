@@ -143,6 +143,11 @@ export class Ship {
       return;
     }
 
+    if (!this.thrusting) {
+      this.resetTrail();
+      return;
+    }
+
     this._trailAcc += dt;
     while (this._trailAcc >= this.trailSpacing) {
       this.trail.push({ x: this.x, y: this.y, a: this.angle });
