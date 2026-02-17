@@ -1,3 +1,5 @@
+import { UI_ACTION } from "./UIActionTypes.js";
+
 export function pointInRect(mx, my, rect) {
   return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
 }
@@ -26,13 +28,13 @@ export function resolvePointerDownAction(state, mx, my, titleButtons, menuButton
   if (state === gameState.TITLE) {
     for (const button of titleButtons) {
       if (pointInRect(mx, my, button)) {
-        return { type: "START_GAME", difficulty: button.id };
+        return { type: UI_ACTION.START_GAME, difficulty: button.id };
       }
     }
   }
 
   if (state === gameState.GAME_OVER_READY && pointInRect(mx, my, menuButton)) {
-    return { type: "GO_TO_MENU" };
+    return { type: UI_ACTION.GO_TO_MENU };
   }
 
   return null;
