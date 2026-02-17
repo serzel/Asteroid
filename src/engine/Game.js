@@ -18,6 +18,8 @@ import { updatePlayState } from "./states/PlayState.js";
 import { updateGameOverAnimState, updateGameOverReadyState } from "./states/GameOverState.js";
 import { DIFFICULTY_PRESETS, COMBO_OVERLAY, COMBO_WINDOW } from "../config/gameplay.js";
 import { UIRenderer } from "../ui/UIRenderer.js";
+import { mouseToCanvas } from "../ui/UIInput.js";
+import { UI_ACTION } from "../ui/UIActionTypes.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
@@ -221,14 +223,6 @@ export class Game {
     this.hitStop = Math.max(this.hitStop, sec);
   }
 
-  #mouseToCanvas(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const scaleX = rect.width > 0 ? this.world.w / rect.width : 1;
-    const scaleY = rect.height > 0 ? this.world.h / rect.height : 1;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
-    return { mx, my };
-  }
 
   #refreshPointerTransform() {
     const rect = this.canvas.getBoundingClientRect();
@@ -270,13 +264,13 @@ export class Game {
   }
 
   #onPointerMove(e) {
-    const { mx, my } = this.#mouseToCanvas(e);
+    const { mx, my } = mouseToCanvas(this.pointerTransform, e);
     this.hoveredButtonId = this.uiRenderer.handlePointerMove(this.#createUIModel(), mx, my);
     this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
   }
 
   #onPointerDown(e) {
-    const { mx, my } = this.#mouseToCanvas(e);
+    const { mx, my } = mouseToCanvas(this.pointerTransform, e);
     const action = this.uiRenderer.handlePointerDown(this.#createUIModel(), mx, my);
     this.#applyUIAction(action);
   }
@@ -284,12 +278,12 @@ export class Game {
   #applyUIAction(action) {
     if (!action) return;
 
-    if (action.type === "START_GAME") {
+    if (action.type === UI_ACTION.START_GAME) {
       this.#startWithDifficulty(action.difficulty);
       return;
     }
 
-    if (action.type === "OPEN_MENU") {
+    if (action.type === UI_ACTION.GO_TO_MENU) {
       this.state = GAME_STATE.TITLE;
       this.hoveredButtonId = null;
     }

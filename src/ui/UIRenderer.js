@@ -1,32 +1,27 @@
 import { drawText } from "../engine/utils.js";
+import { getHoveredButtonId, resolvePointerDownAction } from "./UIInput.js";
 
 export class UIRenderer {
   handlePointerMove(uiModel, x, y) {
-    if (uiModel.state === uiModel.GAME_STATE.TITLE) {
-      for (const button of uiModel.titleButtons) {
-        if (this.#pointInRect(x, y, button)) return button.id;
-      }
-    } else if (uiModel.state === uiModel.GAME_STATE.GAME_OVER_READY) {
-      if (this.#pointInRect(x, y, uiModel.menuButton)) return uiModel.menuButton.id;
-    }
-
-    return null;
+    return getHoveredButtonId(
+      uiModel.state,
+      x,
+      y,
+      uiModel.titleButtons,
+      uiModel.menuButton,
+      uiModel.GAME_STATE,
+    );
   }
 
   handlePointerDown(uiModel, x, y) {
-    if (uiModel.state === uiModel.GAME_STATE.TITLE) {
-      for (const button of uiModel.titleButtons) {
-        if (this.#pointInRect(x, y, button)) {
-          return { type: "START_GAME", difficulty: button.id };
-        }
-      }
-    }
-
-    if (uiModel.state === uiModel.GAME_STATE.GAME_OVER_READY && this.#pointInRect(x, y, uiModel.menuButton)) {
-      return { type: "OPEN_MENU" };
-    }
-
-    return null;
+    return resolvePointerDownAction(
+      uiModel.state,
+      x,
+      y,
+      uiModel.titleButtons,
+      uiModel.menuButton,
+      uiModel.GAME_STATE,
+    );
   }
 
   drawTitleScreen(ctx, uiModel) {
@@ -117,9 +112,6 @@ export class UIRenderer {
     ctx.restore();
   }
 
-  #pointInRect(mx, my, rect) {
-    return mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
-  }
 
   #roundedRectPath(ctx, x, y, w, h, r = 10) {
     const rr = Math.min(r, w * 0.5, h * 0.5);
