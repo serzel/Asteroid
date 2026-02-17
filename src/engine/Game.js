@@ -35,6 +35,18 @@ const UI_LAYOUT = {
   menuButtonYFactor: 0.6,
 };
 
+const HUD_VOLUME_LAYOUT = {
+  margin: 28,
+  scorePanelWidth: 350,
+  scorePanelHeight: 94,
+  sliderWidth: 350,
+  sliderHeight: 34,
+  sliderGap: 12,
+  topOffsetAfterScore: 18,
+  hitPaddingX: 12,
+  hitPaddingY: 10,
+};
+
 const DEBUG = {
   logIntervalSec: 1.0,
   perfLogIntervalSec: 1.0,
@@ -103,6 +115,17 @@ export class Game {
     this.audioUnlockAttached = false;
     this.musicStarted = false;
     this.musicLoopHandle = null;
+    this.settings = { music: 0.6, sfx: 0.8 };
+    this.hudVolumeUI = {
+      musicVolume: this.settings.music,
+      sfxVolume: this.settings.sfx,
+      hoveredSlider: null,
+      activeSlider: null,
+      sliderRects: {
+        music: { x: 0, y: 0, w: 0, h: 0 },
+        sfx: { x: 0, y: 0, w: 0, h: 0 },
+      },
+    };
 
     this.last = 0;
     this.running = false;
@@ -230,11 +253,15 @@ export class Game {
 
     this.pointerMoveHandler = (e) => this.#onPointerMove(e);
     this.pointerDownHandler = (e) => this.#onPointerDown(e);
+    this.pointerUpHandler = (e) => this.#onPointerUp(e);
+    this.pointerCancelHandler = (e) => this.#onPointerUp(e);
     this.audioUnlockHandler = () => this.#unlockAudioOnFirstInput();
 
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", this.pointerMoveHandler);
     this.canvas.addEventListener("pointerdown", this.pointerDownHandler);
+    this.canvas.addEventListener("pointerup", this.pointerUpHandler);
+    this.canvas.addEventListener("pointercancel", this.pointerCancelHandler);
   }
 
   applyComboBreak() {
@@ -334,14 +361,85 @@ export class Game {
 
   #onPointerMove(e) {
     const { mx, my } = mouseToCanvas(this.pointerTransform, e);
+
+    if (this.hudVolumeUI.activeSlider) {
+      this.#updateVolumeFromPointer(this.hudVolumeUI.activeSlider, mx);
+      this.hudVolumeUI.hoveredSlider = this.hudVolumeUI.activeSlider;
+      this.canvas.style.cursor = "pointer";
+      return;
+    }
+
+    const hoveredSlider = this.#findHoveredSlider(mx, my);
+    this.hudVolumeUI.hoveredSlider = hoveredSlider;
+    if (hoveredSlider) {
+      this.canvas.style.cursor = "pointer";
+      return;
+    }
+
     this.hoveredButtonId = this.uiRenderer.handlePointerMove(this.#createUIModel(), mx, my);
     this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
   }
 
   #onPointerDown(e) {
     const { mx, my } = mouseToCanvas(this.pointerTransform, e);
+    const hoveredSlider = this.#findHoveredSlider(mx, my);
+    if (hoveredSlider) {
+      this.hudVolumeUI.activeSlider = hoveredSlider;
+      this.hudVolumeUI.hoveredSlider = hoveredSlider;
+      this.#updateVolumeFromPointer(hoveredSlider, mx);
+      this.canvas.style.cursor = "pointer";
+      this.canvas.setPointerCapture?.(e.pointerId);
+      return;
+    }
+
     const action = this.uiRenderer.handlePointerDown(this.#createUIModel(), mx, my);
     this.#applyUIAction(action);
+  }
+
+  #onPointerUp(e) {
+    const { mx, my } = mouseToCanvas(this.pointerTransform, e);
+    this.hudVolumeUI.activeSlider = null;
+    this.hudVolumeUI.hoveredSlider = this.#findHoveredSlider(mx, my);
+    this.canvas.style.cursor = this.hudVolumeUI.hoveredSlider || this.hoveredButtonId ? "pointer" : "default";
+    this.canvas.releasePointerCapture?.(e.pointerId);
+  }
+
+  #findHoveredSlider(mx, my) {
+    if (this.state === GAME_STATE.TITLE) return null;
+
+    const entries = [
+      ["music", this.hudVolumeUI.sliderRects.music],
+      ["sfx", this.hudVolumeUI.sliderRects.sfx],
+    ];
+    for (const [id, rect] of entries) {
+      if (!rect || rect.w <= 0 || rect.h <= 0) continue;
+      const hitX = rect.x - HUD_VOLUME_LAYOUT.hitPaddingX;
+      const hitY = rect.y - HUD_VOLUME_LAYOUT.hitPaddingY;
+      const hitW = rect.w + HUD_VOLUME_LAYOUT.hitPaddingX * 2;
+      const hitH = rect.h + HUD_VOLUME_LAYOUT.hitPaddingY * 2;
+      if (mx >= hitX && mx <= hitX + hitW && my >= hitY && my <= hitY + hitH) {
+        return id;
+      }
+    }
+
+    return null;
+  }
+
+  #updateVolumeFromPointer(sliderId, mx) {
+    const rect = this.hudVolumeUI.sliderRects[sliderId];
+    if (!rect || rect.w <= 0) return;
+
+    const value01 = this.clamp01((mx - rect.x) / rect.w);
+    if (sliderId === "music") {
+      this.settings.music = value01;
+      this.hudVolumeUI.musicVolume = value01;
+      if (this.audio) this.audio.setVolume("music", value01);
+      return;
+    }
+
+    this.settings.sfx = value01;
+    this.hudVolumeUI.sfxVolume = value01;
+    if (this.audio) this.audio.setVolume("sfx", value01);
   }
 
   #applyUIAction(action) {
@@ -402,6 +500,8 @@ export class Game {
     }
     this.canvas.removeEventListener("pointermove", this.pointerMoveHandler);
     this.canvas.removeEventListener("pointerdown", this.pointerDownHandler);
+    this.canvas.removeEventListener("pointerup", this.pointerUpHandler);
+    this.canvas.removeEventListener("pointercancel", this.pointerCancelHandler);
     this.#detachAudioUnlockListeners();
     if (this.audio) {
       if (this.musicLoopHandle) {
@@ -426,6 +526,8 @@ export class Game {
     try {
       await this.audio.init();
       await this.audio.load(AUDIO_MANIFEST);
+      this.audio.setVolume("music", this.settings.music);
+      this.audio.setVolume("sfx", this.settings.sfx);
       this.audioReady = true;
       this.#attachAudioUnlockListeners();
       this.#ensureMusicStarted();
@@ -630,7 +732,19 @@ export class Game {
     this.world.h = r.cssH;
     this.background.resize(this.world.w, this.world.h);
     this.#rebuildMenuButtons();
+    this.#rebuildHudSliderLayout();
     this.#refreshPointerTransform();
+  }
+
+  #rebuildHudSliderLayout() {
+    const margin = HUD_VOLUME_LAYOUT.margin;
+    const top = margin + 8 + HUD_VOLUME_LAYOUT.scorePanelHeight + HUD_VOLUME_LAYOUT.topOffsetAfterScore;
+    const rightX = this.world.w - margin - HUD_VOLUME_LAYOUT.scorePanelWidth;
+    const sliderW = HUD_VOLUME_LAYOUT.sliderWidth;
+    const sliderH = HUD_VOLUME_LAYOUT.sliderHeight;
+
+    this.hudVolumeUI.sliderRects.music = { x: rightX, y: top, w: sliderW, h: sliderH };
+    this.hudVolumeUI.sliderRects.sfx = { x: rightX, y: top + sliderH + HUD_VOLUME_LAYOUT.sliderGap, w: sliderW, h: sliderH };
   }
 
   #updateGameplay(dt) {

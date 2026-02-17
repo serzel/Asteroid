@@ -205,6 +205,62 @@ function drawComboBar(ctx, x, y, w, h, ratio) {
   ctx.restore();
 }
 
+function drawVolumeSlider(ctx, rect, label, value01, state, style) {
+  const clamped = clamp(value01, 0, 1);
+  const { x, y, w, h } = rect;
+  const hovered = Boolean(state?.hovered);
+  const active = Boolean(state?.active);
+  const intensity = active ? 1 : hovered ? 0.7 : 0.45;
+
+  drawNeonText(ctx, label, x, y - 11, {
+    size: 22,
+    color: style.labelColor,
+    glowColor: style.labelGlow,
+    baseline: "bottom",
+  });
+
+  const trackH = Math.max(10, h * 0.34);
+  const trackY = y + h * 0.5 - trackH * 0.5;
+  const fillW = w * clamped;
+
+  ctx.save();
+  ctx.fillStyle = style.trackBg;
+  ctx.strokeStyle = style.trackStroke;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = style.trackGlow;
+  ctx.shadowBlur = 8 + intensity * 5;
+  ctx.beginPath();
+  ctx.roundRect(x, trackY, w, trackH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  if (fillW > 0) {
+    const fillGrad = ctx.createLinearGradient(x, trackY, x + w, trackY);
+    fillGrad.addColorStop(0, style.fillStart);
+    fillGrad.addColorStop(1, style.fillEnd);
+    ctx.fillStyle = fillGrad;
+    ctx.shadowColor = style.fillGlow;
+    ctx.shadowBlur = 10 + intensity * 7;
+    ctx.beginPath();
+    ctx.roundRect(x, trackY + 1, fillW, Math.max(2, trackH - 2), 5);
+    ctx.fill();
+  }
+
+  const handleX = x + fillW;
+  const handleY = trackY + trackH * 0.5;
+  const handleR = 8 + (active ? 1.5 : hovered ? 0.8 : 0);
+  ctx.fillStyle = style.handleFill;
+  ctx.strokeStyle = style.handleStroke;
+  ctx.lineWidth = 1.6;
+  ctx.shadowColor = style.handleGlow;
+  ctx.shadowBlur = 10 + intensity * 8;
+  ctx.beginPath();
+  ctx.arc(handleX, handleY, handleR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function getWeaponHUDStyle(level) {
   return WEAPON_HUD_STYLES[level] ?? WEAPON_HUD_STYLES[1];
 }
@@ -248,6 +304,20 @@ export function drawHUD(ctx, game) {
   const weaponPanel = HUD_LAYOUT.weaponPanel;
   weaponPanel.x = w * 0.5 - weaponPanel.w * 0.5;
   weaponPanel.y = h - M - 88;
+  const volumeUI = game.hudVolumeUI ?? {};
+  const volumeStyle = {
+    labelColor: "#8be7ff",
+    labelGlow: "rgba(117, 233, 255, 0.95)",
+    trackBg: "rgba(3, 8, 20, 0.7)",
+    trackStroke: "rgba(173, 228, 255, 0.35)",
+    trackGlow: "rgba(83, 216, 255, 0.7)",
+    fillStart: "rgba(255, 86, 215, 0.92)",
+    fillEnd: "rgba(87, 227, 255, 0.92)",
+    fillGlow: "rgba(151, 236, 255, 0.9)",
+    handleFill: "#c9fdff",
+    handleStroke: "#53d8ff",
+    handleGlow: "rgba(144, 236, 255, 0.95)",
+  };
 
   drawConnectorLine(ctx, comboPanel.x + comboPanel.w - 8, comboPanel.y + comboPanel.h * 0.5, wavePanel.x - 8, wavePanel.y + wavePanel.h * 0.5);
   drawConnectorLine(ctx, wavePanel.x + wavePanel.w + 8, wavePanel.y + wavePanel.h * 0.5, scorePanel.x + 14, scorePanel.y + scorePanel.h * 0.5, "rgba(126, 225, 255, 0.85)");
@@ -316,6 +386,34 @@ export function drawHUD(ctx, game) {
     glowColor: "rgba(144, 236, 255, 0.95)",
     baseline: "middle",
   });
+
+  if (volumeUI.sliderRects?.music) {
+    drawVolumeSlider(
+      ctx,
+      volumeUI.sliderRects.music,
+      "MUSIC",
+      volumeUI.musicVolume ?? 0,
+      {
+        hovered: volumeUI.hoveredSlider === "music",
+        active: volumeUI.activeSlider === "music",
+      },
+      volumeStyle,
+    );
+  }
+
+  if (volumeUI.sliderRects?.sfx) {
+    drawVolumeSlider(
+      ctx,
+      volumeUI.sliderRects.sfx,
+      "SFX",
+      volumeUI.sfxVolume ?? 0,
+      {
+        hovered: volumeUI.hoveredSlider === "sfx",
+        active: volumeUI.activeSlider === "sfx",
+      },
+      volumeStyle,
+    );
+  }
 
   const maxLives = 3;
   const size = 84;
