@@ -99,7 +99,7 @@ function drawNeonPanel(ctx, rect, options = {}) {
     mirror = false,
   } = options;
   const { x, y, w, h } = rect;
-  const neonPulse = flicker * (0.75 + intensity * 0.25);
+  const neonPulse = 1 + (flicker - 1) * 0.85;
   const innerInset = Math.max(0, cornerRadius * 0.12);
 
   ctx.save();
@@ -126,24 +126,24 @@ function drawNeonPanel(ctx, rect, options = {}) {
   ctx.fill();
 
   ctx.shadowColor = "rgba(255,255,255,0.9)";
-  ctx.shadowBlur = 5 * neonPulse;
+  ctx.shadowBlur = 4;
   ctx.globalAlpha = 0.8;
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(255,255,255,0.95)";
   buildPanelPath(ctx, x, y, w, h, skew);
   ctx.stroke();
 
-  ctx.globalAlpha = 0.92;
+  ctx.globalAlpha = 0.9;
   ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 12 * neonPulse;
+  ctx.shadowBlur = (9 + intensity * 2) * neonPulse;
   ctx.lineWidth = 1.8;
   ctx.strokeStyle = borderColor;
   buildPanelPath(ctx, x, y, w, h, skew);
   ctx.stroke();
 
-  ctx.globalAlpha = 0.35;
+  ctx.globalAlpha = Math.min(0.1, 0.08 + intensity * 0.02);
   ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 26 * neonPulse;
+  ctx.shadowBlur = Math.min(28, 22 + intensity * 4) * neonPulse;
   ctx.lineWidth = 3.2;
   buildPanelPath(ctx, x + innerInset, y + innerInset, w - innerInset * 2, h - innerInset * 2, skew);
   ctx.stroke();
@@ -157,6 +157,7 @@ function drawNeonPanel(ctx, rect, options = {}) {
 
   ctx.strokeStyle = "rgba(255,255,255,0.16)";
   ctx.lineWidth = 1;
+  ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(x + skew + 8, y + 10);
   ctx.lineTo(x + w - 18, y + 10);
@@ -174,12 +175,13 @@ function drawNeonText(ctx, text, x, y, options = {}) {
     intensity = 1,
     flicker = 1,
   } = options;
-  const glow = flicker * (0.78 + intensity * 0.22);
+  const scaledIntensity = clamp(intensity, 0, 1);
+  const glowPulse = 1 + (flicker - 1) * 0.9;
   const fontMatch = /(\d+(?:\.\d+)?)px/.exec(font);
   const fontPx = fontMatch ? Number(fontMatch[1]) : 24;
   const coreWidth = Math.max(0.9, fontPx * 0.028);
-  const midWidth = Math.max(1.2, fontPx * 0.045);
-  const haloWidth = Math.max(2.2, fontPx * 0.085);
+  const midWidth = Math.max(1.3, fontPx * 0.047);
+  const haloWidth = Math.max(2.1, fontPx * 0.082);
 
   ctx.save();
   ctx.font = font;
@@ -191,19 +193,19 @@ function drawNeonText(ctx, text, x, y, options = {}) {
   ctx.lineWidth = coreWidth;
   ctx.strokeStyle = "rgba(255,255,255,0.92)";
   ctx.shadowColor = "rgba(255,255,255,0.95)";
-  ctx.shadowBlur = 3.2 * glow;
+  ctx.shadowBlur = 3.5;
   ctx.strokeText(text, x, y);
 
-  ctx.globalAlpha = 0.88;
+  ctx.globalAlpha = (0.66 + scaledIntensity * 0.19) * glowPulse;
   ctx.lineWidth = midWidth;
   ctx.strokeStyle = color;
   ctx.shadowColor = color;
-  ctx.shadowBlur = Math.max(8, fontPx * 0.24) * glow;
+  ctx.shadowBlur = (8 + scaledIntensity * 4) * glowPulse;
   ctx.strokeText(text, x, y);
 
-  ctx.globalAlpha = 0.34;
+  ctx.globalAlpha = (0.08 + scaledIntensity * 0.04) * glowPulse;
   ctx.lineWidth = haloWidth;
-  ctx.shadowBlur = Math.max(16, fontPx * 0.5) * glow;
+  ctx.shadowBlur = (22 + scaledIntensity * 8) * glowPulse;
   ctx.strokeText(text, x, y);
 
   ctx.globalAlpha = 1;
@@ -214,16 +216,43 @@ function drawNeonText(ctx, text, x, y, options = {}) {
   ctx.restore();
 }
 
-function drawConnectorLine(ctx, x1, y1, x2, y2, color = PALETTE.connector) {
+function drawNeonLine(ctx, x1, y1, x2, y2, color = PALETTE.connector, intensity = 1, baseWidth = 3.2) {
+  const scaledIntensity = clamp(intensity, 0, 1);
   ctx.save();
+  ctx.lineCap = "round";
+
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
-  ctx.lineWidth = 1.6;
   ctx.strokeStyle = color;
+  ctx.lineWidth = baseWidth * 2.6;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 20 + scaledIntensity * 6;
+  ctx.globalAlpha = (0.1 + scaledIntensity * 0.05);
   ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = baseWidth * 1.6;
+  ctx.shadowBlur = 8 + scaledIntensity * 4;
+  ctx.globalAlpha = 0.75 + scaledIntensity * 0.1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.lineWidth = baseWidth * 0.9;
+  ctx.shadowColor = "rgba(255,255,255,0.95)";
+  ctx.shadowBlur = 3;
+  ctx.globalAlpha = 0.9;
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -272,7 +301,7 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
     color: style.labelColor,
     font: `700 18px ${HUD_FONTS.neon}`,
     baseline: "bottom",
-    intensity: 0.86,
+    intensity: 0.7,
     flicker: style.flicker,
   });
 
@@ -375,7 +404,7 @@ export function drawHUD(ctx, game) {
   const level = game.ship.weaponLevel ?? 1;
   const weaponStyle = getWeaponHUDStyle(level);
   const hudTime = (game.last || performance.now()) * 0.001;
-  const flicker = 1 + Math.sin(hudTime * 3) * 0.03;
+  const flicker = 1 + Math.sin(hudTime * 3) * 0.024;
 
   const comboWindow = typeof game.getComboWindow === "function" ? game.getComboWindow() : 1;
   const ratio = clamp(game.comboTimer / Math.max(comboWindow, 0.001), 0, 1);
@@ -410,14 +439,25 @@ export function drawHUD(ctx, game) {
     handleGlow: "rgba(144, 236, 255, 0.95)",
   };
 
-  drawConnectorLine(ctx, comboPanel.x + comboPanel.w - 8, comboPanel.y + comboPanel.h * 0.5, wavePanel.x - 8, wavePanel.y + wavePanel.h * 0.5);
-  drawConnectorLine(ctx, wavePanel.x + wavePanel.w + 8, wavePanel.y + wavePanel.h * 0.5, scorePanel.x + 14, scorePanel.y + scorePanel.h * 0.5, "rgba(126, 225, 255, 0.85)");
+  const leftLineStart = comboPanel.x + comboPanel.w - 8;
+  const leftLineEnd = wavePanel.x - 8;
+  const leftLineY = comboPanel.y + comboPanel.h * 0.5;
+  const leftSplit = leftLineStart + (leftLineEnd - leftLineStart) * 0.38;
+  drawNeonLine(ctx, leftLineStart, leftLineY, leftSplit, leftLineY, PALETTE.magenta, 1, 3.2);
+  drawNeonLine(ctx, leftSplit, leftLineY, leftLineEnd, wavePanel.y + wavePanel.h * 0.5, PALETTE.magenta, 0.75, 3.2);
+
+  const rightLineStart = wavePanel.x + wavePanel.w + 8;
+  const rightLineEnd = scorePanel.x + 14;
+  const rightLineY = wavePanel.y + wavePanel.h * 0.5;
+  const rightSplit = rightLineStart + (rightLineEnd - rightLineStart) * 0.38;
+  drawNeonLine(ctx, rightLineStart, rightLineY, rightSplit, rightLineY, PALETTE.cyan, 1, 3.2);
+  drawNeonLine(ctx, rightSplit, rightLineY, rightLineEnd, scorePanel.y + scorePanel.h * 0.5, PALETTE.cyan, 0.75, 3.2);
 
   drawNeonPanel(ctx, comboPanel, { color: PALETTE.magenta, intensity: 0.9, skew: comboPanel.skew, glowColor: "rgba(255, 79, 216, 0.95)", fillAlpha: 0.72, flicker });
   drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.46, {
     color: "#89e8ff",
     font: `700 44px ${HUD_FONTS.neon}`,
-    intensity: 0.92,
+    intensity: 1,
     flicker,
   });
 
@@ -429,7 +469,7 @@ export function drawHUD(ctx, game) {
     align: "right",
     color: "#ff8cf4",
     font: `700 38px ${HUD_FONTS.mono}`,
-    intensity: 0.82,
+    intensity: 0.68,
     flicker,
   });
 
@@ -458,7 +498,7 @@ export function drawHUD(ctx, game) {
     color: "#8be7ff",
     font: `700 26px ${HUD_FONTS.neon}`,
     baseline: "middle",
-    intensity: 0.84,
+    intensity: 1,
     flicker,
   });
   drawNeonText(ctx, game.uiCache.scoreText, scorePanel.x + scorePanel.w * 0.55, scorePanel.y + 66, {
@@ -466,7 +506,7 @@ export function drawHUD(ctx, game) {
     color: "#c9fdff",
     font: `700 54px ${HUD_FONTS.neon}`,
     baseline: "middle",
-    intensity: 0.95,
+    intensity: 1,
     flicker,
   });
 
@@ -513,12 +553,12 @@ export function drawHUD(ctx, game) {
   }
   ctx.restore();
 
-  drawNeonPanel(ctx, weaponPanel, { color: PALETTE.cyan, intensity: 0.9, skew: weaponPanel.skew, glowColor: "rgba(113, 231, 255, 0.82)", fillAlpha: 0.8, flicker });
+  drawNeonPanel(ctx, weaponPanel, { color: PALETTE.cyan, intensity: 0.75, skew: weaponPanel.skew, glowColor: "rgba(113, 231, 255, 0.82)", fillAlpha: 0.8, flicker });
   drawNeonText(ctx, "ARME", weaponPanel.x + 34, weaponPanel.y + 24, {
     color: "#8feaff",
     font: `700 32px ${HUD_FONTS.neon}`,
     baseline: "middle",
-    intensity: 0.86,
+    intensity: 0.75,
     flicker,
   });
   drawNeonText(ctx, weaponStyle.label, weaponPanel.x + weaponPanel.w * 0.53, weaponPanel.y + 50, {
