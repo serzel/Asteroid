@@ -20,6 +20,7 @@ import { DIFFICULTY_PRESETS, COMBO_OVERLAY, COMBO_WINDOW } from "../config/gamep
 import { UIRenderer } from "../ui/UIRenderer.js";
 import { mouseToCanvas } from "../ui/UIInput.js";
 import { UI_ACTION } from "../ui/UIActionTypes.js";
+import AudioManager from "../audio/AudioManager.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
@@ -63,6 +64,23 @@ const GAME_STATE = {
   GAME_OVER_READY: "GAME_OVER_READY",
 };
 
+const AUDIO_MANIFEST = {
+  shoot_lvl1: { url: "assets/audio/shoot_lvl1.wav", bus: "sfx" },
+  shoot_lvl2: { url: "assets/audio/shoot_lvl2.wav", bus: "sfx" },
+  shoot_lvl3: { url: "assets/audio/shoot_lvl3.wav", bus: "sfx" },
+  shoot_lvl4: { url: "assets/audio/shoot_lvl4.wav", bus: "sfx" },
+  asteroid_explosion_small: { url: "assets/audio/asteroid_explosion_small.wav", bus: "sfx" },
+  asteroid_explosion_medium: { url: "assets/audio/asteroid_explosion_medium.wav", bus: "sfx" },
+  asteroid_explosion_large: { url: "assets/audio/asteroid_explosion_large.wav", bus: "sfx" },
+};
+
+const SHOOT_SFX_BY_LEVEL = {
+  1: "shoot_lvl1",
+  2: "shoot_lvl2",
+  3: "shoot_lvl3",
+  4: "shoot_lvl4",
+};
+
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -73,6 +91,9 @@ export class Game {
 
     this.input = new Input(window);
     this.uiRenderer = new UIRenderer();
+    this.audio = null;
+    this.audioReady = false;
+    this.audioUnlockAttached = false;
 
     this.last = 0;
     this.running = false;
@@ -200,6 +221,7 @@ export class Game {
 
     this.pointerMoveHandler = (e) => this.#onPointerMove(e);
     this.pointerDownHandler = (e) => this.#onPointerDown(e);
+    this.audioUnlockHandler = () => this.#unlockAudioOnFirstInput();
 
     // Listener souris unique: on ignore selon l'état courant.
     this.canvas.addEventListener("pointermove", this.pointerMoveHandler);
@@ -334,7 +356,7 @@ export class Game {
     this.logDebug("state", `Start game difficulty=${id}`);
   }
 
-  start() {
+  async start() {
     if (this.running) return;
 
     this.#applyResizeIfNeeded(true);
@@ -342,6 +364,8 @@ export class Game {
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
     this.ship.respawn(this.world.w / 2, this.world.h / 2);
     this.ship.updateWeaponLevel(this.combo);
+
+    await this.#initAudio();
 
     window.addEventListener("resize", this.resizeFallbackHandler);
     window.addEventListener("orientationchange", this.orientationChangeHandler);
@@ -369,8 +393,53 @@ export class Game {
     }
     this.canvas.removeEventListener("pointermove", this.pointerMoveHandler);
     this.canvas.removeEventListener("pointerdown", this.pointerDownHandler);
+    this.#detachAudioUnlockListeners();
+    if (this.audio) {
+      this.audio.dispose().catch((error) => {
+        console.warn("Audio dispose failed", error);
+      });
+      this.audio = null;
+    }
     this.input.destroy();
     this.canvas.style.cursor = "default";
+  }
+
+  async #initAudio() {
+    if (!this.audio) {
+      this.audio = new AudioManager();
+    }
+
+    try {
+      await this.audio.init();
+      await this.audio.load(AUDIO_MANIFEST);
+      this.audioReady = true;
+      this.#attachAudioUnlockListeners();
+    } catch (error) {
+      this.audioReady = false;
+      console.warn("Audio init/load failed", error);
+    }
+  }
+
+  #attachAudioUnlockListeners() {
+    if (this.audioUnlockAttached) return;
+    window.addEventListener("keydown", this.audioUnlockHandler, { once: true });
+    window.addEventListener("pointerdown", this.audioUnlockHandler, { once: true });
+    this.audioUnlockAttached = true;
+  }
+
+  #detachAudioUnlockListeners() {
+    if (!this.audioUnlockAttached) return;
+    window.removeEventListener("keydown", this.audioUnlockHandler);
+    window.removeEventListener("pointerdown", this.audioUnlockHandler);
+    this.audioUnlockAttached = false;
+  }
+
+  #unlockAudioOnFirstInput() {
+    this.#detachAudioUnlockListeners();
+    if (!this.audio || !this.audioReady) return;
+    this.audio.unlock().catch((error) => {
+      console.warn("Audio unlock failed", error);
+    });
   }
 
   #newGame() {
@@ -558,6 +627,13 @@ export class Game {
     if (this.input.wasPressed("shoot") || this.input.isDown("shoot")) {
       const bulletsBeforeShot = this.bullets.length;
       this.ship.tryShoot(this.bullets, (...args) => this.bulletPool.acquire(...args));
+      if (this.bullets.length > bulletsBeforeShot) {
+        const level = Math.min(4, Math.max(1, this.ship.weaponLevel || 1));
+        const shootSfx = SHOOT_SFX_BY_LEVEL[level];
+        if (shootSfx && this.audioReady && this.audio) {
+          this.audio.play(shootSfx);
+        }
+      }
       if (this.ship.weaponLevel >= 4 && this.bullets.length > bulletsBeforeShot) {
         this.addShake(WEAPON4_SHOT_SHAKE.amp, WEAPON4_SHOT_SHAKE.dur);
       }

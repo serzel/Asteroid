@@ -14,6 +14,12 @@ const HIT_STOP_BIG = 0.05;
 const HIT_STOP_DENSE = 0.04;
 const HIT_STOP_WEAPON_UP = 0.03;
 
+const EXPLOSION_SFX_BY_SIZE = {
+  1: "asteroid_explosion_small",
+  2: "asteroid_explosion_medium",
+  3: "asteroid_explosion_large",
+};
+
 function findDeepestAsteroidPairContact(a, b) {
   const circlesA = a.getWorldHitCircles(a._worldHitCircles ?? (a._worldHitCircles = []));
   const circlesB = b.getWorldHitCircles(b._worldHitCircles ?? (b._worldHitCircles = []));
@@ -257,6 +263,11 @@ export function resolveBulletAsteroidCollisions(game) {
 
         const shakeCfg = SHAKE_BY_ASTEROID_SIZE[a.size] ?? SHAKE_BY_ASTEROID_SIZE[1];
         game.addShake(shakeCfg.amp, shakeCfg.dur);
+
+        const explosionSfx = EXPLOSION_SFX_BY_SIZE[a.size] ?? EXPLOSION_SFX_BY_SIZE[1];
+        if (explosionSfx && game.audioReady && game.audio) {
+          game.audio.play(explosionSfx);
+        }
         if (a.size === 3) game.addHitStop(HIT_STOP_BIG);
         if (a.type === "dense") game.addHitStop(HIT_STOP_DENSE);
 
