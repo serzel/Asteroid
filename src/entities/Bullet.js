@@ -1,5 +1,22 @@
 import { wrap } from "../engine/math.js";
 
+
+const BULLET_FX = {
+  bodyLength: 6.4,
+  bodyWidth: 2.4,
+  trailLength: 12,
+  glowBlur: 12,
+  coreRadius: 1.5,
+  trailAlpha: 0.2,
+  trailLineWidth: 2,
+  trailStartOffset: 1.5,
+  style: {
+    level2: { bodyLengthMul: 1.25, bodyWidthMul: 0.85, trailLengthMul: 1.2 },
+    level3: { glowBlurMul: 1.1 },
+    level4Plus: { bodyLengthMul: 0.8, bodyWidthMul: 0.85, trailLengthMul: 0.85, glowBlurMul: 0.85, coreRadiusMul: 0.9 },
+  },
+};
+
 export class Bullet {
   constructor(x = 0, y = 0, vx = 0, vy = 0, life = 1.2, color = "white", styleLevel = 1) {
     this.radius = 2;
@@ -30,24 +47,24 @@ export class Bullet {
   }
 
   draw(ctx) {
-    let bodyLen = 6.4;
-    let bodyWid = 2.4;
-    let trailLen = 12;
-    let glowBlur = 12;
-    let coreRadius = 1.5;
+    let bodyLen = BULLET_FX.bodyLength;
+    let bodyWid = BULLET_FX.bodyWidth;
+    let trailLen = BULLET_FX.trailLength;
+    let glowBlur = BULLET_FX.glowBlur;
+    let coreRadius = BULLET_FX.coreRadius;
 
     if (this.styleLevel === 2) {
-      bodyLen *= 1.25;
-      bodyWid *= 0.85;
-      trailLen *= 1.2;
+      bodyLen *= BULLET_FX.style.level2.bodyLengthMul;
+      bodyWid *= BULLET_FX.style.level2.bodyWidthMul;
+      trailLen *= BULLET_FX.style.level2.trailLengthMul;
     } else if (this.styleLevel === 3) {
-      glowBlur *= 1.1;
+      glowBlur *= BULLET_FX.style.level3.glowBlurMul;
     } else if (this.styleLevel >= 4) {
-      bodyLen *= 0.8;
-      bodyWid *= 0.85;
-      trailLen *= 0.85;
-      glowBlur *= 0.85;
-      coreRadius *= 0.9;
+      bodyLen *= BULLET_FX.style.level4Plus.bodyLengthMul;
+      bodyWid *= BULLET_FX.style.level4Plus.bodyWidthMul;
+      trailLen *= BULLET_FX.style.level4Plus.trailLengthMul;
+      glowBlur *= BULLET_FX.style.level4Plus.glowBlurMul;
+      coreRadius *= BULLET_FX.style.level4Plus.coreRadiusMul;
     }
 
     const backX = -Math.cos(this.angle);
@@ -57,11 +74,11 @@ export class Bullet {
 
     ctx.globalCompositeOperation = "lighter";
     ctx.strokeStyle = this.color;
-    ctx.globalAlpha = 0.2;
-    ctx.lineWidth = 2;
+    ctx.globalAlpha = BULLET_FX.trailAlpha;
+    ctx.lineWidth = BULLET_FX.trailLineWidth;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(this.x + backX * 1.5, this.y + backY * 1.5);
+    ctx.moveTo(this.x + backX * BULLET_FX.trailStartOffset, this.y + backY * BULLET_FX.trailStartOffset);
     ctx.lineTo(this.x + backX * trailLen, this.y + backY * trailLen);
     ctx.stroke();
     ctx.globalAlpha = 1;

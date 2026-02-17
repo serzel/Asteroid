@@ -23,6 +23,15 @@ const WEAPON_HALF_COLORS = {
   4: "rgba(255, 60, 0, 0.50)",
 };
 
+
+const SHIP_TRAIL = {
+  maxPoints: 12,
+  spacingSec: 0.015,
+  flameJitterRefreshSec: 1 / 30,
+  flameJitterBase: 0.75,
+  flameJitterRange: 0.5,
+};
+
 function weaponTrailColor(level) {
   return WEAPON_TRAIL_COLORS[level] ?? WEAPON_TRAIL_COLORS[1];
 }
@@ -64,8 +73,8 @@ export class Ship {
 
 
     this.trail = [];
-    this.trailMax = 12;
-    this.trailSpacing = 0.015;
+    this.trailMax = SHIP_TRAIL.maxPoints;
+    this.trailSpacing = SHIP_TRAIL.spacingSec;
     this._trailAcc = 0;
     this._flameJitter = 1;
     this._flameJitterTimer = 0;
@@ -124,9 +133,9 @@ export class Ship {
     this.invincible = Math.max(0, this.invincible - dt);
 
     this._flameJitterTimer += dt;
-    if (this._flameJitterTimer >= 1 / 30) {
+    if (this._flameJitterTimer >= SHIP_TRAIL.flameJitterRefreshSec) {
       this._flameJitterTimer = 0;
-      this._flameJitter = 0.75 + Math.random() * 0.5;
+      this._flameJitter = SHIP_TRAIL.flameJitterBase + Math.random() * SHIP_TRAIL.flameJitterRange;
     }
 
     if (wrapped) {
