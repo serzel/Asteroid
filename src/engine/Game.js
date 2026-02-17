@@ -33,6 +33,9 @@ export class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    if (!this.ctx) {
+      throw new Error('2D canvas context unavailable');
+    }
 
     this.input = new Input(window);
     this.uiRenderer = new UIRenderer();
@@ -159,12 +162,16 @@ export class Game {
 
     this.loopHandle = (t) => this.#loop(t);
 
+    this.pointerMoveHandler = (e) => this.#onPointerMove(e);
+    this.pointerDownHandler = (e) => this.#onPointerDown(e);
+
     // Listener souris unique: on ignore selon l'état courant.
-    this.canvas.addEventListener("pointermove", (e) => this.#onPointerMove(e));
-    this.canvas.addEventListener("pointerdown", (e) => this.#onPointerDown(e));
+    this.canvas.addEventListener("pointermove", this.pointerMoveHandler);
+    this.canvas.addEventListener("pointerdown", this.pointerDownHandler);
   }
 
   applyComboBreak() {
+    if (!this.ship) return;
     // Combo break uniquement à l'expiration : diviser jusqu'à perdre au moins 1 palier d'arme.
     const oldCombo = this.combo;
     const oldLevel = this.ship.weaponLevel;
@@ -215,8 +222,11 @@ export class Game {
   }
 
   #mouseToCanvas(e) {
-    const mx = (e.clientX - this.pointerTransform.left) * this.pointerTransform.scaleX;
-    const my = (e.clientY - this.pointerTransform.top) * this.pointerTransform.scaleY;
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? this.world.w / rect.width : 1;
+    const scaleY = rect.height > 0 ? this.world.h / rect.height : 1;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
     return { mx, my };
   }
 
@@ -293,6 +303,8 @@ export class Game {
   }
 
   start() {
+    if (this.running) return;
+
     this.#applyResizeIfNeeded(true);
 
     this.ship = new Ship(this.world.w / 2, this.world.h / 2);
@@ -310,6 +322,7 @@ export class Game {
     }
 
     this.running = true;
+    this.last = 0;
     requestAnimationFrame(this.loopHandle);
   }
 
@@ -322,6 +335,8 @@ export class Game {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
+    this.canvas.removeEventListener("pointermove", this.pointerMoveHandler);
+    this.canvas.removeEventListener("pointerdown", this.pointerDownHandler);
     this.input.destroy();
     this.canvas.style.cursor = "default";
   }
