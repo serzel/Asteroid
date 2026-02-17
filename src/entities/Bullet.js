@@ -33,6 +33,8 @@ export class Bullet {
     this.color = `${color}`;
     this.styleLevel = styleLevel;
     this.angle = Math.atan2(vy, vx);
+    this.spawnX = x;
+    this.spawnY = y;
   }
 
   update(dt, world) {
@@ -72,15 +74,20 @@ export class Bullet {
 
     ctx.save();
 
-    ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = this.color;
-    ctx.globalAlpha = BULLET_FX.trailAlpha;
-    ctx.lineWidth = BULLET_FX.trailLineWidth;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(this.x + backX * BULLET_FX.trailStartOffset, this.y + backY * BULLET_FX.trailStartOffset);
-    ctx.lineTo(this.x + backX * trailLen, this.y + backY * trailLen);
-    ctx.stroke();
+    const traveled = Math.hypot(this.x - this.spawnX, this.y - this.spawnY);
+    const safeTrailLen = Math.min(trailLen, Math.max(0, traveled - BULLET_FX.trailStartOffset));
+
+    if (safeTrailLen > 0.5) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = this.color;
+      ctx.globalAlpha = BULLET_FX.trailAlpha;
+      ctx.lineWidth = BULLET_FX.trailLineWidth;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(this.x + backX * BULLET_FX.trailStartOffset, this.y + backY * BULLET_FX.trailStartOffset);
+      ctx.lineTo(this.x + backX * (BULLET_FX.trailStartOffset + safeTrailLen), this.y + backY * (BULLET_FX.trailStartOffset + safeTrailLen));
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
 
