@@ -84,6 +84,7 @@ export class UIRenderer {
       `update: ${profView.shownUpdateMs.toFixed(1)} ms | PEAK (last 1s): ${profView.peakUpdateMs.toFixed(1)} ms`,
       `render: ${profView.shownDrawMs.toFixed(1)} ms | PEAK (last 1s): ${profView.peakDrawMs.toFixed(1)} ms`,
       `asteroid collisions: ${profView.shownCollisions}`,
+      `asteroid hash rebuilds/frame: ${profView.shownSpatialHashRebuilds}`,
       `asteroid max speed: ${profView.shownMaxSpeed.toFixed(2)}`,
       `asteroid kinetic E: ${profView.shownKE.toFixed(1)}`,
       `freeze(F3): ${profView.freezeT > 0 ? `${profView.freezeT.toFixed(1)}s` : "ready"}`,
