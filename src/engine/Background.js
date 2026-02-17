@@ -88,6 +88,7 @@ export class Background {
     this.shootingStars = [];
     this.shootTimer = randomRange(7, 13);
     this.nebulae = [];
+    this.nebulaTintCache = new WeakMap();
 
     this.glowImg = new Image();
     this.glowImg.src = new URL("../../assets/glow_soft.png", import.meta.url);
@@ -430,26 +431,60 @@ export class Background {
       );
 
       // Passe 3 — voile coloré doux pour conserver la signature néon dans les zones sombres.
-      const tint = ctx.createRadialGradient(
-        nebula.x,
-        nebula.y,
-        nebula.size * 0.08,
-        nebula.x,
-        nebula.y,
-        nebula.size * 0.56,
-      );
-      tint.addColorStop(0, `rgba(95,225,255,${nebula.tintAlpha.toFixed(3)})`);
-      tint.addColorStop(0.55, `rgba(168,72,255,${(nebula.tintAlpha * 0.8).toFixed(3)})`);
-      tint.addColorStop(1, "rgba(0,0,0,0)");
+      const tintCanvas = this.#getNebulaTintCanvas(nebula);
       ctx.globalCompositeOperation = "screen";
       ctx.globalAlpha = 1;
-      ctx.fillStyle = tint;
-      ctx.fillRect(drawX, drawY, nebula.size, nebula.size);
+      ctx.drawImage(tintCanvas, drawX, drawY, nebula.size, nebula.size);
     }
 
     ctx.restore();
 
     this.#resetLayerState(ctx);
+  }
+
+  #createOffscreenCanvas(width, height) {
+    if (typeof OffscreenCanvas === "function") {
+      return new OffscreenCanvas(width, height);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+
+  #buildNebulaTintCanvas(nebula) {
+    const size = Math.max(1, Math.round(nebula.size));
+    const canvas = this.#createOffscreenCanvas(size, size);
+    const tintCtx = canvas.getContext("2d");
+    if (!tintCtx) return canvas;
+
+    const center = size * 0.5;
+    const tint = tintCtx.createRadialGradient(
+      center,
+      center,
+      size * 0.08,
+      center,
+      center,
+      size * 0.56,
+    );
+    tint.addColorStop(0, `rgba(95,225,255,${nebula.tintAlpha.toFixed(3)})`);
+    tint.addColorStop(0.55, `rgba(168,72,255,${(nebula.tintAlpha * 0.8).toFixed(3)})`);
+    tint.addColorStop(1, "rgba(0,0,0,0)");
+    tintCtx.fillStyle = tint;
+    tintCtx.fillRect(0, 0, size, size);
+    return canvas;
+  }
+
+  #getNebulaTintCanvas(nebula) {
+    const cached = this.nebulaTintCache.get(nebula);
+    const expectedSize = Math.max(1, Math.round(nebula.size));
+    if (cached && cached.width === expectedSize && cached.height === expectedSize) {
+      return cached;
+    }
+
+    const canvas = this.#buildNebulaTintCanvas(nebula);
+    this.nebulaTintCache.set(nebula, canvas);
+    return canvas;
   }
 
   #drawStarLayers(ctx, indices) {
