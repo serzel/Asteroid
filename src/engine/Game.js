@@ -39,10 +39,10 @@ const HUD_VOLUME_LAYOUT = {
   margin: 28,
   scorePanelWidth: 350,
   scorePanelHeight: 94,
-  sliderWidth: 245,
+  sliderWidth: 196,
   sliderHeight: 24,
   sliderGap: 10,
-  topOffsetAfterScore: 30,
+  topOffsetAfterScore: 40,
   hitPaddingX: 10,
   hitPaddingY: 8,
 };
@@ -742,7 +742,7 @@ export class Game {
     const scorePanelX = this.world.w - margin - HUD_VOLUME_LAYOUT.scorePanelWidth;
     const sliderW = HUD_VOLUME_LAYOUT.sliderWidth;
     const sliderH = HUD_VOLUME_LAYOUT.sliderHeight;
-    const rightX = scorePanelX + (HUD_VOLUME_LAYOUT.scorePanelWidth - sliderW) * 0.5;
+    const rightX = scorePanelX + HUD_VOLUME_LAYOUT.scorePanelWidth - sliderW;
 
     this.hudVolumeUI.sliderRects.music = { x: rightX, y: top, w: sliderW, h: sliderH };
     this.hudVolumeUI.sliderRects.sfx = { x: rightX, y: top + sliderH + HUD_VOLUME_LAYOUT.sliderGap, w: sliderW, h: sliderH };

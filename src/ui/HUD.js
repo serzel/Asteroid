@@ -1,22 +1,22 @@
 const WEAPON_HUD_STYLES = {
   1: {
     color: "#76e9ff",
-    glow: "rgba(118, 233, 255, 0.95)",
+    glow: "rgba(118, 233, 255, 0.88)",
     label: "BLASTER",
   },
   2: {
     color: "#7fffd4",
-    glow: "rgba(127, 255, 212, 0.95)",
+    glow: "rgba(127, 255, 212, 0.88)",
     label: "SNIPER",
   },
   3: {
     color: "#cda3ff",
-    glow: "rgba(205, 163, 255, 0.95)",
+    glow: "rgba(205, 163, 255, 0.88)",
     label: "DOUBLE",
   },
   4: {
     color: "#ff8dbb",
-    glow: "rgba(255, 141, 187, 0.95)",
+    glow: "rgba(255, 141, 187, 0.88)",
     label: "FUSIL À POMPE",
   },
 };
@@ -210,7 +210,7 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
   const { x, y, w, h } = rect;
   const hovered = Boolean(state?.hovered);
   const active = Boolean(state?.active);
-  const intensity = active ? 1 : hovered ? 0.7 : 0.45;
+  const intensity = active ? 0.95 : hovered ? 0.68 : 0.44;
 
   drawNeonText(ctx, label, x, y - 7, {
     size: 18,
@@ -228,7 +228,7 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
   ctx.strokeStyle = style.trackStroke;
   ctx.lineWidth = 1.3;
   ctx.shadowColor = style.trackGlow;
-  ctx.shadowBlur = 7 + intensity * 4;
+  ctx.shadowBlur = 6.6 + intensity * 4.4;
   ctx.beginPath();
   ctx.roundRect(x, trackY, w, trackH, 6);
   ctx.fill();
@@ -240,7 +240,7 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
     fillGrad.addColorStop(1, style.fillEnd);
     ctx.fillStyle = fillGrad;
     ctx.shadowColor = style.fillGlow;
-    ctx.shadowBlur = 8 + intensity * 6;
+    ctx.shadowBlur = 7 + intensity * 5.8;
     ctx.beginPath();
     ctx.roundRect(x, trackY + 1, fillW, Math.max(2, trackH - 2), 5);
     ctx.fill();
@@ -248,12 +248,12 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
 
   const handleX = x + fillW;
   const handleY = trackY + trackH * 0.5;
-  const handleR = 6 + (active ? 1.2 : hovered ? 0.6 : 0);
+  const handleR = 5.2 + (active ? 1.05 : hovered ? 0.5 : 0);
   ctx.fillStyle = style.handleFill;
   ctx.strokeStyle = style.handleStroke;
   ctx.lineWidth = 1.4;
   ctx.shadowColor = style.handleGlow;
-  ctx.shadowBlur = 8 + intensity * 6;
+  ctx.shadowBlur = 6.4 + intensity * 5.4;
   ctx.beginPath();
   ctx.arc(handleX, handleY, handleR, 0, Math.PI * 2);
   ctx.fill();
@@ -297,7 +297,7 @@ export function drawHUD(ctx, game) {
   comboPanel.y = M + 8;
   const comboBarPanel = HUD_LAYOUT.comboBarPanel;
   comboBarPanel.x = M;
-  comboBarPanel.y = comboPanel.y + comboPanel.h + 16;
+  comboBarPanel.y = comboPanel.y + comboPanel.h + 24;
   const scorePanel = HUD_LAYOUT.scorePanel;
   scorePanel.x = w - M - scorePanel.w;
   scorePanel.y = M + 8;
@@ -328,7 +328,7 @@ export function drawHUD(ctx, game) {
     glowColor: "rgba(255, 79, 216, 0.95)",
     fillAlpha: 0.72,
   });
-  drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.54, {
+  drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.46, {
     size: 44,
     color: "#89e8ff",
     glowColor: "rgba(137, 232, 255, 1)",
@@ -433,13 +433,13 @@ export function drawHUD(ctx, game) {
   drawNeonPanel(ctx, weaponPanel.x, weaponPanel.y, weaponPanel.w, weaponPanel.h, {
     skew: weaponPanel.skew,
     borderColor: PALETTE.cyan,
-    glowColor: "rgba(113, 231, 255, 0.95)",
-    fillAlpha: 0.84,
+    glowColor: "rgba(113, 231, 255, 0.82)",
+    fillAlpha: 0.8,
   });
   drawNeonText(ctx, "ARME", weaponPanel.x + 34, weaponPanel.y + 24, {
     size: 32,
     color: "#8feaff",
-    glowColor: "rgba(143, 234, 255, 0.95)",
+    glowColor: "rgba(143, 234, 255, 0.88)",
     baseline: "middle",
   });
   drawNeonText(ctx, weaponStyle.label, weaponPanel.x + weaponPanel.w * 0.53, weaponPanel.y + 50, {
