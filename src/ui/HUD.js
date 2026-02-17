@@ -212,23 +212,23 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
   const active = Boolean(state?.active);
   const intensity = active ? 1 : hovered ? 0.7 : 0.45;
 
-  drawNeonText(ctx, label, x, y - 11, {
-    size: 22,
+  drawNeonText(ctx, label, x, y - 7, {
+    size: 18,
     color: style.labelColor,
     glowColor: style.labelGlow,
     baseline: "bottom",
   });
 
-  const trackH = Math.max(10, h * 0.34);
+  const trackH = Math.max(8, h * 0.3);
   const trackY = y + h * 0.5 - trackH * 0.5;
   const fillW = w * clamped;
 
   ctx.save();
   ctx.fillStyle = style.trackBg;
   ctx.strokeStyle = style.trackStroke;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.3;
   ctx.shadowColor = style.trackGlow;
-  ctx.shadowBlur = 8 + intensity * 5;
+  ctx.shadowBlur = 7 + intensity * 4;
   ctx.beginPath();
   ctx.roundRect(x, trackY, w, trackH, 6);
   ctx.fill();
@@ -240,7 +240,7 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
     fillGrad.addColorStop(1, style.fillEnd);
     ctx.fillStyle = fillGrad;
     ctx.shadowColor = style.fillGlow;
-    ctx.shadowBlur = 10 + intensity * 7;
+    ctx.shadowBlur = 8 + intensity * 6;
     ctx.beginPath();
     ctx.roundRect(x, trackY + 1, fillW, Math.max(2, trackH - 2), 5);
     ctx.fill();
@@ -248,12 +248,12 @@ function drawVolumeSlider(ctx, rect, label, value01, state, style) {
 
   const handleX = x + fillW;
   const handleY = trackY + trackH * 0.5;
-  const handleR = 8 + (active ? 1.5 : hovered ? 0.8 : 0);
+  const handleR = 6 + (active ? 1.2 : hovered ? 0.6 : 0);
   ctx.fillStyle = style.handleFill;
   ctx.strokeStyle = style.handleStroke;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 1.4;
   ctx.shadowColor = style.handleGlow;
-  ctx.shadowBlur = 10 + intensity * 8;
+  ctx.shadowBlur = 8 + intensity * 6;
   ctx.beginPath();
   ctx.arc(handleX, handleY, handleR, 0, Math.PI * 2);
   ctx.fill();
