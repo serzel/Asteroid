@@ -63,8 +63,8 @@ const pickStarSize = () => {
   return { mul: randomRange(1.35, 1.85), large: true };
 };
 
-const buildStarTwinkle = () => {
-  if (Math.random() > randomRange(0.12, 0.18)) {
+const buildStarTwinkle = (isLarge) => {
+  if (!isLarge || Math.random() > randomRange(0.12, 0.18)) {
     return { twinkle: false, phase: 0, speed: 0, amplitude: 0 };
   }
 
@@ -115,6 +115,9 @@ export class Background {
     this.debugSeams = false;
     this.debugForceNearestSmoothing = false;
     this.debugDrawCalls = [];
+
+    this.starUnitPath = new Path2D();
+    this.starUnitPath.arc(0, 0, 1, 0, Math.PI * 2);
   }
 
   #roundPx(value) {
@@ -169,6 +172,7 @@ export class Background {
 
     for (let i = 0; i < count; i++) {
       const size = pickStarSize();
+      const tint = pickStarTint();
       stars.push({
         x: Math.random() * this.w,
         y: Math.random() * this.h,
@@ -178,8 +182,8 @@ export class Background {
         large: size.large,
         glowMul: size.large ? randomRange(2, 3.5) : 0,
         glowAlpha: size.large ? randomRange(0.05, 0.1) : 0,
-        ...pickStarTint(),
-        ...buildStarTwinkle(),
+        color: `hsl(${tint.h.toFixed(1)} ${tint.s.toFixed(1)}% ${tint.l.toFixed(1)}%)`,
+        ...buildStarTwinkle(size.large),
       });
     }
 
@@ -443,7 +447,7 @@ export class Background {
     for (const i of indices) {
       const layer = this.layers[i];
       for (const star of layer.stars) {
-        const twinkle = star.twinkle
+        const twinkle = star.large && star.twinkle
           ? 1 + Math.sin(this.time * star.speed + star.phase) * star.amplitude
           : 1;
         const alpha = Math.min(1, star.a * twinkle);
@@ -460,15 +464,17 @@ export class Background {
             glowSize,
             { label: "stars/glow" },
           );
-          ctx.globalAlpha = 1;
         }
 
-        ctx.fillStyle = `hsla(${star.h.toFixed(1)}, ${star.s.toFixed(1)}%, ${star.l.toFixed(1)}%, ${alpha.toFixed(4)})`;
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = alpha;
+        ctx.setTransform(star.r, 0, 0, star.r, star.x, star.y);
+        ctx.fill(this.starUnitPath);
       }
     }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
   }
 
   #drawPlanets(ctx, layers) {
