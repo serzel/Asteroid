@@ -1,52 +1,122 @@
 import { drawText } from "../engine/utils.js";
 
 export class UIRenderer {
-  draw(ctx, uiModel) {
-    if (uiModel.screen === "TITLE") {
-      this.#drawTitleScreen(ctx, uiModel);
-      return;
-    }
-
-    if (uiModel.screen === "GAME_OVER") {
-      this.#drawGameOverOverlay(ctx, uiModel);
-      return;
-    }
-
-    if (uiModel.screen === "PROFILER") {
-      this.#drawProfilerOverlay(ctx, uiModel);
-    }
-  }
-
-  handlePointer(x, y, uiModel) {
-    if (uiModel.pointerPhase === "move") {
-      if (uiModel.state === uiModel.gameState.TITLE) {
-        for (const button of uiModel.titleButtons) {
-          if (this.#pointInRect(x, y, button)) {
-            return { type: "HOVER_BUTTON", buttonId: button.id };
-          }
-        }
-      } else if (uiModel.state === uiModel.gameState.GAME_OVER_READY) {
-        if (this.#pointInRect(x, y, uiModel.menuButton)) return { type: "HOVER_BUTTON", buttonId: uiModel.menuButton.id };
+  handlePointerMove(game, x, y) {
+    if (game.state === game.GAME_STATE.TITLE) {
+      for (const button of game.titleButtons) {
+        if (this.#pointInRect(x, y, button)) return button.id;
       }
-
-      return { type: "HOVER_BUTTON", buttonId: null };
-    }
-
-    if (uiModel.pointerPhase === "down") {
-      if (uiModel.state === uiModel.gameState.TITLE) {
-        for (const button of uiModel.titleButtons) {
-          if (this.#pointInRect(x, y, button)) {
-            return { type: "START_GAME", difficulty: button.id };
-          }
-        }
-      }
-
-      if (uiModel.state === uiModel.gameState.GAME_OVER_READY && this.#pointInRect(x, y, uiModel.menuButton)) {
-        return { type: "OPEN_MENU" };
-      }
+    } else if (game.state === game.GAME_STATE.GAME_OVER_READY) {
+      if (this.#pointInRect(x, y, game.menuButton)) return game.menuButton.id;
     }
 
     return null;
+  }
+
+  handlePointerDown(game, x, y) {
+    if (game.state === game.GAME_STATE.TITLE) {
+      for (const button of game.titleButtons) {
+        if (this.#pointInRect(x, y, button)) {
+          return { type: "START_GAME", difficulty: button.id };
+        }
+      }
+    }
+
+    if (game.state === game.GAME_STATE.GAME_OVER_READY && this.#pointInRect(x, y, game.menuButton)) {
+      return { type: "OPEN_MENU" };
+    }
+
+    return null;
+  }
+
+  drawTitleScreen(game) {
+    const ctx = game.ctx;
+    game.background.setAmbienceFactor(0);
+    game.background.render(ctx);
+    const panelW = 440;
+    const panelH = 330;
+    const panelX = game.world.w * 0.5 - panelW * 0.5;
+    const panelY = game.world.h * 0.5 - panelH * 0.5 + 40;
+    this.#drawPanelGlow(ctx, panelX, panelY, panelW, panelH);
+
+    this.#drawNeonTitle(ctx, "ASTEROID", game.world.w * 0.5, game.world.h * 0.22);
+    ctx.save();
+    ctx.font = "600 19px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(212,236,255,0.92)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Choisissez une difficulté", game.world.w * 0.5, game.world.h * 0.34);
+    ctx.restore();
+
+    for (const button of game.titleButtons) {
+      const drawState = game.titleButtonDrawState;
+      drawState.hovered = game.hoveredButtonId === button.id;
+      drawState.pressed = false;
+      this.#drawNeonButton(ctx, button, button.label, drawState);
+    }
+
+    ctx.save();
+    ctx.font = "600 16px 'Audiowide', system-ui, sans-serif";
+    ctx.fillStyle = "rgba(178,242,255,0.95)";
+    ctx.shadowColor = "rgba(112,233,255,0.55)";
+    ctx.shadowBlur = 4;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("[1] EASY   [2] NORMAL   [3] HARD", game.world.w * 0.5, game.world.h * 0.79);
+    ctx.restore();
+  }
+
+  drawGameOverOverlay(game) {
+    const ctx = game.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillRect(0, 0, game.world.w, game.world.h);
+    ctx.restore();
+
+    drawText(ctx, "GAME OVER", game.world.w * 0.5 - 120, game.world.h * 0.38, 52);
+    drawText(ctx, `Score: ${Math.floor(game.score)}`, game.world.w * 0.5 - 80, game.world.h * 0.50, 24);
+    drawText(ctx, "[R] Rejouer", game.world.w * 0.5 - 65, game.world.h * 0.58, 20);
+    drawText(ctx, "[M] Menu", game.world.w * 0.5 - 52, game.world.h * 0.64, 20);
+  }
+
+  drawProfilerOverlay(game) {
+    if (!game.debugProfiler) return;
+
+    const ctx = game.ctx;
+    const x = 10;
+    const y = 10;
+    const lineHeight = 20;
+    const lines = [
+      `FPS: ${game.profView.shownFps.toFixed(0)}`,
+      `update: ${game.profView.shownUpdateMs.toFixed(1)} ms | PEAK (last 1s): ${game.profView.peakUpdateMs.toFixed(1)} ms`,
+      `render: ${game.profView.shownDrawMs.toFixed(1)} ms | PEAK (last 1s): ${game.profView.peakDrawMs.toFixed(1)} ms`,
+      `asteroid collisions: ${game.profView.shownCollisions}`,
+      `asteroid max speed: ${game.profView.shownMaxSpeed.toFixed(2)}`,
+      `asteroid kinetic E: ${game.profView.shownKE.toFixed(1)}`,
+      `freeze(F3): ${game.profView.freezeT > 0 ? `${game.profView.freezeT.toFixed(1)}s` : "ready"}`,
+    ];
+
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = "#05070d";
+    ctx.fillRect(x - 8, y - 8, 700, lines.length * lineHeight + 16);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font = "15px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.fillStyle = "rgba(220, 245, 255, 0.98)";
+
+    for (let i = 0; i < lines.length; i++) {
+      const ty = y + i * lineHeight;
+      ctx.strokeText(lines[i], x, ty);
+      ctx.fillText(lines[i], x, ty);
+    }
+
+    ctx.restore();
   }
 
   #pointInRect(mx, my, rect) {
@@ -158,96 +228,6 @@ export class UIRenderer {
     ctx.shadowColor = "rgba(127,245,255,0.85)";
     ctx.shadowBlur = 4 + glowBoost * 4 + pressBoost * 8;
     ctx.fillText(label, x + w * 0.5, y + h * 0.5 + 1);
-    ctx.restore();
-  }
-
-  #drawTitleScreen(ctx, uiModel) {
-    const { background, world, titleButtons, hoveredButtonId, titleButtonDrawState } = uiModel;
-    background.setAmbienceFactor(0);
-    background.render(ctx);
-    const panelW = 440;
-    const panelH = 330;
-    const panelX = world.w * 0.5 - panelW * 0.5;
-    const panelY = world.h * 0.5 - panelH * 0.5 + 40;
-    this.#drawPanelGlow(ctx, panelX, panelY, panelW, panelH);
-
-    this.#drawNeonTitle(ctx, "ASTEROID", world.w * 0.5, world.h * 0.22);
-    ctx.save();
-    ctx.font = "600 19px system-ui, sans-serif";
-    ctx.fillStyle = "rgba(212,236,255,0.92)";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Choisissez une difficulté", world.w * 0.5, world.h * 0.34);
-    ctx.restore();
-
-    for (const button of titleButtons) {
-      const drawState = titleButtonDrawState;
-      drawState.hovered = hoveredButtonId === button.id;
-      drawState.pressed = false;
-      this.#drawNeonButton(ctx, button, button.label, drawState);
-    }
-
-    ctx.save();
-    ctx.font = "600 16px 'Audiowide', system-ui, sans-serif";
-    ctx.fillStyle = "rgba(178,242,255,0.95)";
-    ctx.shadowColor = "rgba(112,233,255,0.55)";
-    ctx.shadowBlur = 4;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("[1] EASY   [2] NORMAL   [3] HARD", world.w * 0.5, world.h * 0.79);
-    ctx.restore();
-  }
-
-  #drawGameOverOverlay(ctx, uiModel) {
-    const { world, score } = uiModel;
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
-    ctx.fillRect(0, 0, world.w, world.h);
-    ctx.restore();
-
-    drawText(ctx, "GAME OVER", world.w * 0.5 - 120, world.h * 0.38, 52);
-    drawText(ctx, `Score: ${Math.floor(score)}`, world.w * 0.5 - 80, world.h * 0.50, 24);
-    drawText(ctx, "[R] Rejouer", world.w * 0.5 - 65, world.h * 0.58, 20);
-    drawText(ctx, "[M] Menu", world.w * 0.5 - 52, world.h * 0.64, 20);
-  }
-
-  #drawProfilerOverlay(ctx, uiModel) {
-    const { debugProfiler, profView } = uiModel;
-    if (!debugProfiler) return;
-
-    const x = 10;
-    const y = 10;
-    const lineHeight = 20;
-    const lines = [
-      `FPS: ${profView.shownFps.toFixed(0)}`,
-      `update: ${profView.shownUpdateMs.toFixed(1)} ms | PEAK (last 1s): ${profView.peakUpdateMs.toFixed(1)} ms`,
-      `render: ${profView.shownDrawMs.toFixed(1)} ms | PEAK (last 1s): ${profView.peakDrawMs.toFixed(1)} ms`,
-      `asteroid collisions: ${profView.shownCollisions}`,
-      `asteroid max speed: ${profView.shownMaxSpeed.toFixed(2)}`,
-      `asteroid kinetic E: ${profView.shownKE.toFixed(1)}`,
-      `freeze(F3): ${profView.freezeT > 0 ? `${profView.freezeT.toFixed(1)}s` : "ready"}`,
-    ];
-
-    ctx.save();
-    ctx.globalAlpha = 0.72;
-    ctx.fillStyle = "#05070d";
-    ctx.fillRect(x - 8, y - 8, 700, lines.length * lineHeight + 16);
-    ctx.restore();
-
-    ctx.save();
-    ctx.font = "15px monospace";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
-    ctx.fillStyle = "rgba(220, 245, 255, 0.98)";
-
-    for (let i = 0; i < lines.length; i++) {
-      const ty = y + i * lineHeight;
-      ctx.strokeText(lines[i], x, ty);
-      ctx.fillText(lines[i], x, ty);
-    }
-
     ctx.restore();
   }
 }

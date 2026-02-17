@@ -102,6 +102,7 @@ export class Game {
 
     // États principaux: TITLE -> PLAY -> GAME_OVER_ANIM -> GAME_OVER_READY.
     this.state = GAME_STATE.TITLE;
+    this.GAME_STATE = GAME_STATE;
     this.gameOverDelay = 0;
 
     this.difficultyPreset = null;
@@ -247,70 +248,14 @@ export class Game {
 
   #onPointerMove(e) {
     const { mx, my } = this.#mouseToCanvas(e);
-    const action = this.uiRenderer.handlePointer(mx, my, this.#buildUIModel("POINTER_MOVE"));
-
-    if (action && action.type === "HOVER_BUTTON") {
-      this.hoveredButtonId = action.buttonId;
-    }
-
+    this.hoveredButtonId = this.uiRenderer.handlePointerMove(this, mx, my);
     this.canvas.style.cursor = this.hoveredButtonId ? "pointer" : "default";
   }
 
   #onPointerDown(e) {
     const { mx, my } = this.#mouseToCanvas(e);
-    const action = this.uiRenderer.handlePointer(mx, my, this.#buildUIModel("POINTER_DOWN"));
+    const action = this.uiRenderer.handlePointerDown(this, mx, my);
     this.#applyUIAction(action);
-  }
-
-  #buildUIModel(screen) {
-    if (screen === "POINTER_MOVE") {
-      return {
-        pointerPhase: "move",
-        state: this.state,
-        gameState: GAME_STATE,
-        titleButtons: this.titleButtons,
-        menuButton: this.menuButton,
-      };
-    }
-
-    if (screen === "POINTER_DOWN") {
-      return {
-        pointerPhase: "down",
-        state: this.state,
-        gameState: GAME_STATE,
-        titleButtons: this.titleButtons,
-        menuButton: this.menuButton,
-      };
-    }
-
-    if (screen === "TITLE") {
-      return {
-        screen,
-        background: this.background,
-        world: this.world,
-        titleButtons: this.titleButtons,
-        hoveredButtonId: this.hoveredButtonId,
-        titleButtonDrawState: this.titleButtonDrawState,
-      };
-    }
-
-    if (screen === "GAME_OVER") {
-      return {
-        screen,
-        world: this.world,
-        score: this.score,
-      };
-    }
-
-    if (screen === "PROFILER") {
-      return {
-        screen,
-        debugProfiler: this.debugProfiler,
-        profView: this.profView,
-      };
-    }
-
-    return { screen };
   }
 
   #applyUIAction(action) {
@@ -895,7 +840,7 @@ export class Game {
     ctx.clearRect(0, 0, this.world.w, this.world.h);
 
     if (this.state === GAME_STATE.TITLE) {
-      this.uiRenderer.draw(ctx, this.#buildUIModel("TITLE"));
+      this.uiRenderer.drawTitleScreen(this);
       return;
     }
 
@@ -905,11 +850,11 @@ export class Game {
     this.#drawCollidersOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
-      this.uiRenderer.draw(ctx, this.#buildUIModel("GAME_OVER"));
+      this.uiRenderer.drawGameOverOverlay(this);
     }
     ctx.restore();
 
     drawHUD(ctx, this);
-    this.uiRenderer.draw(ctx, this.#buildUIModel("PROFILER"));
+    this.uiRenderer.drawProfilerOverlay(this);
   }
 }
