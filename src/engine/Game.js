@@ -1,5 +1,5 @@
 import { Input } from "./Input.js";
-import { resizeCanvasToDisplaySize } from "./utils.js";
+import { debugLog, resizeCanvasToDisplaySize } from "./utils.js";
 import { dist2, rand } from "./math.js";
 import { Ship } from "../entities/Ship.js";
 import { Bullet } from "../entities/Bullet.js";
@@ -23,6 +23,38 @@ import { UI_ACTION } from "../ui/UIActionTypes.js";
 
 const PLAYER_HIT_SHAKE = { amp: 10, dur: 0.18 };
 const WEAPON4_SHOT_SHAKE = { amp: 1.5, dur: 0.05 };
+
+const UI_LAYOUT = {
+  menuButtonWidth: 180,
+  menuButtonHeight: 50,
+  titleButtonWidth: 220,
+  titleButtonHeight: 56,
+  titleButtonGap: 16,
+  titleButtonStartYOffset: 30,
+  menuButtonYFactor: 0.6,
+};
+
+const DEBUG = {
+  logIntervalSec: 1.0,
+  perfLogIntervalSec: 1.0,
+  profilerFreezeSec: 2,
+  seamSampleSmoothingLabel: {
+    nearest: "nearest (OFF)",
+    linear: "linear (ON)",
+  },
+};
+
+const COMBO_WARN_FX = {
+  thresholdSec: 3.0,
+  pulseBase: 0.5,
+  pulseAmplitude: 0.5,
+  pulseTimeScale: 0.01,
+  pulseFrequency: 4.0,
+  alphaBase: 0.08,
+  alphaScale: 0.18,
+  thicknessBase: 8,
+  thicknessScale: 6,
+};
 
 const GAME_STATE = {
   TITLE: "TITLE",
@@ -115,7 +147,7 @@ export class Game {
 
     this.hoveredButtonId = null;
     this.titleButtons = [];
-    this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: 180, h: 50 };
+    this.menuButton = { id: "MENU", label: "MENU", x: 0, y: 0, w: UI_LAYOUT.menuButtonWidth, h: UI_LAYOUT.menuButtonHeight };
 
     this.debugEnabled = false;
     this.debugColliders = false;
@@ -187,7 +219,7 @@ export class Game {
 
     this.combo = Math.max(1, c);
     this.ship.updateWeaponLevel(this.combo);
-    this.logDebug(`Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
+    this.logDebug("combo", `Combo break combo ${oldCombo.toFixed(2)} -> ${this.combo.toFixed(2)} level ${oldLevel} -> ${this.ship.weaponLevel}`);
   }
 
 
@@ -209,9 +241,8 @@ export class Game {
     return comboWindow;
   }
 
-  logDebug(message) {
-    if (!this.debugEnabled) return;
-    console.log(`[DEBUG] ${message}`);
+  logDebug(category, ...args) {
+    debugLog(this.debugEnabled, category, ...args);
   }
 
   clamp01(value) {
@@ -238,11 +269,11 @@ export class Game {
   }
 
   #rebuildMenuButtons() {
-    const w = 220;
-    const h = 56;
-    const gap = 16;
+    const w = UI_LAYOUT.titleButtonWidth;
+    const h = UI_LAYOUT.titleButtonHeight;
+    const gap = UI_LAYOUT.titleButtonGap;
     const x = this.world.w * 0.5 - w * 0.5;
-    const startY = this.world.h * 0.5 - (h * 3 + gap * 2) * 0.5 + 30;
+    const startY = this.world.h * 0.5 - (h * 3 + gap * 2) * 0.5 + UI_LAYOUT.titleButtonStartYOffset;
 
     this.titleButtons = [
       { id: "EASY", label: "EASY", x, y: startY, w, h },
@@ -251,7 +282,7 @@ export class Game {
     ];
 
     this.menuButton.x = this.world.w * 0.5 - this.menuButton.w * 0.5;
-    this.menuButton.y = this.world.h * 0.6;
+    this.menuButton.y = this.world.h * UI_LAYOUT.menuButtonYFactor;
   }
 
   #createUIModel() {
@@ -298,7 +329,7 @@ export class Game {
     this.difficultyPreset = id;
     this.#newGame();
     this.state = GAME_STATE.PLAY;
-    this.logDebug(`Start game difficulty=${id}`);
+    this.logDebug("state", `Start game difficulty=${id}`);
   }
 
   start() {
@@ -654,7 +685,7 @@ export class Game {
           }
 
           if (this.lives <= 0) {
-            this.logDebug(`Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
+            this.logDebug("state", `Game over score=${Math.floor(this.score)} -> GAME_OVER_ANIM`);
             this.state = GAME_STATE.GAME_OVER_ANIM;
             this.gameOverDelay = 2.0;
           } else {
@@ -704,12 +735,12 @@ export class Game {
   #update(dt) {
     if (this.input.wasPressed("KeyL")) {
       this.debugEnabled = !this.debugEnabled;
-      console.log(`[DEBUG] ${this.debugEnabled ? "Enabled" : "Disabled"}`);
+      debugLog(true, "toggle", this.debugEnabled ? "Enabled" : "Disabled");
     }
 
     if (this.input.wasPressed("debugToggle")) {
       this.debugColliders = !this.debugColliders;
-      console.log(`[DEBUG] Colliders ${this.debugColliders ? "ON" : "OFF"}`);
+      this.logDebug("colliders", `Colliders ${this.debugColliders ? "ON" : "OFF"}`);
     }
 
     if (this.input.wasPressed("debugProfiler")) {
@@ -717,38 +748,40 @@ export class Game {
     }
 
     if (this.input.wasPressed("debugProfilerFreeze")) {
-      this.profView.freezeT = 2;
+      this.profView.freezeT = DEBUG.profilerFreezeSec;
       this.profView.accTime = 0;
     }
 
     if (this.input.wasPressed("debugSeams")) {
       this.debugSeams = !this.debugSeams;
       this.background.debugSeams = this.debugSeams;
-      console.log(`[DEBUG] Seams ${this.debugSeams ? "ON" : "OFF"}`);
+      this.logDebug("seams", `Seams ${this.debugSeams ? "ON" : "OFF"}`);
     }
 
     if (this.input.wasPressed("debugSeamsNearest")) {
       this.background.debugForceNearestSmoothing = !this.background.debugForceNearestSmoothing;
-      console.log(`[DEBUG] Seam smoothing mode: ${this.background.debugForceNearestSmoothing ? "nearest (OFF)" : "linear (ON)"}`);
+      this.logDebug("seams", `Seam smoothing mode: ${this.background.debugForceNearestSmoothing ? DEBUG.seamSampleSmoothingLabel.nearest : DEBUG.seamSampleSmoothingLabel.linear}`);
     }
 
     this.debugLogAccum += dt;
     this.debugPerfAccum += dt;
-    if (this.debugEnabled && this.debugLogAccum >= 1.0) {
+    if (this.debugEnabled && this.debugLogAccum >= DEBUG.logIntervalSec) {
       this.debugLogAccum = 0;
       const difficulty = this.difficultyPreset ?? "NORMAL";
-      console.log(
-        `[DEBUG] state=${this.state} wave=${this.level} asteroidCount=${this.asteroids.length} score=${Math.floor(this.score)} combo=${this.combo.toFixed(2)} comboTimer=${this.comboTimer.toFixed(2)} weaponLevel=${this.ship?.weaponLevel ?? 1} difficulty=${difficulty}`
+      this.logDebug(
+        "state",
+        `state=${this.state} wave=${this.level} asteroidCount=${this.asteroids.length} score=${Math.floor(this.score)} combo=${this.combo.toFixed(2)} comboTimer=${this.comboTimer.toFixed(2)} weaponLevel=${this.ship?.weaponLevel ?? 1} difficulty=${difficulty}`
       );
     }
 
-    if (this.debugEnabled && this.debugPerfAccum >= 1.0 && this.debugPerf.frameCount > 0) {
+    if (this.debugEnabled && this.debugPerfAccum >= DEBUG.perfLogIntervalSec && this.debugPerf.frameCount > 0) {
       const avgFrame = this.debugPerf.frameTimeTotal / this.debugPerf.frameCount;
       const avgUpdate = this.debugPerf.updateMs / this.debugPerf.frameCount;
       const avgDraw = this.debugPerf.drawMs / this.debugPerf.frameCount;
       const fps = this.debugPerf.frameCount / this.debugPerfAccum;
-      console.log(
-        `[PERF] fps=${fps.toFixed(1)} frame=${avgFrame.toFixed(2)}ms update=${avgUpdate.toFixed(2)}ms draw=${avgDraw.toFixed(2)}ms`
+      this.logDebug(
+        "perf",
+        `fps=${fps.toFixed(1)} frame=${avgFrame.toFixed(2)}ms update=${avgUpdate.toFixed(2)}ms draw=${avgDraw.toFixed(2)}ms`
       );
       this.debugPerfAccum = 0;
       this.debugPerf.frameCount = 0;
@@ -829,13 +862,12 @@ export class Game {
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
     this.background.setAmbienceFactor(amb);
 
-    const WARN = 3.0;
     const t = this.comboTimer;
-    if (t <= WARN) {
-      const progress = 1 - (t / WARN);
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.01 * 4.0);
-      const alpha = 0.08 + 0.18 * progress * pulse;
-      const thickness = 8 + 6 * progress;
+    if (t <= COMBO_WARN_FX.thresholdSec) {
+      const progress = 1 - (t / COMBO_WARN_FX.thresholdSec);
+      const pulse = COMBO_WARN_FX.pulseBase + COMBO_WARN_FX.pulseAmplitude * Math.sin(performance.now() * COMBO_WARN_FX.pulseTimeScale * COMBO_WARN_FX.pulseFrequency);
+      const alpha = COMBO_WARN_FX.alphaBase + COMBO_WARN_FX.alphaScale * progress * pulse;
+      const thickness = COMBO_WARN_FX.thicknessBase + COMBO_WARN_FX.thicknessScale * progress;
 
       ctx.save();
       const grad = ctx.createLinearGradient(0, 0, this.world.w, 0);

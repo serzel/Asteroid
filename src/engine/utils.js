@@ -30,6 +30,12 @@ export function drawText(ctx, text, x, y, size = 18) {
   ctx.restore();
 }
 
+export function debugLog(enabled, category, ...args) {
+  if (!enabled) return;
+  const prefix = category ? `[DEBUG:${category}]` : "[DEBUG]";
+  console.log(prefix, ...args);
+}
+
 export function computeAlphaBBox(img) {
   const width = img.naturalWidth || img.width;
   const height = img.naturalHeight || img.height;
