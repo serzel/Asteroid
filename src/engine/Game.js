@@ -72,6 +72,13 @@ const AUDIO_MANIFEST = {
   asteroid_explosion_small: { url: "assets/audio/asteroid_explosion_small.wav", bus: "sfx" },
   asteroid_explosion_medium: { url: "assets/audio/asteroid_explosion_medium.wav", bus: "sfx" },
   asteroid_explosion_large: { url: "assets/audio/asteroid_explosion_large.wav", bus: "sfx" },
+  music_theme: {
+    url: "assets/audio/Asteroid_theme.mp3",
+    bus: "music",
+    loop: true,
+    loopStart: 24.5,
+    loopEnd: 147.5,
+  },
 };
 
 const SHOOT_SFX_BY_LEVEL = {
@@ -82,7 +89,7 @@ const SHOOT_SFX_BY_LEVEL = {
 };
 
 export class Game {
-  constructor(canvas) {
+  constructor(canvas, { audio } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     if (!this.ctx) {
@@ -91,9 +98,11 @@ export class Game {
 
     this.input = new Input(window);
     this.uiRenderer = new UIRenderer();
-    this.audio = null;
+    this.audio = audio ?? null;
     this.audioReady = false;
     this.audioUnlockAttached = false;
+    this.musicStarted = false;
+    this.musicLoopHandle = null;
 
     this.last = 0;
     this.running = false;
@@ -395,6 +404,11 @@ export class Game {
     this.canvas.removeEventListener("pointerdown", this.pointerDownHandler);
     this.#detachAudioUnlockListeners();
     if (this.audio) {
+      if (this.musicLoopHandle) {
+        this.audio.stopLoop(this.musicLoopHandle);
+        this.musicLoopHandle = null;
+      }
+      this.musicStarted = false;
       this.audio.dispose().catch((error) => {
         console.warn("Audio dispose failed", error);
       });
@@ -414,6 +428,7 @@ export class Game {
       await this.audio.load(AUDIO_MANIFEST);
       this.audioReady = true;
       this.#attachAudioUnlockListeners();
+      this.#ensureMusicStarted();
     } catch (error) {
       this.audioReady = false;
       console.warn("Audio init/load failed", error);
@@ -437,9 +452,24 @@ export class Game {
   #unlockAudioOnFirstInput() {
     this.#detachAudioUnlockListeners();
     if (!this.audio || !this.audioReady) return;
-    this.audio.unlock().catch((error) => {
-      console.warn("Audio unlock failed", error);
-    });
+    this.audio.unlock()
+      .then(() => {
+        this.#ensureMusicStarted();
+      })
+      .catch((error) => {
+        console.warn("Audio unlock failed", error);
+      });
+  }
+
+  #ensureMusicStarted() {
+    if (!this.audio || !this.audioReady || this.musicStarted) return;
+
+    try {
+      this.musicLoopHandle = this.audio.playLoop("music_theme");
+      this.musicStarted = true;
+    } catch (error) {
+      console.warn("Music start failed", error);
+    }
   }
 
   #newGame() {
@@ -895,6 +925,7 @@ export class Game {
     }
 
     if (this.state === GAME_STATE.TITLE) {
+      this.#ensureMusicStarted();
       updateTitleState(this, (id) => this.#startWithDifficulty(id));
       return;
     }

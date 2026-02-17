@@ -1,7 +1,9 @@
 import { Game } from "./engine/Game.js";
+import AudioManager from "./audio/AudioManager.js";
 
 const canvas = document.getElementById("game");
-const game = new Game(canvas);
+const audio = new AudioManager();
+const game = new Game(canvas, { audio });
 game.start().catch((error) => {
   console.error("Game start failed", error);
 });
