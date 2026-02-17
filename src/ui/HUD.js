@@ -133,33 +133,33 @@ function drawNeonPanel(ctx, rect, options = {}) {
   if (tubeMode) {
     const scaledIntensity = clamp(intensity, 0, 1);
 
-    ctx.globalAlpha = (0.1 + scaledIntensity * 0.06) * neonPulse;
+    ctx.globalAlpha = (0.06 + scaledIntensity * 0.04) * neonPulse;
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = (18 + scaledIntensity * 10) * neonPulse;
-    ctx.lineWidth = borderWidth * 3;
+    ctx.shadowBlur = (14 + scaledIntensity * 8) * neonPulse;
+    ctx.lineWidth = borderWidth * 1.9;
     ctx.strokeStyle = borderColor;
     buildPanelPath(ctx, x + innerInset, y + innerInset, w - innerInset * 2, h - innerInset * 2, skew);
     ctx.stroke();
 
-    ctx.globalAlpha = (0.8 + scaledIntensity * 0.1) * neonPulse;
+    ctx.globalAlpha = (0.75 + scaledIntensity * 0.15) * neonPulse;
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = (8 + scaledIntensity * 4) * neonPulse;
-    ctx.lineWidth = borderWidth * 1.8;
+    ctx.shadowBlur = (6 + scaledIntensity * 4) * neonPulse;
+    ctx.lineWidth = borderWidth * 1.2;
     ctx.strokeStyle = borderColor;
     buildPanelPath(ctx, x, y, w, h, skew);
     ctx.stroke();
 
-    ctx.globalAlpha = 0.95;
+    ctx.globalAlpha = 0.97;
     ctx.shadowColor = "rgba(255,255,255,0.96)";
-    ctx.shadowBlur = 2;
-    ctx.lineWidth = borderWidth;
+    ctx.shadowBlur = 1.4;
+    ctx.lineWidth = borderWidth * 0.98;
     ctx.strokeStyle = "rgba(255,255,255,0.95)";
     buildPanelPath(ctx, x, y, w, h, skew);
     ctx.stroke();
 
-    ctx.globalAlpha = (0.55 + scaledIntensity * 0.15) * neonPulse;
+    ctx.globalAlpha = (0.5 + scaledIntensity * 0.12) * neonPulse;
     ctx.shadowBlur = 0;
-    ctx.lineWidth = borderWidth * 0.9;
+    ctx.lineWidth = borderWidth * 0.82;
     ctx.strokeStyle = borderColor;
     buildPanelPath(ctx, x, y, w, h, skew);
     ctx.stroke();
@@ -259,7 +259,7 @@ function drawNeonText(ctx, text, x, y, options = {}) {
 
 function drawNeonLine(ctx, x1, y1, x2, y2, color = PALETTE.connector, intensity = 1, baseWidth = 3.2) {
   const scaledIntensity = clamp(intensity, 0, 1);
-  const tubeWidth = Math.max(baseWidth * 2.5, 8);
+  const tubeWidth = Math.max(1.2, baseWidth * 0.82);
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -268,9 +268,9 @@ function drawNeonLine(ctx, x1, y1, x2, y2, color = PALETTE.connector, intensity 
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.strokeStyle = "rgba(255,255,255,0.95)";
-  ctx.lineWidth = tubeWidth * 1.05;
+  ctx.lineWidth = tubeWidth;
   ctx.shadowColor = "rgba(255,255,255,0.95)";
-  ctx.shadowBlur = 1 + scaledIntensity * 2;
+  ctx.shadowBlur = 0.4 + scaledIntensity * 1.2;
   ctx.globalAlpha = 0.95 + scaledIntensity * 0.05;
   ctx.stroke();
 
@@ -278,20 +278,20 @@ function drawNeonLine(ctx, x1, y1, x2, y2, color = PALETTE.connector, intensity 
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.strokeStyle = color;
-  ctx.lineWidth = tubeWidth * 1.8;
+  ctx.lineWidth = tubeWidth * 1.28;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 8 + scaledIntensity * 4;
-  ctx.globalAlpha = (0.8 + scaledIntensity * 0.1);
+  ctx.shadowBlur = 6 + scaledIntensity * 4;
+  ctx.globalAlpha = 0.7 + scaledIntensity * 0.12;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.strokeStyle = color;
-  ctx.lineWidth = tubeWidth * 3.2;
+  ctx.lineWidth = tubeWidth * 1.9;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 22 + scaledIntensity * 12;
-  ctx.globalAlpha = (0.12 + scaledIntensity * 0.06);
+  ctx.shadowBlur = 14 + scaledIntensity * 8;
+  ctx.globalAlpha = 0.06 + scaledIntensity * 0.04;
   ctx.stroke();
 
   ctx.shadowBlur = 0;
@@ -483,19 +483,15 @@ export function drawHUD(ctx, game) {
     handleGlow: "rgba(144, 236, 255, 0.95)",
   };
 
-  const leftLineStart = comboPanel.x + comboPanel.w - 8;
-  const leftLineEnd = wavePanel.x - 8;
-  const leftLineY = comboPanel.y + comboPanel.h * 0.5;
-  const leftSplit = leftLineStart + (leftLineEnd - leftLineStart) * 0.38;
-  drawNeonLine(ctx, leftLineStart, leftLineY, leftSplit, leftLineY, PALETTE.magenta, 1, 3.2);
-  drawNeonLine(ctx, leftSplit, leftLineY, leftLineEnd, wavePanel.y + wavePanel.h * 0.5, PALETTE.magenta, 0.75, 3.2);
-
-  const rightLineStart = wavePanel.x + wavePanel.w + 8;
-  const rightLineEnd = scorePanel.x + 14;
-  const rightLineY = wavePanel.y + wavePanel.h * 0.5;
-  const rightSplit = rightLineStart + (rightLineEnd - rightLineStart) * 0.38;
-  drawNeonLine(ctx, rightLineStart, rightLineY, rightSplit, rightLineY, PALETTE.cyan, 1, 3.2);
-  drawNeonLine(ctx, rightSplit, rightLineY, rightLineEnd, scorePanel.y + scorePanel.h * 0.5, PALETTE.cyan, 0.75, 3.2);
+  const topLineWidth = 3.2;
+  const topLineIntensity = 0.85;
+  const topLineY = wavePanel.y + wavePanel.h * 0.5;
+  const topLineLeftStart = comboPanel.x + comboPanel.w;
+  const topLineLeftEnd = wavePanel.x;
+  const topLineRightStart = wavePanel.x + wavePanel.w;
+  const topLineRightEnd = scorePanel.x;
+  drawNeonLine(ctx, topLineLeftStart, topLineY, topLineLeftEnd, topLineY, PALETTE.magenta, topLineIntensity, topLineWidth);
+  drawNeonLine(ctx, topLineRightStart, topLineY, topLineRightEnd, topLineY, PALETTE.cyan, topLineIntensity, topLineWidth);
 
   drawNeonPanel(ctx, comboPanel, { color: PALETTE.magenta, intensity: 0.9, skew: comboPanel.skew, glowColor: "rgba(255, 79, 216, 0.95)", fillAlpha: 0.72, borderWidth: 1.3, tubeMode: true, flicker });
   drawNeonText(ctx, `COMBO x${formatCombo(game.combo)}`, comboPanel.x + 24, comboPanel.y + comboPanel.h * 0.46, {
@@ -517,7 +513,7 @@ export function drawHUD(ctx, game) {
     flicker,
   });
 
-  drawNeonPanel(ctx, wavePanel, { color: "#f45cff", intensity: 0.95, skew: wavePanel.skew, glowColor: "rgba(244, 92, 255, 0.95)", fillAlpha: 0.76, borderWidth: 1.3, tubeMode: true, flicker });
+  drawNeonPanel(ctx, wavePanel, { color: "#f45cff", intensity: 0.95, skew: wavePanel.skew, glowColor: "rgba(244, 92, 255, 0.95)", fillAlpha: 0.76, borderWidth: 1.75, tubeMode: true, flicker });
   ctx.save();
   ctx.globalAlpha = 0.26;
   ctx.fillStyle = "rgba(255, 121, 241, 0.36)";
