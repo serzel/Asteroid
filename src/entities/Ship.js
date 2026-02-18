@@ -207,111 +207,132 @@ export class Ship {
   render(ctx, combo = 1) {
     if (!this.spriteLoaded) return;
 
+    const resetRenderState = () => {
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "rgba(0,0,0,0)";
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    };
+
+    resetRenderState();
+
     const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
     const trailColor = weaponTrailColor(this.weaponLevel);
 
-    if (this.trail.length > 0) {
-      ctx.save();
-      ctx.fillStyle = trailColor;
-      for (let i = 0; i < this.trail.length; i++) {
-        const point = this.trail[i];
-        const t = (i + 1) / this.trail.length;
-        ctx.globalAlpha = (this.thrusting ? 0.5 : 0.3) * t;
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, 2 + t * 1.5, 0, Math.PI * 2);
-        ctx.fill();
+    try {
+      if (this.trail.length > 0) {
+        ctx.save();
+        resetRenderState();
+        try {
+          ctx.fillStyle = trailColor;
+          for (let i = 0; i < this.trail.length; i++) {
+            const point = this.trail[i];
+            const t = (i + 1) / this.trail.length;
+            ctx.globalAlpha = (this.thrusting ? 0.5 : 0.3) * t;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 2 + t * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } finally {
+          resetRenderState();
+          ctx.restore();
+          resetRenderState();
+        }
       }
-      ctx.restore();
-    }
-
-    ctx.save();
-
-    // Translation au centre du vaisseau
-    ctx.translate(this.x, this.y);
-
-    // Rotation autour du centre
-    ctx.rotate(this.angle);
-
-    // Glow dynamique selon combo
-    const glowIntensity = Math.min(combo * 0.8, 25);
-    ctx.shadowBlur = glowIntensity;
-    ctx.shadowColor = weaponColor;
-
-    // Dessin du sprite centré
-    const size = this.spriteSize;
-    ctx.drawImage(
-      this.sprite,
-      -size / 2,
-      -size / 2,
-      size,
-      size
-    );
-
-    // Reset du glow
-    ctx.shadowBlur = 0;
-
-    // Flammes dynamiques générées par code (si thrusting)
-    if (this.thrusting) {
-      const flameLength = 15 + this._flameJitter * 10;
-      const baseX = -size * 0.35;
-      const baseY = 0;
-      const weaponColorHalf = WEAPON_HALF_COLORS[this.weaponLevel] ?? WEAPON_HALF_COLORS[1];
-
-      const grad = ctx.createRadialGradient(
-        baseX,
-        baseY,
-        0,
-        baseX,
-        baseY,
-        flameLength
-      );
-
-      grad.addColorStop(0, weaponColor);
-      grad.addColorStop(0.5, weaponColorHalf);
-      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-      ctx.fillStyle = grad;
-
-      ctx.beginPath();
-      ctx.ellipse(
-        baseX,
-        baseY,
-        flameLength,
-        8,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    }
-
-    if (this.weaponLevel >= 3) {
-      const radiusX = size * 0.42;
-      const radiusY = size * 0.34;
-      const segments = 26;
-      const jitter = this.weaponLevel >= 4 ? 3 : 2;
 
       ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = weaponColor;
-      ctx.lineWidth = this.weaponLevel >= 4 ? 2 : 1;
-      ctx.shadowColor = weaponColor;
-      ctx.shadowBlur = this.weaponLevel >= 4 ? 12 : 6;
-      ctx.beginPath();
-      for (let i = 0; i <= segments; i++) {
-        const t = (i / segments) * Math.PI * 2;
-        const rx = radiusX + (Math.random() - 0.5) * jitter * 2;
-        const ry = radiusY + (Math.random() - 0.5) * jitter * 2;
-        const px = Math.cos(t) * rx;
-        const py = Math.sin(t) * ry;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-      ctx.globalCompositeOperation = "source-over";
-      ctx.restore();
-    }
+      resetRenderState();
+      try {
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
 
-    ctx.restore();
+        const glowIntensity = Math.min(combo * 0.8, 25);
+        ctx.shadowBlur = glowIntensity;
+        ctx.shadowColor = weaponColor;
+
+        const size = this.spriteSize;
+        ctx.drawImage(
+          this.sprite,
+          -size / 2,
+          -size / 2,
+          size,
+          size
+        );
+
+        resetRenderState();
+
+        if (this.thrusting) {
+          const flameLength = 15 + this._flameJitter * 10;
+          const baseX = -size * 0.35;
+          const baseY = 0;
+          const weaponColorHalf = WEAPON_HALF_COLORS[this.weaponLevel] ?? WEAPON_HALF_COLORS[1];
+
+          const grad = ctx.createRadialGradient(
+            baseX,
+            baseY,
+            0,
+            baseX,
+            baseY,
+            flameLength
+          );
+
+          grad.addColorStop(0, weaponColor);
+          grad.addColorStop(0.5, weaponColorHalf);
+          grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+          ctx.fillStyle = grad;
+
+          ctx.beginPath();
+          ctx.ellipse(
+            baseX,
+            baseY,
+            flameLength,
+            8,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+
+        if (this.weaponLevel >= 3) {
+          const radiusX = size * 0.42;
+          const radiusY = size * 0.34;
+          const segments = 26;
+          const jitter = this.weaponLevel >= 4 ? 3 : 2;
+
+          ctx.save();
+          resetRenderState();
+          try {
+            ctx.globalCompositeOperation = "lighter";
+            ctx.strokeStyle = weaponColor;
+            ctx.lineWidth = this.weaponLevel >= 4 ? 2 : 1;
+            ctx.shadowColor = weaponColor;
+            ctx.shadowBlur = this.weaponLevel >= 4 ? 12 : 6;
+            ctx.beginPath();
+            for (let i = 0; i <= segments; i++) {
+              const t = (i / segments) * Math.PI * 2;
+              const rx = radiusX + (Math.random() - 0.5) * jitter * 2;
+              const ry = radiusY + (Math.random() - 0.5) * jitter * 2;
+              const px = Math.cos(t) * rx;
+              const py = Math.sin(t) * ry;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+          } finally {
+            resetRenderState();
+            ctx.restore();
+            resetRenderState();
+          }
+        }
+      } finally {
+        resetRenderState();
+        ctx.restore();
+        resetRenderState();
+      }
+    } finally {
+      resetRenderState();
+    }
   }
 }

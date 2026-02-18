@@ -23,6 +23,25 @@ function neonColorWithAlpha(color, alpha) {
   return color;
 }
 
+function resetRenderIsolationState(ctx) {
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0,0,0,0)';
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
+function withNeonIsolation(ctx, draw) {
+  ctx.save();
+  resetRenderIsolationState(ctx);
+  try {
+    draw();
+  } finally {
+    resetRenderIsolationState(ctx);
+    ctx.restore();
+    resetRenderIsolationState(ctx);
+  }
+}
+
 export function roundRectPath(ctx, x, y, w, h, r = 10) {
   const rr = Math.max(0, Math.min(r, Math.min(w, h) * 0.5));
   ctx.beginPath();
@@ -65,60 +84,55 @@ function tubeStroke(ctx, drawPath, opts = {}) {
 
   const t = clamp(intensity, 0, 1.5);
 
-  // A) large halo
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = largeAlpha * (0.76 + t * 0.24);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width * 3.15;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = largeBlur * (0.82 + t * 0.25);
-  ctx.stroke();
-  ctx.restore();
-
-  // B) medium halo
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = mediumAlpha * (0.72 + t * 0.28);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width * 2.05;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = mediumBlur * (0.82 + t * 0.25);
-  ctx.stroke();
-  ctx.restore();
-
-  // C) colored tube
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = 0.8;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
-  ctx.stroke();
-  ctx.restore();
-
-  // D) white core (must be visible and last)
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = coreAlpha;
-  ctx.strokeStyle = coreColor;
-  ctx.lineWidth = coreWidth;
-  ctx.shadowColor = 'rgba(255,255,255,1)';
-  ctx.shadowBlur = 1;
-  ctx.stroke();
-  ctx.restore();
-
-  // E) optional subtle highlight
-  if (highlight) {
-    ctx.save();
+  withNeonIsolation(ctx, () => {
     drawPath();
-    ctx.globalAlpha = 0.2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = Math.max(0.8, coreWidth * 0.48);
-    ctx.shadowBlur = 0;
+    ctx.globalAlpha = largeAlpha * (0.76 + t * 0.24);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width * 3.15;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = largeBlur * (0.82 + t * 0.25);
     ctx.stroke();
-    ctx.restore();
+  });
+
+  withNeonIsolation(ctx, () => {
+    drawPath();
+    ctx.globalAlpha = mediumAlpha * (0.72 + t * 0.28);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width * 2.05;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = mediumBlur * (0.82 + t * 0.25);
+    ctx.stroke();
+  });
+
+  withNeonIsolation(ctx, () => {
+    drawPath();
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+  });
+
+  withNeonIsolation(ctx, () => {
+    drawPath();
+    ctx.globalAlpha = coreAlpha;
+    ctx.strokeStyle = coreColor;
+    ctx.lineWidth = coreWidth;
+    ctx.shadowColor = 'rgba(255,255,255,1)';
+    ctx.shadowBlur = 1;
+    ctx.stroke();
+  });
+
+  if (highlight) {
+    withNeonIsolation(ctx, () => {
+      drawPath();
+      ctx.globalAlpha = 0.2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = Math.max(0.8, coreWidth * 0.48);
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+    });
   }
 }
 
@@ -128,11 +142,12 @@ export function neonLine(ctx, x1, y1, x2, y2, opts = {}) {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
   };
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  tubeStroke(ctx, drawPath, opts);
-  ctx.restore();
+
+  withNeonIsolation(ctx, () => {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    tubeStroke(ctx, drawPath, opts);
+  });
 }
 
 export function neonPanel(ctx, rect, opts = {}) {
@@ -157,46 +172,47 @@ export function neonPanel(ctx, rect, opts = {}) {
     roundRectPath(ctx, x, y, w, h, radius);
   };
 
-  ctx.save();
-  const g = ctx.createLinearGradient(x, y, x, y + h);
-  g.addColorStop(0, fillTop);
-  g.addColorStop(1, fillBottom);
-  drawPath();
-  ctx.fillStyle = g;
-  ctx.fill();
+  withNeonIsolation(ctx, () => {
+    const g = ctx.createLinearGradient(x, y, x, y + h);
+    g.addColorStop(0, fillTop);
+    g.addColorStop(1, fillBottom);
+    drawPath();
+    ctx.fillStyle = g;
+    ctx.fill();
 
-  const sheen = ctx.createLinearGradient(x, y, x + w, y + h);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.14)');
-  sheen.addColorStop(0.3, 'rgba(255,255,255,0.06)');
-  sheen.addColorStop(1, 'rgba(255,255,255,0)');
-  drawPath();
-  ctx.fillStyle = sheen;
-  ctx.fill();
+    const sheen = ctx.createLinearGradient(x, y, x + w, y + h);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.14)');
+    sheen.addColorStop(0.3, 'rgba(255,255,255,0.06)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    drawPath();
+    ctx.fillStyle = sheen;
+    ctx.fill();
 
-  const innerGlow = ctx.createLinearGradient(x, y, x, y + h);
-  innerGlow.addColorStop(0, neonColorWithAlpha(color, 0.14));
-  innerGlow.addColorStop(0.45, neonColorWithAlpha(color, 0.1));
-  innerGlow.addColorStop(1, neonColorWithAlpha(color, 0.04));
-  ctx.save();
-  drawPath();
-  ctx.fillStyle = innerGlow;
-  ctx.globalAlpha = 0.72;
-  ctx.shadowColor = neonColorWithAlpha(color, 0.6);
-  ctx.shadowBlur = 8;
-  ctx.fill();
-  ctx.restore();
+    const innerGlow = ctx.createLinearGradient(x, y, x, y + h);
+    innerGlow.addColorStop(0, neonColorWithAlpha(color, 0.14));
+    innerGlow.addColorStop(0.45, neonColorWithAlpha(color, 0.1));
+    innerGlow.addColorStop(1, neonColorWithAlpha(color, 0.04));
 
-  tubeStroke(ctx, drawPath, {
-    color,
-    width,
-    intensity,
-    coreWidth: Math.max(1.4, width * 0.84),
-    mediumBlur: 12,
-    largeBlur: 28,
-    mediumAlpha: 0.4,
-    largeAlpha: 0.16,
+    withNeonIsolation(ctx, () => {
+      drawPath();
+      ctx.fillStyle = innerGlow;
+      ctx.globalAlpha = 0.72;
+      ctx.shadowColor = neonColorWithAlpha(color, 0.6);
+      ctx.shadowBlur = 8;
+      ctx.fill();
+    });
+
+    tubeStroke(ctx, drawPath, {
+      color,
+      width,
+      intensity,
+      coreWidth: Math.max(1.4, width * 0.84),
+      mediumBlur: 12,
+      largeBlur: 28,
+      mediumAlpha: 0.4,
+      largeAlpha: 0.16,
+    });
   });
-  ctx.restore();
 }
 
 export function neonText(ctx, text, x, y, opts = {}) {
@@ -221,25 +237,25 @@ export function neonText(ctx, text, x, y, opts = {}) {
     ctx.strokeText(text, x, y);
   };
 
-  ctx.save();
-  tubeStroke(ctx, drawPath, {
-    color,
-    width,
-    coreWidth,
-    intensity,
-    mediumBlur: 9,
-    largeBlur: 22,
-    mediumAlpha: 0.34,
-    largeAlpha: 0.12,
-    coreAlpha: 1,
+  withNeonIsolation(ctx, () => {
+    tubeStroke(ctx, drawPath, {
+      color,
+      width,
+      coreWidth,
+      intensity,
+      mediumBlur: 9,
+      largeBlur: 22,
+      mediumAlpha: 0.34,
+      largeAlpha: 0.12,
+      coreAlpha: 1,
+    });
+    ctx.font = font;
+    ctx.textAlign = align;
+    ctx.textBaseline = baseline;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.94;
+    ctx.fillText(text, x, y);
   });
-  ctx.font = font;
-  ctx.textAlign = align;
-  ctx.textBaseline = baseline;
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.94;
-  ctx.fillText(text, x, y);
-  ctx.restore();
 }
 
 export function neonBar(ctx, rect, value01, opts = {}) {
@@ -255,37 +271,38 @@ export function neonBar(ctx, rect, value01, opts = {}) {
   } = opts;
   const v = clamp(value01, 0, 1);
 
-  ctx.save();
-  roundRectPath(ctx, x, y, w, h, radius);
-  ctx.fillStyle = trackColor;
-  ctx.fill();
-  tubeStroke(ctx, () => roundRectPath(ctx, x, y, w, h, radius), {
-    color: 'rgba(191, 126, 255, 0.9)',
-    width: 2,
-    intensity: intensity * 0.7,
-    coreWidth: 1,
-    mediumBlur: 6,
-    largeBlur: 14,
-    highlight: false,
-  });
-
-  const fw = w * v;
-  if (fw > 1) {
-    const grad = ctx.createLinearGradient(x, y, x + fw, y);
-    grad.addColorStop(0, fillColor);
-    grad.addColorStop(1, fillColor2);
-    roundRectPath(ctx, x + 1, y + 1, Math.max(1, fw - 2), Math.max(1, h - 2), Math.max(2, radius - 1));
-    ctx.fillStyle = grad;
+  withNeonIsolation(ctx, () => {
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.fillStyle = trackColor;
     ctx.fill();
-    tubeStroke(ctx, () => roundRectPath(ctx, x + 1, y + 1, Math.max(1, fw - 2), Math.max(1, h - 2), Math.max(2, radius - 1)), {
-      color: fillColor2,
-      width: 2.2,
-      intensity,
-      coreWidth: 1.2,
-      mediumBlur: 8,
-      largeBlur: 16,
+
+    tubeStroke(ctx, () => roundRectPath(ctx, x, y, w, h, radius), {
+      color: 'rgba(191, 126, 255, 0.9)',
+      width: 2,
+      intensity: intensity * 0.7,
+      coreWidth: 1,
+      mediumBlur: 6,
+      largeBlur: 14,
       highlight: false,
     });
-  }
-  ctx.restore();
+
+    const fw = w * v;
+    if (fw > 1) {
+      const grad = ctx.createLinearGradient(x, y, x + fw, y);
+      grad.addColorStop(0, fillColor);
+      grad.addColorStop(1, fillColor2);
+      roundRectPath(ctx, x + 1, y + 1, Math.max(1, fw - 2), Math.max(1, h - 2), Math.max(2, radius - 1));
+      ctx.fillStyle = grad;
+      ctx.fill();
+      tubeStroke(ctx, () => roundRectPath(ctx, x + 1, y + 1, Math.max(1, fw - 2), Math.max(1, h - 2), Math.max(2, radius - 1)), {
+        color: fillColor2,
+        width: 2.2,
+        intensity,
+        coreWidth: 1.2,
+        mediumBlur: 8,
+        largeBlur: 16,
+        highlight: false,
+      });
+    }
+  });
 }
