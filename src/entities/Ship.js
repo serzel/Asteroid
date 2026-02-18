@@ -192,13 +192,13 @@ export class Ship {
   drawGlow(ctx, combo = 1) {
     if (!this.spriteLoaded) return;
     const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
-    const glowIntensity = Math.min(2.2, 0.4 + combo * 0.07);
+    const glowIntensity = Math.min(0.58, 0.16 + combo * 0.018);
     drawCircularGlow(ctx, this.x, this.y, this.spriteSize * 0.34, weaponColor, glowIntensity);
 
     if (this.thrusting) {
       const flameX = this.x - Math.cos(this.angle) * this.spriteSize * 0.35;
       const flameY = this.y - Math.sin(this.angle) * this.spriteSize * 0.35;
-      drawCircularGlow(ctx, flameX, flameY, 16 + this._flameJitter * 8, weaponColor, 1.4);
+      drawCircularGlow(ctx, flameX, flameY, 13 + this._flameJitter * 6, weaponColor, 0.42);
     }
 
     if (this.weaponLevel >= 3) {
@@ -213,7 +213,7 @@ export class Ship {
         },
         weaponColor,
         this.weaponLevel >= 4 ? 2 : 1,
-        this.weaponLevel >= 4 ? 1.8 : 1.1,
+        this.weaponLevel >= 4 ? 0.5 : 0.34,
       );
     }
   }

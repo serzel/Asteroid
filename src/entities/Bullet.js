@@ -11,8 +11,8 @@ const BULLET_FX = {
   trailStartOffset: 1.5,
   style: {
     level2: { bodyLengthMul: 1.25, bodyWidthMul: 0.85, trailLengthMul: 1.2 },
-    level3: { glowIntensityMul: 1.1 },
-    level4Plus: { bodyLengthMul: 0.8, bodyWidthMul: 0.85, trailLengthMul: 0.85, glowIntensityMul: 0.85, coreRadiusMul: 0.9 },
+    level3: { glowIntensityMul: 1.08 },
+    level4Plus: { bodyLengthMul: 0.8, bodyWidthMul: 0.85, trailLengthMul: 0.85, glowIntensityMul: 0.82, coreRadiusMul: 0.9 },
   },
 };
 
@@ -48,7 +48,7 @@ export class Bullet {
     let bodyWid = BULLET_FX.bodyWidth;
     let trailLen = BULLET_FX.trailLength;
     let coreRadius = BULLET_FX.coreRadius;
-    let glowIntensity = 1.0;
+    let glowIntensity = 0.28;
 
     if (this.styleLevel === 2) {
       bodyLen *= BULLET_FX.style.level2.bodyLengthMul;
@@ -101,11 +101,11 @@ export class Bullet {
 
   drawGlow(ctx) {
     const { bodyLen, bodyWid, glowIntensity } = this.#computeStyle();
-    drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 1.6, this.color, glowIntensity);
+    drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 1.28, this.color, glowIntensity);
     drawOutlineGlow(ctx, (c) => {
       c.beginPath();
       c.ellipse(this.x, this.y, bodyLen, bodyWid, this.angle, 0, Math.PI * 2);
-    }, this.color, 1.2, glowIntensity);
+    }, this.color, 1.0, glowIntensity);
   }
 
   draw(ctx) {

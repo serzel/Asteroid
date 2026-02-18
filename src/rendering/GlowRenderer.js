@@ -1,12 +1,15 @@
 const MIN_INTENSITY = 0;
-const MAX_INTENSITY = 2.5;
+const MAX_INTENSITY = 0.6;
 const MIN_RADIUS = 0.5;
 const MIN_WIDTH = 0.5;
 const TWO_PI = Math.PI * 2;
 
-const OUTLINE_WIDTH_MUL_0 = 3.2;
-const OUTLINE_WIDTH_MUL_1 = 2.1;
-const OUTLINE_WIDTH_MUL_2 = 1.35;
+const OUTLINE_WIDTH_MUL_0 = 2.2;
+const OUTLINE_WIDTH_MUL_1 = 1.55;
+const OUTLINE_WIDTH_MUL_2 = 1.1;
+
+const HALO_ALPHA_CAP = 0.18;
+const CORE_ALPHA_CAP = 0.22;
 
 const colorCache = new Map();
 
@@ -18,64 +21,88 @@ function clampIntensity(intensity) {
   return clamp(Number.isFinite(intensity) ? intensity : 0, MIN_INTENSITY, MAX_INTENSITY);
 }
 
-function parseColorToRgb(color) {
-  if (typeof color !== "string") return "255,255,255";
+function parseColor(color) {
+  if (typeof color !== "string") {
+    return { r: 255, g: 255, b: 255, a: 1 };
+  }
 
   const cached = colorCache.get(color);
   if (cached) return cached;
 
-  let rgb = "255,255,255";
+  let parsed = { r: 255, g: 255, b: 255, a: 1 };
 
   if (color[0] === "#") {
     const raw = color.slice(1);
     if (/^[0-9a-f]{3}$/i.test(raw)) {
-      const r = Number.parseInt(raw[0] + raw[0], 16);
-      const g = Number.parseInt(raw[1] + raw[1], 16);
-      const b = Number.parseInt(raw[2] + raw[2], 16);
-      rgb = `${r},${g},${b}`;
+      parsed = {
+        r: Number.parseInt(raw[0] + raw[0], 16),
+        g: Number.parseInt(raw[1] + raw[1], 16),
+        b: Number.parseInt(raw[2] + raw[2], 16),
+        a: 1,
+      };
     } else if (/^[0-9a-f]{6}$/i.test(raw)) {
-      const r = Number.parseInt(raw.slice(0, 2), 16);
-      const g = Number.parseInt(raw.slice(2, 4), 16);
-      const b = Number.parseInt(raw.slice(4, 6), 16);
-      rgb = `${r},${g},${b}`;
+      parsed = {
+        r: Number.parseInt(raw.slice(0, 2), 16),
+        g: Number.parseInt(raw.slice(2, 4), 16),
+        b: Number.parseInt(raw.slice(4, 6), 16),
+        a: 1,
+      };
     }
   } else {
     const match = color.match(/^rgba?\(([^)]+)\)$/i);
     if (match) {
       const channels = match[1].split(",");
-      const r = clamp(Number.parseFloat(channels[0]) || 255, 0, 255);
-      const g = clamp(Number.parseFloat(channels[1]) || 255, 0, 255);
-      const b = clamp(Number.parseFloat(channels[2]) || 255, 0, 255);
-      rgb = `${r},${g},${b}`;
+      parsed = {
+        r: clamp(Number.parseFloat(channels[0]) || 255, 0, 255),
+        g: clamp(Number.parseFloat(channels[1]) || 255, 0, 255),
+        b: clamp(Number.parseFloat(channels[2]) || 255, 0, 255),
+        a: clamp(channels[3] == null ? 1 : Number.parseFloat(channels[3]) || 0, 0, 1),
+      };
     }
   }
 
-  colorCache.set(color, rgb);
-  return rgb;
+  colorCache.set(color, parsed);
+  return parsed;
 }
 
-function rgbaFromRgb(rgb, alpha) {
-  return `rgba(${rgb},${clamp(alpha, 0, 1)})`;
+function rgbaFrom(parsed, alphaMul, alphaCap) {
+  const alpha = clamp(parsed.a * alphaMul, 0, alphaCap);
+  return `rgba(${parsed.r},${parsed.g},${parsed.b},${alpha})`;
 }
 
 export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
   const glowIntensity = clampIntensity(intensity);
   const r = Math.max(MIN_RADIUS, Number.isFinite(radius) ? radius : 1);
-  const outerRadius = r * (1.8 + glowIntensity * 1.4);
-  const rgb = parseColorToRgb(color);
+  const outerRadius = r * (1.14 + glowIntensity * 0.56);
+  const parsed = parseColor(color);
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = "source-over";
 
   const grad = ctx.createRadialGradient(x, y, 0, x, y, outerRadius);
-  grad.addColorStop(0, rgbaFromRgb(rgb, 0.3 + glowIntensity * 0.25));
-  grad.addColorStop(0.35, rgbaFromRgb(rgb, 0.16 + glowIntensity * 0.16));
-  grad.addColorStop(1, rgbaFromRgb(rgb, 0));
+  grad.addColorStop(0, rgbaFrom(parsed, 0.16 + glowIntensity * 0.12, HALO_ALPHA_CAP));
+  grad.addColorStop(0.28, rgbaFrom(parsed, 0.1 + glowIntensity * 0.09, HALO_ALPHA_CAP));
+  grad.addColorStop(0.62, rgbaFrom(parsed, 0.06 + glowIntensity * 0.06, HALO_ALPHA_CAP));
+  grad.addColorStop(1, rgbaFrom(parsed, 0, HALO_ALPHA_CAP));
 
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(x, y, outerRadius, 0, TWO_PI);
   ctx.fill();
+
+  if (glowIntensity > 0.05) {
+    const coreRadius = r * (0.32 + glowIntensity * 0.22);
+    const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
+    coreGrad.addColorStop(0, rgbaFrom(parsed, 0.2 + glowIntensity * 0.12, CORE_ALPHA_CAP));
+    coreGrad.addColorStop(1, rgbaFrom(parsed, 0, CORE_ALPHA_CAP));
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, coreRadius, 0, TWO_PI);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+  }
 
   ctx.restore();
 }
@@ -83,33 +110,34 @@ export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
 export function drawOutlineGlow(ctx, pathFn, color, width = 2, intensity = 1) {
   const glowIntensity = clampIntensity(intensity);
   const w = Math.max(MIN_WIDTH, Number.isFinite(width) ? width : 1);
-  const rgb = parseColorToRgb(color);
+  const parsed = parseColor(color);
 
-  const alpha0 = 0.08 + glowIntensity * 0.08;
-  const alpha1 = 0.12 + glowIntensity * 0.1;
-  const alpha2 = 0.18 + glowIntensity * 0.11;
+  const alpha0 = 0.06 + glowIntensity * 0.08;
+  const alpha1 = 0.08 + glowIntensity * 0.08;
+  const alpha2 = 0.1 + glowIntensity * 0.1;
+  const coreAlpha = 0.16 + glowIntensity * 0.12;
 
   ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  ctx.globalCompositeOperation = "source-over";
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  ctx.strokeStyle = rgbaFromRgb(rgb, alpha0);
+  ctx.strokeStyle = rgbaFrom(parsed, alpha0, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_0;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFromRgb(rgb, alpha1);
+  ctx.strokeStyle = rgbaFrom(parsed, alpha1, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_1;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFromRgb(rgb, alpha2);
+  ctx.strokeStyle = rgbaFrom(parsed, alpha2, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_2;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFromRgb(rgb, 0.85);
+  ctx.strokeStyle = rgbaFrom(parsed, coreAlpha, CORE_ALPHA_CAP);
   ctx.lineWidth = w;
   pathFn(ctx);
   ctx.stroke();

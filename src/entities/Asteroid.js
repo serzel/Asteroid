@@ -306,7 +306,7 @@ export class Asteroid {
 
   drawGlow(ctx) {
     if (this.hitFlash <= 0) return;
-    drawCircularGlow(ctx, this.x, this.y, this.displayRadius * 0.9, "rgba(220,245,255,0.95)", this.hitFlash * 1.35);
+    drawCircularGlow(ctx, this.x, this.y, this.displayRadius * 0.72, "rgba(220,245,255,0.95)", this.hitFlash * 0.42);
   }
 
   draw(ctx) {
