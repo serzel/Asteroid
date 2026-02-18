@@ -1,19 +1,18 @@
 import { wrap } from "../engine/math.js";
-
+import { drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
 
 const BULLET_FX = {
   bodyLength: 6.4,
   bodyWidth: 2.4,
   trailLength: 12,
-  glowBlur: 12,
   coreRadius: 1.5,
   trailAlpha: 0.2,
   trailLineWidth: 2,
   trailStartOffset: 1.5,
   style: {
     level2: { bodyLengthMul: 1.25, bodyWidthMul: 0.85, trailLengthMul: 1.2 },
-    level3: { glowBlurMul: 1.1 },
-    level4Plus: { bodyLengthMul: 0.8, bodyWidthMul: 0.85, trailLengthMul: 0.85, glowBlurMul: 0.85, coreRadiusMul: 0.9 },
+    level3: { glowIntensityMul: 1.1 },
+    level4Plus: { bodyLengthMul: 0.8, bodyWidthMul: 0.85, trailLengthMul: 0.85, glowIntensityMul: 0.85, coreRadiusMul: 0.9 },
   },
 };
 
@@ -38,41 +37,42 @@ export class Bullet {
   update(dt, world) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-
     this.x = wrap(this.x, world.w);
     this.y = wrap(this.y, world.h);
-
     this.life -= dt;
     if (this.life <= 0) this.dead = true;
   }
 
-  draw(ctx) {
+  #computeStyle() {
     let bodyLen = BULLET_FX.bodyLength;
     let bodyWid = BULLET_FX.bodyWidth;
     let trailLen = BULLET_FX.trailLength;
-    let glowBlur = BULLET_FX.glowBlur;
     let coreRadius = BULLET_FX.coreRadius;
+    let glowIntensity = 1.0;
 
     if (this.styleLevel === 2) {
       bodyLen *= BULLET_FX.style.level2.bodyLengthMul;
       bodyWid *= BULLET_FX.style.level2.bodyWidthMul;
       trailLen *= BULLET_FX.style.level2.trailLengthMul;
     } else if (this.styleLevel === 3) {
-      glowBlur *= BULLET_FX.style.level3.glowBlurMul;
+      glowIntensity *= BULLET_FX.style.level3.glowIntensityMul;
     } else if (this.styleLevel >= 4) {
       bodyLen *= BULLET_FX.style.level4Plus.bodyLengthMul;
       bodyWid *= BULLET_FX.style.level4Plus.bodyWidthMul;
       trailLen *= BULLET_FX.style.level4Plus.trailLengthMul;
-      glowBlur *= BULLET_FX.style.level4Plus.glowBlurMul;
+      glowIntensity *= BULLET_FX.style.level4Plus.glowIntensityMul;
       coreRadius *= BULLET_FX.style.level4Plus.coreRadiusMul;
     }
 
+    return { bodyLen, bodyWid, trailLen, coreRadius, glowIntensity };
+  }
+
+  drawBase(ctx) {
+    const { bodyLen, bodyWid, trailLen, coreRadius } = this.#computeStyle();
     const backX = -Math.cos(this.angle);
     const backY = -Math.sin(this.angle);
 
     ctx.save();
-
-    ctx.globalCompositeOperation = "lighter";
     ctx.strokeStyle = this.color;
     ctx.globalAlpha = BULLET_FX.trailAlpha;
     ctx.lineWidth = BULLET_FX.trailLineWidth;
@@ -82,27 +82,34 @@ export class Bullet {
     ctx.lineTo(this.x + backX * trailLen, this.y + backY * trailLen);
     ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
 
-    ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
     ctx.fillStyle = this.color;
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = glowBlur;
     ctx.beginPath();
     ctx.ellipse(0, 0, bodyLen, bodyWid, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    ctx.shadowBlur = 0;
+    ctx.save();
     ctx.fillStyle = "rgba(255,255,255,0.95)";
     ctx.beginPath();
     ctx.arc(this.x, this.y, coreRadius, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.globalCompositeOperation = "source-over";
-    ctx.shadowBlur = 0;
     ctx.restore();
+  }
+
+  drawGlow(ctx) {
+    const { bodyLen, bodyWid, glowIntensity } = this.#computeStyle();
+    drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 1.6, this.color, glowIntensity);
+    drawOutlineGlow(ctx, (c) => {
+      c.beginPath();
+      c.ellipse(this.x, this.y, bodyLen, bodyWid, this.angle, 0, Math.PI * 2);
+    }, this.color, 1.2, glowIntensity);
+  }
+
+  draw(ctx) {
+    this.drawBase(ctx);
+    this.drawGlow(ctx);
   }
 }

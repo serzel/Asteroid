@@ -1,4 +1,5 @@
 import { drawText } from "../engine/utils.js";
+import { drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
 import { getHoveredButtonId, resolvePointerDownAction } from "./UIInput.js";
 
 export class UIRenderer {
@@ -51,8 +52,7 @@ export class UIRenderer {
     ctx.save();
     ctx.font = "600 16px 'Audiowide', system-ui, sans-serif";
     ctx.fillStyle = "rgba(178,242,255,0.95)";
-    ctx.shadowColor = "rgba(112,233,255,0.55)";
-    ctx.shadowBlur = 4;
+    drawCircularGlow(ctx, uiModel.world.w * 0.5, uiModel.world.h * 0.79, 130, "rgba(112,233,255,0.55)", 0.45);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("[1] EASY   [2] NORMAL   [3] HARD", uiModel.world.w * 0.5, uiModel.world.h * 0.79);
@@ -166,12 +166,10 @@ export class UIRenderer {
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
 
-    ctx.shadowColor = "rgba(255,84,238,0.95)";
-    ctx.shadowBlur = 28;
+    drawCircularGlow(ctx, x, y, 90, "rgba(255,84,238,0.95)", 1.6);
     ctx.fillStyle = grad;
     ctx.fillText(text, x, y);
 
-    ctx.shadowBlur = 0;
     ctx.lineWidth = 2.2;
     ctx.strokeStyle = "rgba(224,245,255,0.75)";
     ctx.strokeText(text, x, y);
@@ -194,15 +192,13 @@ export class UIRenderer {
     ctx.fillStyle = "rgba(10,10,20,0.55)";
     ctx.fill();
 
-    ctx.shadowColor = "rgba(244,103,255,0.95)";
-    ctx.shadowBlur = 10 + glowBoost * 14 + pulse * 4 + pressBoost * 10;
+    drawOutlineGlow(ctx, (c) => this.#roundedRectPath(c, x, y, w, h, radius), "rgba(244,103,255,0.95)", 2.2, 0.9 + glowBoost * 0.8 + pulse * 0.3 + pressBoost * 0.8);
     ctx.lineWidth = 2.2;
     ctx.strokeStyle = borderGrad;
     this.#roundedRectPath(ctx, x, y, w, h, radius);
     ctx.stroke();
 
     if (state.hovered || state.pressed) {
-      ctx.shadowBlur = 0;
       ctx.lineWidth = 1.2;
       ctx.strokeStyle = `rgba(215,252,255,${0.55 + pulse * 0.3 + pressBoost})`;
       this.#roundedRectPath(ctx, x + 4, y + 4, w - 8, h - 8, radius - 3);
@@ -216,8 +212,7 @@ export class UIRenderer {
     ctx.font = "700 27px 'Audiowide', system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(127,245,255,0.85)";
-    ctx.shadowBlur = 4 + glowBoost * 4 + pressBoost * 8;
+    drawCircularGlow(ctx, x + w * 0.5, y + h * 0.5 + 1, Math.max(w, h) * 0.25, "rgba(127,245,255,0.85)", 0.45 + glowBoost * 0.35 + pressBoost * 0.4);
     ctx.fillText(label, x + w * 0.5, y + h * 0.5 + 1);
     ctx.restore();
   }

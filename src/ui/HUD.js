@@ -1,4 +1,5 @@
 import { neonBar, neonLine, neonPanel, neonText, roundRectPath } from './neon.js';
+import { drawCircularGlow } from '../rendering/GlowRenderer.js';
 
 const WEAPON_HUD_STYLES = {
   1: { color: '#76e9ff', label: 'BLASTER' },
@@ -271,8 +272,7 @@ export function drawHUD(ctx, game) {
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
     const dx = livesX + i * (size + spacing);
-    ctx.shadowColor = i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)';
-    ctx.shadowBlur = i < game.lives ? 14 : 8;
+    drawCircularGlow(ctx, dx + size * 0.5, livesY + size * 0.5, size * 0.24, i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)', i < game.lives ? 1.1 : 0.6);
     ctx.drawImage(img, dx, livesY, size, size);
   }
   ctx.restore();

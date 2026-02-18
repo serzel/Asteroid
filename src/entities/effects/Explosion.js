@@ -1,3 +1,5 @@
+import { drawCircularGlow } from "../../rendering/GlowRenderer.js";
+
 const EXPLOSION_DEFAULT_PROFILE = {
   life: 0.3,
   ringCount: 2,
@@ -44,13 +46,11 @@ export class Explosion {
     if (this.t >= this.profile.life) this.dead = true;
   }
 
-  draw(ctx) {
+  drawBase(ctx) {
     const p = Math.min(1, this.t / this.profile.life);
     const colors = EXPLOSION_COLOR_MODES[this.profile.colorMode] ?? EXPLOSION_COLOR_MODES.normal;
 
     ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-
     const flashRadius = this.profile.maxRadius * (0.18 + 0.4 * p);
     const flashGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, flashRadius);
     flashGrad.addColorStop(0, colors.flash);
@@ -76,5 +76,16 @@ export class Explosion {
     }
 
     ctx.restore();
+  }
+
+  drawGlow(ctx) {
+    const p = Math.min(1, this.t / this.profile.life);
+    const colors = EXPLOSION_COLOR_MODES[this.profile.colorMode] ?? EXPLOSION_COLOR_MODES.normal;
+    drawCircularGlow(ctx, this.x, this.y, this.profile.maxRadius * (0.2 + 0.4 * p), colors.flash, (1 - p) * this.profile.flashAlpha * 2);
+  }
+
+  draw(ctx) {
+    this.drawBase(ctx);
+    this.drawGlow(ctx);
   }
 }

@@ -1,26 +1,7 @@
+import { drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
+
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
-}
-
-function neonColorWithAlpha(color, alpha) {
-  if (typeof color !== 'string') return `rgba(255,86,223,${alpha})`;
-  if (color.startsWith('#')) {
-    const hex = color.slice(1);
-    const to255 = (v) => Number.parseInt(v, 16);
-    if (hex.length === 3) {
-      const r = to255(hex[0] + hex[0]);
-      const g = to255(hex[1] + hex[1]);
-      const b = to255(hex[2] + hex[2]);
-      return `rgba(${r},${g},${b},${alpha})`;
-    }
-    if (hex.length === 6) {
-      const r = to255(hex.slice(0, 2));
-      const g = to255(hex.slice(2, 4));
-      const b = to255(hex.slice(4, 6));
-      return `rgba(${r},${g},${b},${alpha})`;
-    }
-  }
-  return color;
 }
 
 export function roundRectPath(ctx, x, y, w, h, r = 10) {
@@ -50,73 +31,36 @@ function skewPanelPath(ctx, x, y, w, h, skew = 0) {
 
 function tubeStroke(ctx, drawPath, opts = {}) {
   const {
-    color = '#ff56df',
+    color = "#ff56df",
     width = 3,
     intensity = 1,
     coreWidth = Math.max(1.2, width * 0.82),
-    mediumBlur = 10,
-    largeBlur = 24,
-    mediumAlpha = 0.36,
-    largeAlpha = 0.14,
-    coreAlpha = 1,
-    coreColor = 'rgba(255,255,255,1)',
+    coreColor = "rgba(255,255,255,1)",
     highlight = true,
   } = opts;
 
-  const t = clamp(intensity, 0, 1.5);
+  drawOutlineGlow(ctx, drawPath, color, width, intensity);
 
-  // A) large halo
   ctx.save();
-  drawPath();
-  ctx.globalAlpha = largeAlpha * (0.76 + t * 0.24);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width * 3.15;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = largeBlur * (0.82 + t * 0.25);
-  ctx.stroke();
-  ctx.restore();
-
-  // B) medium halo
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = mediumAlpha * (0.72 + t * 0.28);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width * 2.05;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = mediumBlur * (0.82 + t * 0.25);
-  ctx.stroke();
-  ctx.restore();
-
-  // C) colored tube
-  ctx.save();
-  drawPath();
-  ctx.globalAlpha = 0.8;
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 8;
+  drawPath(ctx);
   ctx.stroke();
   ctx.restore();
 
-  // D) white core (must be visible and last)
   ctx.save();
-  drawPath();
-  ctx.globalAlpha = coreAlpha;
   ctx.strokeStyle = coreColor;
   ctx.lineWidth = coreWidth;
-  ctx.shadowColor = 'rgba(255,255,255,1)';
-  ctx.shadowBlur = 1;
+  drawPath(ctx);
   ctx.stroke();
   ctx.restore();
 
-  // E) optional subtle highlight
   if (highlight) {
     ctx.save();
-    drawPath();
     ctx.globalAlpha = 0.2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
     ctx.lineWidth = Math.max(0.8, coreWidth * 0.48);
-    ctx.shadowBlur = 0;
+    drawPath(ctx);
     ctx.stroke();
     ctx.restore();
   }
@@ -129,20 +73,18 @@ export function neonLine(ctx, x1, y1, x2, y2, opts = {}) {
     ctx.lineTo(x2, y2);
   };
   ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   tubeStroke(ctx, drawPath, opts);
   ctx.restore();
 }
 
 export function neonPanel(ctx, rect, opts = {}) {
+  const { x, y, w, h } = rect;
   const {
-    x, y, w, h,
-  } = rect;
-  const {
-    color = '#ff56df',
-    fillTop = 'rgba(24, 8, 52, 0.56)',
-    fillBottom = 'rgba(4, 10, 30, 0.78)',
+    color = "#ff56df",
+    fillTop = "rgba(24, 8, 52, 0.56)",
+    fillBottom = "rgba(4, 10, 30, 0.78)",
     width = 3,
     radius = 12,
     skew = 0,
@@ -150,11 +92,8 @@ export function neonPanel(ctx, rect, opts = {}) {
   } = opts;
 
   const drawPath = () => {
-    if (skew) {
-      skewPanelPath(ctx, x, y, w, h, skew);
-      return;
-    }
-    roundRectPath(ctx, x, y, w, h, radius);
+    if (skew) skewPanelPath(ctx, x, y, w, h, skew);
+    else roundRectPath(ctx, x, y, w, h, radius);
   };
 
   ctx.save();
@@ -166,45 +105,24 @@ export function neonPanel(ctx, rect, opts = {}) {
   ctx.fill();
 
   const sheen = ctx.createLinearGradient(x, y, x + w, y + h);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.14)');
-  sheen.addColorStop(0.3, 'rgba(255,255,255,0.06)');
-  sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  sheen.addColorStop(0, "rgba(255,255,255,0.14)");
+  sheen.addColorStop(0.3, "rgba(255,255,255,0.06)");
+  sheen.addColorStop(1, "rgba(255,255,255,0)");
   drawPath();
   ctx.fillStyle = sheen;
   ctx.fill();
 
-  const innerGlow = ctx.createLinearGradient(x, y, x, y + h);
-  innerGlow.addColorStop(0, neonColorWithAlpha(color, 0.14));
-  innerGlow.addColorStop(0.45, neonColorWithAlpha(color, 0.1));
-  innerGlow.addColorStop(1, neonColorWithAlpha(color, 0.04));
-  ctx.save();
-  drawPath();
-  ctx.fillStyle = innerGlow;
-  ctx.globalAlpha = 0.72;
-  ctx.shadowColor = neonColorWithAlpha(color, 0.6);
-  ctx.shadowBlur = 8;
-  ctx.fill();
-  ctx.restore();
-
-  tubeStroke(ctx, drawPath, {
-    color,
-    width,
-    intensity,
-    coreWidth: Math.max(1.4, width * 0.84),
-    mediumBlur: 12,
-    largeBlur: 28,
-    mediumAlpha: 0.4,
-    largeAlpha: 0.16,
-  });
+  drawCircularGlow(ctx, x + w * 0.5, y + h * 0.5, Math.max(w, h) * 0.35, color, intensity * 0.85);
+  tubeStroke(ctx, drawPath, { color, width, intensity, coreWidth: Math.max(1.4, width * 0.84) });
   ctx.restore();
 }
 
 export function neonText(ctx, text, x, y, opts = {}) {
   const {
-    color = '#91edff',
+    color = "#91edff",
     font = "700 32px 'Audiowide', system-ui, sans-serif",
-    align = 'left',
-    baseline = 'middle',
+    align = "left",
+    baseline = "middle",
     intensity = 1,
   } = opts;
 
@@ -217,22 +135,12 @@ export function neonText(ctx, text, x, y, opts = {}) {
     ctx.font = font;
     ctx.textAlign = align;
     ctx.textBaseline = baseline;
-    ctx.lineJoin = 'round';
+    ctx.lineJoin = "round";
     ctx.strokeText(text, x, y);
   };
 
   ctx.save();
-  tubeStroke(ctx, drawPath, {
-    color,
-    width,
-    coreWidth,
-    intensity,
-    mediumBlur: 9,
-    largeBlur: 22,
-    mediumAlpha: 0.34,
-    largeAlpha: 0.12,
-    coreAlpha: 1,
-  });
+  tubeStroke(ctx, drawPath, { color, width, coreWidth, intensity });
   ctx.font = font;
   ctx.textAlign = align;
   ctx.textBaseline = baseline;
@@ -243,13 +151,11 @@ export function neonText(ctx, text, x, y, opts = {}) {
 }
 
 export function neonBar(ctx, rect, value01, opts = {}) {
+  const { x, y, w, h } = rect;
   const {
-    x, y, w, h,
-  } = rect;
-  const {
-    trackColor = 'rgba(111, 82, 186, 0.35)',
-    fillColor = '#53d8ff',
-    fillColor2 = '#ff56df',
+    trackColor = "rgba(111, 82, 186, 0.35)",
+    fillColor = "#53d8ff",
+    fillColor2 = "#ff56df",
     radius = 7,
     intensity = 1,
   } = opts;
@@ -260,13 +166,7 @@ export function neonBar(ctx, rect, value01, opts = {}) {
   ctx.fillStyle = trackColor;
   ctx.fill();
   tubeStroke(ctx, () => roundRectPath(ctx, x, y, w, h, radius), {
-    color: 'rgba(191, 126, 255, 0.9)',
-    width: 2,
-    intensity: intensity * 0.7,
-    coreWidth: 1,
-    mediumBlur: 6,
-    largeBlur: 14,
-    highlight: false,
+    color: "rgba(191, 126, 255, 0.9)", width: 2, intensity: intensity * 0.7, coreWidth: 1, highlight: false,
   });
 
   const fw = w * v;
@@ -278,13 +178,7 @@ export function neonBar(ctx, rect, value01, opts = {}) {
     ctx.fillStyle = grad;
     ctx.fill();
     tubeStroke(ctx, () => roundRectPath(ctx, x + 1, y + 1, Math.max(1, fw - 2), Math.max(1, h - 2), Math.max(2, radius - 1)), {
-      color: fillColor2,
-      width: 2.2,
-      intensity,
-      coreWidth: 1.2,
-      mediumBlur: 8,
-      largeBlur: 16,
-      highlight: false,
+      color: fillColor2, width: 2.2, intensity, coreWidth: 1.2, highlight: false,
     });
   }
   ctx.restore();

@@ -617,6 +617,7 @@ export class Background {
     ctx.fillRect(0, 0, this.w, this.h);
     ctx.restore();
 
+    ctx.save();
     const vignette = ctx.createRadialGradient(
       this.w * 0.5,
       this.h * 0.5,
@@ -631,12 +632,14 @@ export class Background {
     vignette.addColorStop(1, "rgba(185,0,255,0.08)");
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, this.w, this.h);
+    ctx.restore();
     this.#resetLayerState(ctx);
   }
 
   #drawNoiseTile(ctx, img, alpha) {
     if (!this.#isImageReady(img)) return;
 
+    ctx.save();
     this.#resetLayerState(ctx);
     ctx.globalCompositeOperation = "overlay";
     ctx.globalAlpha = alpha;
@@ -652,6 +655,7 @@ export class Background {
         });
       }
     }
+    ctx.restore();
     this.#resetLayerState(ctx);
   }
 
