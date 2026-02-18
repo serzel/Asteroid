@@ -1128,7 +1128,7 @@ export class Game {
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
     for (const d of this.debris) d.draw(ctx);
-    for (const p of this.particles) p.draw(ctx);
+    for (let i = 0; i < this.particles.length; i++) this.#drawParticleWithVisualProbe(ctx, this.particles[i], i);
     for (let i = 0; i < this.bullets.length; i++) this.#drawBulletWithVisualProbe(ctx, this.bullets[i], i);
 
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
@@ -1173,6 +1173,31 @@ export class Game {
       glowIntensity: shipState.glowIntensity,
       flameLength: shipState.flameLength,
       trailCount: shipState.trailCount,
+    });
+  }
+
+  #drawParticleWithVisualProbe(ctx, particle, index) {
+    const stateBefore = {
+      globalCompositeOperation: ctx.globalCompositeOperation,
+      globalAlpha: ctx.globalAlpha,
+      shadowBlur: ctx.shadowBlur,
+      shadowColor: ctx.shadowColor,
+      filter: ctx.filter,
+    };
+
+    particle.draw(ctx);
+
+    if (!this.debugVisualFx.enabled) return;
+
+    this.debugVisualFx.events.push({
+      frame: this.debugVisualFx.frame,
+      type: "particle",
+      index,
+      x: particle.x,
+      y: particle.y,
+      life: particle.life,
+      radius: particle.radius,
+      drawStateBefore: stateBefore,
     });
   }
 
@@ -1247,10 +1272,11 @@ export class Game {
     const events = this.debugVisualFx.events;
     this.debugVisualFx.events = [];
     const bullets = events.filter((e) => e.type === "bullet");
+    const particles = events.filter((e) => e.type === "particle");
     const ships = events.filter((e) => e.type === "ship");
     const bulletCount = this.bullets.length;
     const countClass = bulletCount === 0 ? "none" : bulletCount === 1 ? "single" : "multi";
-    console.info(`[VISUAL_PROBE][frame-batch] frame=${this.debugVisualFx.frame} bulletsRendered=${bullets.length} shipsRendered=${ships.length} activeBullets=${bulletCount} class=${countClass}`);
+    console.info(`[VISUAL_PROBE][frame-batch] frame=${this.debugVisualFx.frame} bulletsRendered=${bullets.length} particlesRendered=${particles.length} shipsRendered=${ships.length} activeBullets=${bulletCount} class=${countClass}`);
 
     if (bullets.length > 0) {
       const sample = bullets
@@ -1258,6 +1284,17 @@ export class Game {
         .map((b) => `id=${b.bulletId} idx=${b.index} color=${b.color} pre.gco=${b.drawStateBefore.globalCompositeOperation} pre.alpha=${b.drawStateBefore.globalAlpha} pre.shadowBlur=${b.drawStateBefore.shadowBlur}`)
         .join(" | ");
       console.info(`[VISUAL_PROBE][bullet-sample] ${sample}`);
+    }
+
+    const suspiciousParticles = particles.filter((p) => p.drawStateBefore.shadowBlur > 0
+      || p.drawStateBefore.globalCompositeOperation !== "source-over"
+      || p.drawStateBefore.filter !== "none");
+    if (suspiciousParticles.length > 0) {
+      const sample = suspiciousParticles
+        .slice(0, Math.min(4, suspiciousParticles.length))
+        .map((p) => `idx=${p.index} pre.gco=${p.drawStateBefore.globalCompositeOperation} pre.shadowBlur=${p.drawStateBefore.shadowBlur} pre.shadowColor=${p.drawStateBefore.shadowColor}`)
+        .join(" | ");
+      console.info(`[VISUAL_PROBE][particle-suspicious] count=${suspiciousParticles.length} ${sample}`);
     }
   }
 
@@ -1327,6 +1364,16 @@ export class Game {
   #draw() {
     const ctx = this.ctx;
     const uiModel = this.#createUIModel();
+
+    // Point de départ déterministe pour la frame complète: éviter tout bleed
+    // d'état canvas (neon/shadow/composite/filter) entre frames.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "rgba(0,0,0,0)";
+    ctx.filter = "none";
+
     ctx.clearRect(0, 0, this.world.w, this.world.h);
 
     if (this.state === GAME_STATE.TITLE) {

@@ -36,6 +36,14 @@ export class Particle {
   const t = Math.max(0, this.life / this.maxLife);
   const rr = this.radius * (0.6 + 0.4 * t);
 
+  // Rendu déterministe par particule: ne jamais dépendre d'un état canvas
+  // laissé par d'autres passes néon/glow de la frame précédente.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "rgba(0,0,0,0)";
+  ctx.filter = "none";
+
   ctx.save();
   ctx.globalAlpha = t;
   ctx.fillStyle = "white";
