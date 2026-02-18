@@ -168,19 +168,28 @@ export class Ship {
     const ty = nx;
 
     const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const legacySpawnDistance = this.radius + 2;
+    // Spawn au niveau de la bouche du canon (nez du sprite) pour éviter
+    // un mélange de couleur avec le glow du vaisseau sur le projectile naissant.
+    const muzzleSpawnDistance = Math.max(legacySpawnDistance, this.spriteSize * 0.36);
 
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
       const dirY = Math.sin(ang);
-      const bx = this.x + nx * (this.radius + 2) + tx * sideOffset;
-      const by = this.y + ny * (this.radius + 2) + ty * sideOffset;
       const bulletSpeed = baseSpeed * speedMul;
+      const bx = this.x + nx * muzzleSpawnDistance + tx * sideOffset;
+      const by = this.y + ny * muzzleSpawnDistance + ty * sideOffset;
       const bvx = dirX * bulletSpeed + this.vx;
       const bvy = dirY * bulletSpeed + this.vy;
+
+      // Compensation de portée pour conserver le gameplay identique malgré le décalage visuel.
+      const lifeOffset = (muzzleSpawnDistance - legacySpawnDistance) / bulletSpeed;
+      const bulletLife = Math.max(0.05, this.bulletLife - lifeOffset);
+
       const bullet = createBullet
-        ? createBullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel)
-        : new Bullet(bx, by, bvx, bvy, this.bulletLife, weaponColor, this.weaponLevel);
+        ? createBullet(bx, by, bvx, bvy, bulletLife, weaponColor, this.weaponLevel)
+        : new Bullet(bx, by, bvx, bvy, bulletLife, weaponColor, this.weaponLevel);
       bullets.push(bullet);
     };
 
