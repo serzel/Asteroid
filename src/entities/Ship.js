@@ -130,7 +130,7 @@ export class Ship {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
       const dirY = Math.sin(ang);
-      const bx = this.x + nx * (this.radius + 2) + tx * sideOffset;
+      const bx = this.x + nx * (this.radius + 10) + tx * sideOffset;
       const by = this.y + ny * (this.radius + 2) + ty * sideOffset;
       const bulletSpeed = baseSpeed * speedMul;
       const bvx = dirX * bulletSpeed + this.vx;
@@ -193,22 +193,32 @@ export class Ship {
     if (!this.spriteLoaded) return;
 
     const weaponColor = colorLock(WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]);
-    const glowIntensity = Math.min(0.58, 0.16 + combo * 0.018);
     const size = this.spriteSize;
+    const showCoreGlow = this.weaponLevel >= 3 || this.thrusting || this.invincible > 0;
+    const baseIntensity = Math.min(0.58, 0.16 + combo * 0.018);
+    const idleScale = this.thrusting || this.weaponLevel >= 3 || this.invincible > 0 ? 1 : 0.6;
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
 
-    drawCircularGlow(ctx, 0, 0, size * 0.34, weaponColor, glowIntensity);
+    if (showCoreGlow) {
+      const coreIntensity = this.invincible > 0
+        ? Math.min(0.58, baseIntensity * 0.9)
+        : this.weaponLevel >= 3
+          ? baseIntensity
+          : baseIntensity * idleScale;
+      const coreTier = this.weaponLevel >= 3 ? "high" : "medium";
+      drawCircularGlow(ctx, 0, 0, size * 0.3, weaponColor, coreIntensity, coreTier);
+    }
 
     if (this.thrusting) {
       const flameX = -size * 0.35;
       const flameY = 0;
-      drawCircularGlow(ctx, flameX, flameY, 13 + this._flameJitter * 6, weaponColor, 0.42);
+      drawCircularGlow(ctx, flameX, flameY, 12 + this._flameJitter * 5, weaponColor, 0.34, "medium");
     }
 
-    if (this.weaponLevel >= 3) {
+    if (this.weaponLevel >= 2) {
       const radiusX = size * 0.42;
       const radiusY = size * 0.34;
       drawOutlineGlow(
@@ -218,8 +228,9 @@ export class Ship {
           c.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
         },
         weaponColor,
-        this.weaponLevel >= 4 ? 2 : 1,
-        this.weaponLevel >= 4 ? 0.5 : 0.34,
+        this.weaponLevel >= 4 ? 1.8 : 1,
+        this.weaponLevel >= 4 ? 0.36 : this.weaponLevel >= 3 ? 0.24 : 0.14,
+        this.weaponLevel >= 3 ? "high" : "medium",
       );
     }
 

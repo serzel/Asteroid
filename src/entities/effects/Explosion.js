@@ -81,7 +81,7 @@ export class Explosion {
   drawGlow(ctx) {
     const p = Math.min(1, this.t / this.profile.life);
     const colors = EXPLOSION_COLOR_MODES[this.profile.colorMode] ?? EXPLOSION_COLOR_MODES.normal;
-    drawCircularGlow(ctx, this.x, this.y, this.profile.maxRadius * (0.2 + 0.4 * p), colors.flash, (1 - p) * this.profile.flashAlpha * 2);
+    drawCircularGlow(ctx, this.x, this.y, this.profile.maxRadius * (0.16 + 0.32 * p), colors.flash, (1 - p) * this.profile.flashAlpha * 2, "explosion");
   }
 
   draw(ctx) {

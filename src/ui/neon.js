@@ -39,7 +39,7 @@ function tubeStroke(ctx, drawPath, opts = {}) {
     highlight = true,
   } = opts;
 
-  drawOutlineGlow(ctx, drawPath, color, Math.max(0.7, width * 0.68), intensity * 0.42);
+  drawOutlineGlow(ctx, drawPath, color, Math.max(0.68, width * 0.64), intensity * 0.294, "low");
 
   ctx.save();
   ctx.strokeStyle = color;
@@ -112,7 +112,7 @@ export function neonPanel(ctx, rect, opts = {}) {
   ctx.fillStyle = sheen;
   ctx.fill();
 
-  drawCircularGlow(ctx, x + w * 0.5, y + h * 0.5, Math.max(w, h) * 0.2, color, intensity * 0.24);
+  drawCircularGlow(ctx, x + w * 0.5, y + h * 0.5, Math.max(w, h) * 0.2, color, intensity * 0.168, "low");
   tubeStroke(ctx, drawPath, { color, width, intensity, coreWidth: Math.max(1.4, width * 0.84) });
   ctx.restore();
 }

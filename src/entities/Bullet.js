@@ -103,11 +103,11 @@ export class Bullet {
   drawGlow(ctx) {
     const { bodyLen, bodyWid, glowIntensity } = this.#computeStyle();
 
-    drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 1.28, this.color, glowIntensity);
+    drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 0.96, this.color, glowIntensity, "low");
     drawOutlineGlow(ctx, (c) => {
       c.beginPath();
       c.ellipse(this.x, this.y, bodyLen, bodyWid, this.angle, 0, Math.PI * 2);
-    }, this.color, 1.0, glowIntensity);
+    }, this.color, 0.9, glowIntensity, "low");
   }
 
   draw(ctx) {

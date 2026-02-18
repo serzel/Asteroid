@@ -12,6 +12,13 @@ const HALO_ALPHA_CAP = 0.13;
 const CORE_ALPHA_CAP = 0.17;
 const MAX_GLOW_BRIGHTNESS_GAIN = 0.28;
 
+const GLOW_TIER = {
+  low: 0.62,
+  medium: 0.82,
+  high: 1.0,
+  explosion: 1.22,
+};
+
 const colorCache = new Map();
 
 function clamp(value, min, max) {
@@ -20,6 +27,12 @@ function clamp(value, min, max) {
 
 function clampIntensity(intensity) {
   return clamp(Number.isFinite(intensity) ? intensity : 0, MIN_INTENSITY, MAX_INTENSITY);
+}
+
+function normalizeTier(tier, intensity) {
+  const mul = GLOW_TIER[tier] ?? GLOW_TIER.medium;
+  const cap = tier === "explosion" ? 0.95 : MAX_INTENSITY;
+  return clamp((Number.isFinite(intensity) ? intensity : 0) * mul, MIN_INTENSITY, cap);
 }
 
 function parseColor(color) {
@@ -79,8 +92,12 @@ export function colorLock(color, alpha = 1, alphaCap = 1) {
   return `rgba(${parsed.r},${parsed.g},${parsed.b},${lockedAlpha})`;
 }
 
-export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
-  const glowIntensity = clampIntensity(intensity);
+export function glowIntensity(intensity = 0.3, tier = "medium") {
+  return normalizeTier(tier, clampIntensity(intensity));
+}
+
+export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1, tier = "medium") {
+  const glowIntensity = normalizeTier(tier, clampIntensity(intensity));
   const r = Math.max(MIN_RADIUS, Number.isFinite(radius) ? radius : 1);
   const outerRadius = r * (0.98 + glowIntensity * 0.44);
 
@@ -115,8 +132,8 @@ export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
   ctx.restore();
 }
 
-export function drawOutlineGlow(ctx, pathFn, color, width = 2, intensity = 1) {
-  const glowIntensity = clampIntensity(intensity);
+export function drawOutlineGlow(ctx, pathFn, color, width = 2, intensity = 1, tier = "medium") {
+  const glowIntensity = normalizeTier(tier, clampIntensity(intensity));
   const w = Math.max(MIN_WIDTH, Number.isFinite(width) ? width : 1);
 
   const alpha0 = 0.045 + glowIntensity * 0.06;

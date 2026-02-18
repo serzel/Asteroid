@@ -272,7 +272,7 @@ export function drawHUD(ctx, game) {
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
     const dx = livesX + i * (size + spacing);
-    drawCircularGlow(ctx, dx + size * 0.5, livesY + size * 0.5, size * 0.2, i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)', i < game.lives ? 0.7 : 0.35);
+    drawCircularGlow(ctx, dx + size * 0.5, livesY + size * 0.5, size * 0.2, i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)', i < game.lives ? 0.49 : 0.245, 'low');
     ctx.drawImage(img, dx, livesY, size, size);
   }
   ctx.restore();
