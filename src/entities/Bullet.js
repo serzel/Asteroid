@@ -9,6 +9,7 @@ const BULLET_FX = {
   trailAlpha: 0.2,
   trailLineWidth: 2,
   trailStartOffset: 1.5,
+  baseGlowIntensity: 0.26,
   style: {
     level2: { bodyLengthMul: 1.25, bodyWidthMul: 0.85, trailLengthMul: 1.2 },
     level3: { glowIntensityMul: 1.08 },
@@ -48,7 +49,7 @@ export class Bullet {
     let bodyWid = BULLET_FX.bodyWidth;
     let trailLen = BULLET_FX.trailLength;
     let coreRadius = BULLET_FX.coreRadius;
-    let glowIntensity = 0.28;
+    let glowIntensity = BULLET_FX.baseGlowIntensity;
 
     if (this.styleLevel === 2) {
       bodyLen *= BULLET_FX.style.level2.bodyLengthMul;
@@ -101,6 +102,7 @@ export class Bullet {
 
   drawGlow(ctx) {
     const { bodyLen, bodyWid, glowIntensity } = this.#computeStyle();
+
     drawCircularGlow(ctx, this.x, this.y, Math.max(bodyLen, bodyWid) * 1.28, this.color, glowIntensity);
     drawOutlineGlow(ctx, (c) => {
       c.beginPath();
