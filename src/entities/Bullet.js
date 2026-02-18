@@ -18,8 +18,11 @@ const BULLET_FX = {
 };
 
 export class Bullet {
+  static nextDebugId = 1;
+
   constructor(x = 0, y = 0, vx = 0, vy = 0, life = 1.2, color = "white", styleLevel = 1) {
     this.radius = 2;
+    this.debugId = Bullet.nextDebugId++;
     this.reset(x, y, vx, vy, life, color, styleLevel);
   }
 
@@ -47,6 +50,16 @@ export class Bullet {
   }
 
   draw(ctx) {
+    // Rendu déterministe par projectile: éviter toute dépendance à un état canvas
+    // laissé par un renderer précédent (composite/alpha/shadow/filter/line styles).
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "rgba(0,0,0,0)";
+    ctx.filter = "none";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "butt";
+
     let bodyLen = BULLET_FX.bodyLength;
     let bodyWid = BULLET_FX.bodyWidth;
     let trailLen = BULLET_FX.trailLength;
@@ -104,5 +117,18 @@ export class Bullet {
     ctx.globalCompositeOperation = "source-over";
     ctx.shadowBlur = 0;
     ctx.restore();
+  }
+
+  getRenderDebugState() {
+    return {
+      id: this.debugId,
+      x: this.x,
+      y: this.y,
+      angle: this.angle,
+      color: this.color,
+      styleLevel: this.styleLevel,
+      life: this.life,
+      radius: this.radius,
+    };
   }
 }

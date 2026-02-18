@@ -51,6 +51,8 @@ const DEBUG = {
   logIntervalSec: 1.0,
   perfLogIntervalSec: 1.0,
   profilerFreezeSec: 2,
+  visualFxProbe: true,
+  visualFxLogIntervalSec: 0.2,
   seamSampleSmoothingLabel: {
     nearest: "nearest (OFF)",
     linear: "linear (ON)",
@@ -209,6 +211,16 @@ export class Game {
       asteroidMaxSpeed: 0,
       asteroidTotalKineticEnergy: 0,
       asteroidSpatialHashRebuilds: 0,
+    };
+
+    this.debugVisualFx = {
+      enabled: DEBUG.visualFxProbe,
+      overlay: true,
+      frame: 0,
+      logAcc: 0,
+      events: [],
+      lastBulletCountClass: "none",
+      lastShipState: null,
     };
 
     this.profView = {
@@ -739,6 +751,7 @@ export class Game {
     }
 
     this.input.endFrame();
+    this.#flushVisualFxProbeLogs(dt);
     requestAnimationFrame(this.loopHandle);
   }
 
@@ -1108,12 +1121,15 @@ export class Game {
   #drawPlayScene() {
     const ctx = this.ctx;
     this.background.draw(ctx);
-    this.ship.render(ctx, this.combo);
+
+    if (this.debugVisualFx.enabled) this.#captureVisualFxProbeState();
+
+    this.#drawShipWithVisualProbe(ctx);
     for (const a of this.asteroids) a.draw(ctx);
     for (const e of this.explosions) e.draw(ctx);
     for (const d of this.debris) d.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
-    for (const b of this.bullets) b.draw(ctx);
+    for (let i = 0; i < this.bullets.length; i++) this.#drawBulletWithVisualProbe(ctx, this.bullets[i], i);
 
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
     this.background.setAmbienceFactor(amb);
@@ -1137,6 +1153,138 @@ export class Game {
       ctx.fillRect(this.world.w - thickness, 0, thickness, this.world.h);
       ctx.restore();
     }
+  }
+
+
+  #drawShipWithVisualProbe(ctx) {
+    this.ship.render(ctx, this.combo);
+
+    if (!this.debugVisualFx.enabled) return;
+    const shipState = this.ship.getRenderDebugState(this.combo);
+    this.debugVisualFx.events.push({
+      frame: this.debugVisualFx.frame,
+      type: "ship",
+      x: shipState.x,
+      y: shipState.y,
+      angle: shipState.angle,
+      weaponLevel: shipState.weaponLevel,
+      thrusting: shipState.thrusting,
+      weaponColor: shipState.weaponColor,
+      glowIntensity: shipState.glowIntensity,
+      flameLength: shipState.flameLength,
+      trailCount: shipState.trailCount,
+    });
+  }
+
+  #drawBulletWithVisualProbe(ctx, bullet, index) {
+    const stateBefore = {
+      globalCompositeOperation: ctx.globalCompositeOperation,
+      globalAlpha: ctx.globalAlpha,
+      strokeStyle: ctx.strokeStyle,
+      fillStyle: ctx.fillStyle,
+      shadowBlur: ctx.shadowBlur,
+      shadowColor: ctx.shadowColor,
+      filter: ctx.filter,
+    };
+
+    bullet.draw(ctx);
+
+    if (!this.debugVisualFx.enabled) return;
+
+    const bulletState = bullet.getRenderDebugState();
+    this.debugVisualFx.events.push({
+      frame: this.debugVisualFx.frame,
+      type: "bullet",
+      bulletId: bulletState.id,
+      index,
+      count: this.bullets.length,
+      x: bulletState.x,
+      y: bulletState.y,
+      angle: bulletState.angle,
+      color: bulletState.color,
+      styleLevel: bulletState.styleLevel,
+      life: bulletState.life,
+      radius: bulletState.radius,
+      drawStateBefore: stateBefore,
+      drawOrder: index,
+      sortingLayer: "canvas-default",
+      z: 0,
+      renderQueue: "source-order",
+    });
+  }
+
+  #captureVisualFxProbeState() {
+    this.debugVisualFx.frame += 1;
+    const bulletCount = this.bullets.length;
+    const bulletCountClass = bulletCount === 0 ? "none" : bulletCount === 1 ? "single" : "multi";
+    if (bulletCountClass !== this.debugVisualFx.lastBulletCountClass) {
+      console.info(`[VISUAL_PROBE][count-transition] frame=${this.debugVisualFx.frame} count=${bulletCount} class=${bulletCountClass}`);
+      this.debugVisualFx.lastBulletCountClass = bulletCountClass;
+    }
+
+    const shipState = this.ship.getRenderDebugState(this.combo);
+    const prevShipState = this.debugVisualFx.lastShipState;
+    if (prevShipState) {
+      const changedGlow = prevShipState.glowIntensity !== shipState.glowIntensity;
+      const changedWeaponColor = prevShipState.weaponColor !== shipState.weaponColor;
+      const changedFlame = prevShipState.flameLength !== shipState.flameLength;
+      if (changedGlow || changedWeaponColor || changedFlame) {
+        console.info(`[VISUAL_PROBE][ship-change] frame=${this.debugVisualFx.frame} glow=${prevShipState.glowIntensity}->${shipState.glowIntensity} color=${prevShipState.weaponColor}->${shipState.weaponColor} flame=${prevShipState.flameLength.toFixed(2)}->${shipState.flameLength.toFixed(2)}`);
+      }
+    }
+
+    this.debugVisualFx.lastShipState = shipState;
+  }
+
+  #flushVisualFxProbeLogs(dt) {
+    if (!this.debugVisualFx.enabled) return;
+    this.debugVisualFx.logAcc += dt;
+    if (this.debugVisualFx.logAcc < DEBUG.visualFxLogIntervalSec) return;
+
+    this.debugVisualFx.logAcc = 0;
+    if (this.debugVisualFx.events.length === 0) return;
+
+    const events = this.debugVisualFx.events;
+    this.debugVisualFx.events = [];
+    const bullets = events.filter((e) => e.type === "bullet");
+    const ships = events.filter((e) => e.type === "ship");
+    const bulletCount = this.bullets.length;
+    const countClass = bulletCount === 0 ? "none" : bulletCount === 1 ? "single" : "multi";
+    console.info(`[VISUAL_PROBE][frame-batch] frame=${this.debugVisualFx.frame} bulletsRendered=${bullets.length} shipsRendered=${ships.length} activeBullets=${bulletCount} class=${countClass}`);
+
+    if (bullets.length > 0) {
+      const sample = bullets
+        .slice(0, Math.min(6, bullets.length))
+        .map((b) => `id=${b.bulletId} idx=${b.index} color=${b.color} pre.gco=${b.drawStateBefore.globalCompositeOperation} pre.alpha=${b.drawStateBefore.globalAlpha} pre.shadowBlur=${b.drawStateBefore.shadowBlur}`)
+        .join(" | ");
+      console.info(`[VISUAL_PROBE][bullet-sample] ${sample}`);
+    }
+  }
+
+  #drawVisualFxOverlay() {
+    if (!this.debugVisualFx.enabled || !this.debugVisualFx.overlay || this.state === GAME_STATE.TITLE) return;
+
+    const ctx = this.ctx;
+    const bulletCount = this.bullets.length;
+    const bulletClass = bulletCount === 0 ? "none" : bulletCount === 1 ? "single" : "multi";
+
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    const panelH = 24 + Math.min(4, bulletCount) * 16;
+    ctx.fillRect(8, this.world.h - panelH - 8, 680, panelH);
+    ctx.fillStyle = bulletClass === "single" ? "rgba(255,120,120,0.98)" : "rgba(120,255,200,0.98)";
+    ctx.fillText(`[VISUAL_PROBE] bullets=${bulletCount} class=${bulletClass}`, 14, this.world.h - panelH);
+
+    for (let i = 0; i < Math.min(4, bulletCount); i++) {
+      const b = this.bullets[i].getRenderDebugState();
+      ctx.fillText(`id=${b.id} idx=${i} color=${b.color} life=${b.life.toFixed(2)} pos=(${b.x.toFixed(1)},${b.y.toFixed(1)})`, 14, this.world.h - panelH + 16 + i * 14);
+    }
+
+    ctx.restore();
   }
 
 
@@ -1192,6 +1340,7 @@ export class Game {
     ctx.translate(this.shakeX, this.shakeY);
     this.#drawPlayScene();
     this.#drawCollidersOverlay();
+    this.#drawVisualFxOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
       this.uiRenderer.drawGameOverOverlay(ctx, uiModel);

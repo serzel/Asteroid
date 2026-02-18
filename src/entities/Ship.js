@@ -204,8 +204,36 @@ export class Ship {
     this.cooldown = this.fireRate;
   }
 
+
+  getRenderDebugState(combo = 1) {
+    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const glowIntensity = Math.min(combo * 0.8, 25);
+    const flameLength = this.thrusting ? (15 + this._flameJitter * 10) : 0;
+    return {
+      x: this.x,
+      y: this.y,
+      angle: this.angle,
+      weaponLevel: this.weaponLevel,
+      thrusting: this.thrusting,
+      weaponColor,
+      glowIntensity,
+      flameLength,
+      trailCount: this.trail.length,
+    };
+  }
+
   render(ctx, combo = 1) {
     if (!this.spriteLoaded) return;
+
+    // Reset explicite de l'état canvas pour éviter les artefacts visuels intermittents
+    // (cercle cyan central / contour de flamme) dépendants des draw calls précédents.
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "rgba(0,0,0,0)";
+    ctx.filter = "none";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "butt";
 
     const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
     const trailColor = weaponTrailColor(this.weaponLevel);
