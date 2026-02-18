@@ -1400,8 +1400,8 @@ export class Game {
 
     if (this.state === GAME_STATE.TITLE) {
       this.background.setAmbienceFactor(0);
-      this.background.render(ctx);
-      this.uiRenderer.drawTitleScreen(ctx, uiModel);
+      this.#drawIsolated(() => this.background.render(ctx));
+      this.#drawIsolated(() => this.uiRenderer.drawTitleScreen(ctx, uiModel));
       return;
     }
 
@@ -1412,11 +1412,11 @@ export class Game {
     this.#drawVisualFxOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
-      this.uiRenderer.drawGameOverOverlay(ctx, uiModel);
+      this.#drawIsolated(() => this.uiRenderer.drawGameOverOverlay(ctx, uiModel));
     }
     ctx.restore();
 
-    drawHUD(ctx, this);
-    this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
+    this.#drawIsolated(() => drawHUD(ctx, this));
+    this.#drawIsolated(() => this.uiRenderer.drawProfilerOverlay(ctx, uiModel));
   }
 }
