@@ -1118,18 +1118,40 @@ export class Game {
     this.#spawnDebris(x, y, count, type, speedMin, speedMax);
   }
 
+  #resetCanvasStateForEntity(ctx) {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "rgba(0,0,0,0)";
+    ctx.filter = "none";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "miter";
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
+  }
+
+  #drawIsolated(drawFn) {
+    const ctx = this.ctx;
+    ctx.save();
+    this.#resetCanvasStateForEntity(ctx);
+    drawFn(ctx);
+    ctx.restore();
+  }
+
+
   #drawPlayScene() {
     const ctx = this.ctx;
-    this.background.draw(ctx);
+    this.#drawIsolated(() => this.background.draw(ctx));
 
     if (this.debugVisualFx.enabled) this.#captureVisualFxProbeState();
 
-    this.#drawShipWithVisualProbe(ctx);
-    for (const a of this.asteroids) a.draw(ctx);
-    for (const e of this.explosions) e.draw(ctx);
-    for (const d of this.debris) d.draw(ctx);
-    for (let i = 0; i < this.particles.length; i++) this.#drawParticleWithVisualProbe(ctx, this.particles[i], i);
-    for (let i = 0; i < this.bullets.length; i++) this.#drawBulletWithVisualProbe(ctx, this.bullets[i], i);
+    this.#drawIsolated(() => this.#drawShipWithVisualProbe(ctx));
+    for (const a of this.asteroids) this.#drawIsolated(() => a.draw(ctx));
+    for (const e of this.explosions) this.#drawIsolated(() => e.draw(ctx));
+    for (const d of this.debris) this.#drawIsolated(() => d.draw(ctx));
+    for (let i = 0; i < this.particles.length; i++) this.#drawIsolated(() => this.#drawParticleWithVisualProbe(ctx, this.particles[i], i));
+    for (let i = 0; i < this.bullets.length; i++) this.#drawIsolated(() => this.#drawBulletWithVisualProbe(ctx, this.bullets[i], i));
 
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
     this.background.setAmbienceFactor(amb);
