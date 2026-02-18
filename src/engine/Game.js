@@ -1105,36 +1105,72 @@ export class Game {
     this.#spawnDebris(x, y, count, type, speedMin, speedMax);
   }
 
-  #drawPlayScene() {
+  #drawParticles() {
     const ctx = this.ctx;
-    this.background.draw(ctx);
-    this.ship.render(ctx, this.combo);
-    for (const a of this.asteroids) a.draw(ctx);
-    for (const e of this.explosions) e.draw(ctx);
-    for (const d of this.debris) d.draw(ctx);
-    for (const p of this.particles) p.draw(ctx);
-    for (const b of this.bullets) b.draw(ctx);
+    ctx.save();
+    try {
+      for (const e of this.explosions) e.draw(ctx);
+      for (const d of this.debris) d.draw(ctx);
+      for (const p of this.particles) p.draw(ctx);
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    } finally {
+      ctx.restore();
+    }
+  }
 
-    const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
-    this.background.setAmbienceFactor(amb);
+  #drawShots() {
+    const ctx = this.ctx;
+    ctx.save();
+    try {
+      for (const b of this.bullets) b.draw(ctx);
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    } finally {
+      ctx.restore();
+    }
+  }
 
-    const t = this.comboTimer;
-    if (t <= COMBO_WARN_FX.thresholdSec) {
-      const progress = 1 - (t / COMBO_WARN_FX.thresholdSec);
-      const pulse = COMBO_WARN_FX.pulseBase + COMBO_WARN_FX.pulseAmplitude * Math.sin(performance.now() * COMBO_WARN_FX.pulseTimeScale * COMBO_WARN_FX.pulseFrequency);
-      const alpha = COMBO_WARN_FX.alphaBase + COMBO_WARN_FX.alphaScale * progress * pulse;
-      const thickness = COMBO_WARN_FX.thicknessBase + COMBO_WARN_FX.thicknessScale * progress;
+  #drawGame() {
+    const ctx = this.ctx;
+    ctx.save();
+    try {
+      this.background.draw(ctx);
+      this.ship.render(ctx, this.combo);
+      for (const a of this.asteroids) a.draw(ctx);
+      this.#drawParticles();
+      this.#drawShots();
 
-      ctx.save();
-      const grad = ctx.createLinearGradient(0, 0, this.world.w, 0);
-      grad.addColorStop(0, `rgba(255, 80, 220, ${alpha})`);
-      grad.addColorStop(1, `rgba(0, 220, 255, ${alpha})`);
-      ctx.fillStyle = grad;
+      const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
+      this.background.setAmbienceFactor(amb);
 
-      ctx.fillRect(0, 0, this.world.w, thickness);
-      ctx.fillRect(0, this.world.h - thickness, this.world.w, thickness);
-      ctx.fillRect(0, 0, thickness, this.world.h);
-      ctx.fillRect(this.world.w - thickness, 0, thickness, this.world.h);
+      const t = this.comboTimer;
+      if (t <= COMBO_WARN_FX.thresholdSec) {
+        const progress = 1 - (t / COMBO_WARN_FX.thresholdSec);
+        const pulse = COMBO_WARN_FX.pulseBase + COMBO_WARN_FX.pulseAmplitude * Math.sin(performance.now() * COMBO_WARN_FX.pulseTimeScale * COMBO_WARN_FX.pulseFrequency);
+        const alpha = COMBO_WARN_FX.alphaBase + COMBO_WARN_FX.alphaScale * progress * pulse;
+        const thickness = COMBO_WARN_FX.thicknessBase + COMBO_WARN_FX.thicknessScale * progress;
+
+        ctx.save();
+        const grad = ctx.createLinearGradient(0, 0, this.world.w, 0);
+        grad.addColorStop(0, `rgba(255, 80, 220, ${alpha})`);
+        grad.addColorStop(1, `rgba(0, 220, 255, ${alpha})`);
+        ctx.fillStyle = grad;
+
+        ctx.fillRect(0, 0, this.world.w, thickness);
+        ctx.fillRect(0, this.world.h - thickness, this.world.w, thickness);
+        ctx.fillRect(0, 0, thickness, this.world.h);
+        ctx.fillRect(this.world.w - thickness, 0, thickness, this.world.h);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    } finally {
       ctx.restore();
     }
   }
@@ -1190,7 +1226,7 @@ export class Game {
 
     ctx.save();
     ctx.translate(this.shakeX, this.shakeY);
-    this.#drawPlayScene();
+    this.#drawGame();
     this.#drawCollidersOverlay();
 
     if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
@@ -1198,7 +1234,16 @@ export class Game {
     }
     ctx.restore();
 
-    drawHUD(ctx, this);
+    ctx.save();
+    try {
+      drawHUD(ctx, this);
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+    } finally {
+      ctx.restore();
+    }
+
     this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
   }
 }
