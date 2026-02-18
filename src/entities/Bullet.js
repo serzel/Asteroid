@@ -1,5 +1,5 @@
 import { wrap } from "../engine/math.js";
-import { drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
+import { colorLock, drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
 
 const BULLET_FX = {
   bodyLength: 6.4,
@@ -29,7 +29,7 @@ export class Bullet {
     this.vy = vy;
     this.life = life;
     this.dead = false;
-    this.color = `${color}`;
+    this.color = colorLock(`${color}`);
     this.styleLevel = styleLevel;
     this.angle = Math.atan2(vy, vx);
   }
@@ -92,7 +92,7 @@ export class Bullet {
     ctx.restore();
 
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.fillStyle = this.color;
     ctx.beginPath();
     ctx.arc(this.x, this.y, coreRadius, 0, Math.PI * 2);
     ctx.fill();

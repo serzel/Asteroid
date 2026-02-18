@@ -1,7 +1,7 @@
 import { wrap } from "../engine/math.js";
 import { Bullet } from "./Bullet.js";
 import { WEAPON_LEVEL_RULES } from "../config/gameplay.js";
-import { drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
+import { colorLock, drawCircularGlow, drawOutlineGlow } from "../rendering/GlowRenderer.js";
 
 const WEAPON_COLORS = {
   1: "rgba(0, 200, 255, 0.90)",
@@ -125,7 +125,7 @@ export class Ship {
     const ny = Math.sin(this.angle);
     const tx = -ny;
     const ty = nx;
-    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const weaponColor = colorLock(WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]);
     const spawn = (angleOffset = 0, sideOffset = 0, speedMul = 1) => {
       const ang = this.angle + angleOffset;
       const dirX = Math.cos(ang);
@@ -149,7 +149,7 @@ export class Ship {
 
   drawBase(ctx) {
     if (!this.spriteLoaded) return;
-    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const weaponColor = colorLock(WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]);
     const trailColor = weaponTrailColor(this.weaponLevel);
 
     if (this.trail.length > 0) {
@@ -191,7 +191,7 @@ export class Ship {
 
   drawGlow(ctx, combo = 1) {
     if (!this.spriteLoaded) return;
-    const weaponColor = WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1];
+    const weaponColor = colorLock(WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]);
     const glowIntensity = Math.min(0.58, 0.16 + combo * 0.018);
     drawCircularGlow(ctx, this.x, this.y, this.spriteSize * 0.34, weaponColor, glowIntensity);
 

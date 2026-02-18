@@ -10,6 +10,7 @@ const OUTLINE_WIDTH_MUL_2 = 1.1;
 
 const HALO_ALPHA_CAP = 0.18;
 const CORE_ALPHA_CAP = 0.22;
+const MAX_GLOW_BRIGHTNESS_GAIN = 0.35;
 
 const colorCache = new Map();
 
@@ -65,25 +66,32 @@ function parseColor(color) {
   return parsed;
 }
 
-function rgbaFrom(parsed, alphaMul, alphaCap) {
-  const alpha = clamp(parsed.a * alphaMul, 0, alphaCap);
-  return `rgba(${parsed.r},${parsed.g},${parsed.b},${alpha})`;
+function getSafeAlphaCap(parsed, requestedCap = 1) {
+  const luminance = ((0.2126 * parsed.r) + (0.7152 * parsed.g) + (0.0722 * parsed.b)) / 255;
+  const overflowCap = luminance > 0 ? MAX_GLOW_BRIGHTNESS_GAIN / luminance : requestedCap;
+  return clamp(Math.min(requestedCap, overflowCap), 0, 1);
+}
+
+export function colorLock(color, alpha = 1, alphaCap = 1) {
+  const parsed = parseColor(color);
+  const safeCap = getSafeAlphaCap(parsed, alphaCap);
+  const lockedAlpha = clamp(parsed.a * alpha, 0, safeCap);
+  return `rgba(${parsed.r},${parsed.g},${parsed.b},${lockedAlpha})`;
 }
 
 export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
   const glowIntensity = clampIntensity(intensity);
   const r = Math.max(MIN_RADIUS, Number.isFinite(radius) ? radius : 1);
   const outerRadius = r * (1.14 + glowIntensity * 0.56);
-  const parsed = parseColor(color);
 
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
 
   const grad = ctx.createRadialGradient(x, y, 0, x, y, outerRadius);
-  grad.addColorStop(0, rgbaFrom(parsed, 0.16 + glowIntensity * 0.12, HALO_ALPHA_CAP));
-  grad.addColorStop(0.28, rgbaFrom(parsed, 0.1 + glowIntensity * 0.09, HALO_ALPHA_CAP));
-  grad.addColorStop(0.62, rgbaFrom(parsed, 0.06 + glowIntensity * 0.06, HALO_ALPHA_CAP));
-  grad.addColorStop(1, rgbaFrom(parsed, 0, HALO_ALPHA_CAP));
+  grad.addColorStop(0, colorLock(color, 0.16 + glowIntensity * 0.12, HALO_ALPHA_CAP));
+  grad.addColorStop(0.28, colorLock(color, 0.1 + glowIntensity * 0.09, HALO_ALPHA_CAP));
+  grad.addColorStop(0.62, colorLock(color, 0.06 + glowIntensity * 0.06, HALO_ALPHA_CAP));
+  grad.addColorStop(1, colorLock(color, 0, HALO_ALPHA_CAP));
 
   ctx.fillStyle = grad;
   ctx.beginPath();
@@ -93,8 +101,8 @@ export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
   if (glowIntensity > 0.05) {
     const coreRadius = r * (0.32 + glowIntensity * 0.22);
     const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
-    coreGrad.addColorStop(0, rgbaFrom(parsed, 0.2 + glowIntensity * 0.12, CORE_ALPHA_CAP));
-    coreGrad.addColorStop(1, rgbaFrom(parsed, 0, CORE_ALPHA_CAP));
+    coreGrad.addColorStop(0, colorLock(color, 0.2 + glowIntensity * 0.12, CORE_ALPHA_CAP));
+    coreGrad.addColorStop(1, colorLock(color, 0, CORE_ALPHA_CAP));
 
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = coreGrad;
@@ -110,7 +118,6 @@ export function drawCircularGlow(ctx, x, y, radius, color, intensity = 1) {
 export function drawOutlineGlow(ctx, pathFn, color, width = 2, intensity = 1) {
   const glowIntensity = clampIntensity(intensity);
   const w = Math.max(MIN_WIDTH, Number.isFinite(width) ? width : 1);
-  const parsed = parseColor(color);
 
   const alpha0 = 0.06 + glowIntensity * 0.08;
   const alpha1 = 0.08 + glowIntensity * 0.08;
@@ -122,22 +129,22 @@ export function drawOutlineGlow(ctx, pathFn, color, width = 2, intensity = 1) {
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  ctx.strokeStyle = rgbaFrom(parsed, alpha0, HALO_ALPHA_CAP);
+  ctx.strokeStyle = colorLock(color, alpha0, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_0;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFrom(parsed, alpha1, HALO_ALPHA_CAP);
+  ctx.strokeStyle = colorLock(color, alpha1, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_1;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFrom(parsed, alpha2, HALO_ALPHA_CAP);
+  ctx.strokeStyle = colorLock(color, alpha2, HALO_ALPHA_CAP);
   ctx.lineWidth = w * OUTLINE_WIDTH_MUL_2;
   pathFn(ctx);
   ctx.stroke();
 
-  ctx.strokeStyle = rgbaFrom(parsed, coreAlpha, CORE_ALPHA_CAP);
+  ctx.strokeStyle = colorLock(color, coreAlpha, CORE_ALPHA_CAP);
   ctx.lineWidth = w;
   pathFn(ctx);
   ctx.stroke();
