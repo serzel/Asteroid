@@ -27,6 +27,9 @@ const WEAPON_HALF_COLORS = {
 const SHIP_TRAIL = {
   maxPoints: 12,
   spacingSec: 0.015,
+  minPointDistance: 2,
+  minSpeedForTrail: 28,
+  centerCullRadius: 9,
   flameJitterRefreshSec: 1 / 30,
   flameJitterBase: 0.75,
   flameJitterRange: 0.5,
@@ -78,6 +81,7 @@ export class Ship {
     this._trailAcc = 0;
     this._flameJitter = 1;
     this._flameJitterTimer = 0;
+    this.speed = 0;
   }
 
   resetTrail() {
@@ -111,10 +115,12 @@ export class Ship {
 
     // clamp vitesse
     const speed = Math.hypot(this.vx, this.vy);
+    this.speed = speed;
     if (speed > this.maxSpeed) {
       const s = this.maxSpeed / speed;
       this.vx *= s;
       this.vy *= s;
+      this.speed = this.maxSpeed;
     }
 
     this.x += this.vx * dt;
@@ -145,9 +151,22 @@ export class Ship {
 
     this._trailAcc += dt;
     while (this._trailAcc >= this.trailSpacing) {
-      this.trail.push({ x: this.x, y: this.y, a: this.angle });
+      const last = this.trail[this.trail.length - 1];
+      const dx = last ? this.x - last.x : Infinity;
+      const dy = last ? this.y - last.y : Infinity;
+      const movedEnough = !last || (dx * dx + dy * dy) >= (SHIP_TRAIL.minPointDistance * SHIP_TRAIL.minPointDistance);
+      const canEmitTrail = this.thrusting && this.speed >= SHIP_TRAIL.minSpeedForTrail;
+
+      if (canEmitTrail && movedEnough) {
+        this.trail.push({ x: this.x, y: this.y, a: this.angle });
+      }
+
       if (this.trail.length > this.trailMax) this.trail.shift();
       this._trailAcc -= this.trailSpacing;
+    }
+
+    if (!this.thrusting && this.speed < SHIP_TRAIL.minSpeedForTrail * 0.5 && this.trail.length > 0) {
+      this.trail.shift();
     }
   }
 
@@ -243,6 +262,10 @@ export class Ship {
       ctx.fillStyle = trailColor;
       for (let i = 0; i < this.trail.length; i++) {
         const point = this.trail[i];
+        const dxc = point.x - this.x;
+        const dyc = point.y - this.y;
+        if ((dxc * dxc + dyc * dyc) < (SHIP_TRAIL.centerCullRadius * SHIP_TRAIL.centerCullRadius)) continue;
+
         const t = (i + 1) / this.trail.length;
         ctx.globalAlpha = (this.thrusting ? 0.5 : 0.3) * t;
         ctx.beginPath();
@@ -295,9 +318,11 @@ export class Ship {
       );
 
       grad.addColorStop(0, weaponColor);
-      grad.addColorStop(0.5, weaponColorHalf);
+      grad.addColorStop(0.55, weaponColorHalf);
+      grad.addColorStop(0.85, "rgba(0, 0, 0, 0.06)");
       grad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
+      ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = grad;
 
       ctx.beginPath();
@@ -311,6 +336,7 @@ export class Ship {
         Math.PI * 2
       );
       ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
     }
 
     if (this.weaponLevel >= 3) {
