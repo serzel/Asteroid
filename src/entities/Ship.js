@@ -189,36 +189,25 @@ export class Ship {
     ctx.restore();
   }
 
-  drawGlow(ctx, combo = 1) {
+  drawGlow(ctx) {
     if (!this.spriteLoaded) return;
 
     const weaponColor = colorLock(WEAPON_COLORS[this.weaponLevel] ?? WEAPON_COLORS[1]);
     const size = this.spriteSize;
-    const showCoreGlow = this.weaponLevel >= 3 || this.thrusting || this.invincible > 0;
-    const baseIntensity = Math.min(0.58, 0.16 + combo * 0.018);
-    const idleScale = this.thrusting || this.weaponLevel >= 3 || this.invincible > 0 ? 1 : 0.6;
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
 
-    if (showCoreGlow) {
-      const coreIntensity = this.invincible > 0
-        ? Math.min(0.58, baseIntensity * 0.9)
-        : this.weaponLevel >= 3
-          ? baseIntensity
-          : baseIntensity * idleScale;
-      const coreTier = this.weaponLevel >= 3 ? "high" : "medium";
-      drawCircularGlow(ctx, 0, 0, size * 0.3, weaponColor, coreIntensity, coreTier);
+    if (this.invincible > 0) {
+      drawCircularGlow(ctx, 0, 0, size * 0.28, weaponColor, 0.22, "medium");
     }
 
     if (this.thrusting) {
-      const flameX = -size * 0.35;
-      const flameY = 0;
-      drawCircularGlow(ctx, flameX, flameY, 12 + this._flameJitter * 5, weaponColor, 0.34, "medium");
+      drawCircularGlow(ctx, -size * 0.35, 0, 12 + this._flameJitter * 5, weaponColor, 0.34, "medium");
     }
 
-    if (this.weaponLevel >= 2) {
+    if (this.weaponLevel >= 3) {
       const radiusX = size * 0.42;
       const radiusY = size * 0.34;
       drawOutlineGlow(
@@ -229,16 +218,16 @@ export class Ship {
         },
         weaponColor,
         this.weaponLevel >= 4 ? 1.8 : 1,
-        this.weaponLevel >= 4 ? 0.36 : this.weaponLevel >= 3 ? 0.24 : 0.14,
-        this.weaponLevel >= 3 ? "high" : "medium",
+        this.weaponLevel >= 4 ? 0.36 : 0.24,
+        "high",
       );
     }
 
     ctx.restore();
   }
 
-  render(ctx, combo = 1) {
+  render(ctx) {
     this.drawBase(ctx);
-    this.drawGlow(ctx, combo);
+    this.drawGlow(ctx);
   }
 }
