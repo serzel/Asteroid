@@ -104,6 +104,13 @@ export class Ship {
       this._flameJitter = SHIP_TRAIL.flameJitterBase + Math.random() * SHIP_TRAIL.flameJitterRange;
     }
     if (wrapped) { this.resetTrail(); return; }
+
+    const trailActive = this.thrusting || speed > 8;
+    if (!trailActive) {
+      this.resetTrail();
+      return;
+    }
+
     this._trailAcc += dt;
     while (this._trailAcc >= this.trailSpacing) {
       this.trail.push({ x: this.x, y: this.y, a: this.angle });
