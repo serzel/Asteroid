@@ -1,5 +1,6 @@
 import { wrap, rand } from "../engine/math.js";
 import { computeAlphaBBox } from "../engine/utils.js";
+import { drawCircularGlow } from "../rendering/GlowRenderer.js";
 
 const SPLIT_KICK = 60;
 const MAX_CHILD_SPEED = 520;
@@ -255,7 +256,7 @@ export class Asteroid {
     return kids;
   }
 
-  draw(ctx) {
+  drawBase(ctx) {
     const spriteAsset = this.#getSprite();
     const sprite = spriteAsset?.img;
     const bbox = spriteAsset?.meta?.bbox;
@@ -289,7 +290,6 @@ export class Asteroid {
 
       ctx.drawImage(sprite, drawX, drawY, imgW * scaleX, imgH * scaleY);
     } else {
-      // Fallback temporaire pendant le chargement image.
       ctx.fillStyle = "rgba(140,140,140,0.75)";
       ctx.beginPath();
       ctx.arc(0, 0, this.displayRadius, 0, Math.PI * 2);
@@ -297,12 +297,20 @@ export class Asteroid {
     }
 
     if (this.hitFlash > 0) {
-      ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(255,255,255,${0.22 * this.hitFlash})`;
+      ctx.fillStyle = `rgba(255,255,255,${0.18 * this.hitFlash})`;
       ctx.fillRect(-drawDiameter * 0.5, -drawDiameter * 0.5, drawDiameter, drawDiameter);
-      ctx.globalCompositeOperation = "source-over";
     }
 
     ctx.restore();
+  }
+
+  drawGlow(ctx) {
+    if (this.hitFlash <= 0) return;
+    drawCircularGlow(ctx, this.x, this.y, this.displayRadius * 0.72, "rgba(220,245,255,0.95)", this.hitFlash * 0.42);
+  }
+
+  draw(ctx) {
+    this.drawBase(ctx);
+    this.drawGlow(ctx);
   }
 }

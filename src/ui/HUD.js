@@ -1,4 +1,5 @@
 import { neonBar, neonLine, neonPanel, neonText, roundRectPath } from './neon.js';
+import { drawCircularGlow } from '../rendering/GlowRenderer.js';
 
 const WEAPON_HUD_STYLES = {
   1: { color: '#76e9ff', label: 'BLASTER' },
@@ -127,7 +128,7 @@ function rebuildStaticLayer(game, layout) {
 
   neonLine(c, layout.margin, layout.topLineY, w * 0.5, layout.topLineY, {
     color: '#ff56df',
-    width: 4.6,
+    width: 3.5,
     coreWidth: 3.8,
     intensity: 1.08,
     mediumBlur: 11,
@@ -135,15 +136,15 @@ function rebuildStaticLayer(game, layout) {
   });
   neonLine(c, w * 0.5, layout.topLineY, w - layout.margin, layout.topLineY, {
     color: '#53d8ff',
-    width: 4.6,
+    width: 3.5,
     coreWidth: 3.8,
     intensity: 1.08,
     mediumBlur: 11,
     largeBlur: 26,
   });
 
-  neonPanel(c, layout.comboPanel, { color: '#ff56df', width: 3.9, skew: layout.comboPanel.skew, intensity: 1.12 });
-  neonPanel(c, layout.comboBarPanel, { color: '#ff56df', width: 3.2, skew: layout.comboBarPanel.skew, intensity: 0.94 });
+  neonPanel(c, layout.comboPanel, { color: '#ff56df', width: 3.0, skew: layout.comboPanel.skew, intensity: 0.9 });
+  neonPanel(c, layout.comboBarPanel, { color: '#ff56df', width: 2.6, skew: layout.comboBarPanel.skew, intensity: 0.78 });
   neonPanel(c, layout.wavePanel, {
     color: '#ff56df',
     width: 6.4,
@@ -152,7 +153,7 @@ function rebuildStaticLayer(game, layout) {
     fillTop: 'rgba(36, 14, 72, 0.72)',
     fillBottom: 'rgba(8, 10, 30, 0.84)',
   });
-  neonPanel(c, layout.scorePanel, { color: '#53d8ff', width: 3.9, skew: layout.scorePanel.skew, intensity: 1.12 });
+  neonPanel(c, layout.scorePanel, { color: '#53d8ff', width: 3.0, skew: layout.scorePanel.skew, intensity: 0.9 });
 
   neonPanel(c, layout.weaponPanel, {
     color: '#ff56df',
@@ -271,8 +272,7 @@ export function drawHUD(ctx, game) {
   for (let i = 0; i < maxLives; i += 1) {
     const img = i < game.lives ? lifeFullImg : lifeEmptyImg;
     const dx = livesX + i * (size + spacing);
-    ctx.shadowColor = i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)';
-    ctx.shadowBlur = i < game.lives ? 14 : 8;
+    drawCircularGlow(ctx, dx + size * 0.5, livesY + size * 0.5, size * 0.2, i < game.lives ? 'rgba(255, 115, 227, 0.9)' : 'rgba(88, 126, 173, 0.45)', i < game.lives ? 0.49 : 0.245, 'low');
     ctx.drawImage(img, dx, livesY, size, size);
   }
   ctx.restore();

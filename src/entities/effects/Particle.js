@@ -1,4 +1,5 @@
 import { wrap, rand } from "../../engine/math.js";
+import { drawCircularGlow } from "../../rendering/GlowRenderer.js";
 
 export class Particle {
   constructor(x = 0, y = 0, vx = 0, vy = 0, life = 0.2, radius = 1) {
@@ -32,18 +33,29 @@ export class Particle {
     if (this.life <= 0) this.dead = true;
   }
 
-  draw(ctx) {
-  const t = Math.max(0, this.life / this.maxLife);
-  const rr = this.radius * (0.6 + 0.4 * t);
+  drawBase(ctx) {
+    const t = Math.max(0, this.life / this.maxLife);
+    const rr = this.radius * (0.6 + 0.4 * t);
 
-  ctx.save();
-  ctx.globalAlpha = t;
-  ctx.fillStyle = "white";
-  ctx.beginPath();
-  ctx.arc(this.x, this.y, rr, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, rr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawGlow(ctx) {
+    const t = Math.max(0, this.life / this.maxLife);
+    const rr = this.radius * (0.8 + 0.8 * t);
+    drawCircularGlow(ctx, this.x, this.y, rr, "rgba(220,240,255,0.95)", t);
+  }
+
+  draw(ctx) {
+    this.drawBase(ctx);
+    this.drawGlow(ctx);
+  }
 
 
   static burst(x, y, count, speedMin, speedMax, lifeMin, lifeMax, rMin, rMax, acquire = null, maxToSpawn = count) {

@@ -1,4 +1,5 @@
 import { wrap, rand } from "../../engine/math.js";
+import { drawOutlineGlow } from "../../rendering/GlowRenderer.js";
 
 export class DebrisParticle {
   constructor(x = 0, y = 0, vx = 0, vy = 0, life = 0.2, size = 1, color = "white") {
@@ -32,7 +33,7 @@ export class DebrisParticle {
     if (this.life <= 0) this.dead = true;
   }
 
-  draw(ctx) {
+  drawBase(ctx) {
     const t = Math.max(0, this.life / this.maxLife);
     const dx = this.vx * 0.012;
     const dy = this.vy * 0.012;
@@ -47,6 +48,22 @@ export class DebrisParticle {
     ctx.lineTo(this.x + dx, this.y + dy);
     ctx.stroke();
     ctx.restore();
+  }
+
+  drawGlow(ctx) {
+    const t = Math.max(0, this.life / this.maxLife);
+    const dx = this.vx * 0.012;
+    const dy = this.vy * 0.012;
+    drawOutlineGlow(ctx, (c) => {
+      c.beginPath();
+      c.moveTo(this.x - dx, this.y - dy);
+      c.lineTo(this.x + dx, this.y + dy);
+    }, this.color, Math.max(1, this.size), t * 0.9);
+  }
+
+  draw(ctx) {
+    this.drawBase(ctx);
+    this.drawGlow(ctx);
   }
 
   static spray(x, y, count, color, speedMin = 45, speedMax = 170, acquire = null, maxToSpawn = count) {

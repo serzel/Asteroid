@@ -1105,15 +1105,15 @@ export class Game {
     this.#spawnDebris(x, y, count, type, speedMin, speedMax);
   }
 
-  #drawPlayScene() {
+  #drawWorldBase() {
     const ctx = this.ctx;
     this.background.draw(ctx);
-    this.ship.render(ctx, this.combo);
-    for (const a of this.asteroids) a.draw(ctx);
-    for (const e of this.explosions) e.draw(ctx);
-    for (const d of this.debris) d.draw(ctx);
-    for (const p of this.particles) p.draw(ctx);
-    for (const b of this.bullets) b.draw(ctx);
+    this.ship.drawBase(ctx);
+    for (const a of this.asteroids) a.drawBase(ctx);
+    for (const e of this.explosions) e.drawBase(ctx);
+    for (const d of this.debris) d.drawBase(ctx);
+    for (const p of this.particles) p.drawBase(ctx);
+    for (const b of this.bullets) b.drawBase(ctx);
 
     const amb = this.clamp01((this.combo - COMBO_OVERLAY.ambienceStart) / COMBO_OVERLAY.ambienceRange);
     this.background.setAmbienceFactor(amb);
@@ -1130,7 +1130,6 @@ export class Game {
       grad.addColorStop(0, `rgba(255, 80, 220, ${alpha})`);
       grad.addColorStop(1, `rgba(0, 220, 255, ${alpha})`);
       ctx.fillStyle = grad;
-
       ctx.fillRect(0, 0, this.world.w, thickness);
       ctx.fillRect(0, this.world.h - thickness, this.world.w, thickness);
       ctx.fillRect(0, 0, thickness, this.world.h);
@@ -1138,6 +1137,32 @@ export class Game {
       ctx.restore();
     }
   }
+
+  #drawWorldGlow() {
+    const ctx = this.ctx;
+    this.ship.drawGlow(ctx, this.combo);
+    for (const a of this.asteroids) a.drawGlow(ctx);
+    for (const e of this.explosions) e.drawGlow(ctx);
+    for (const d of this.debris) d.drawGlow(ctx);
+    for (const p of this.particles) p.drawGlow(ctx);
+    for (const b of this.bullets) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "lighter";
+      b.drawGlow(ctx);
+      ctx.restore();
+    }
+  }
+
+  #drawUI(uiModel) {
+    const ctx = this.ctx;
+    if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
+      this.uiRenderer.drawGameOverOverlay(ctx, uiModel);
+    }
+    drawHUD(ctx, this);
+    this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
+  }
+
 
 
   #drawColliderCircle(x, y, radius, strokeStyle, lineWidth = 1.5) {
@@ -1190,15 +1215,11 @@ export class Game {
 
     ctx.save();
     ctx.translate(this.shakeX, this.shakeY);
-    this.#drawPlayScene();
+    this.#drawWorldBase();
+    this.#drawWorldGlow();
     this.#drawCollidersOverlay();
-
-    if (this.state === GAME_STATE.GAME_OVER_ANIM || this.state === GAME_STATE.GAME_OVER_READY) {
-      this.uiRenderer.drawGameOverOverlay(ctx, uiModel);
-    }
     ctx.restore();
 
-    drawHUD(ctx, this);
-    this.uiRenderer.drawProfilerOverlay(ctx, uiModel);
+    this.#drawUI(uiModel);
   }
 }

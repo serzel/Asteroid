@@ -609,14 +609,15 @@ export class Background {
     this.#resetLayerState(ctx);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.045;
+    ctx.globalAlpha = 0.028;
     ctx.fillStyle = "rgba(0,180,255,1)";
     ctx.fillRect(0, 0, this.w, this.h);
-    ctx.globalAlpha = 0.035;
+    ctx.globalAlpha = 0.022;
     ctx.fillStyle = "rgba(200,0,255,1)";
     ctx.fillRect(0, 0, this.w, this.h);
     ctx.restore();
 
+    ctx.save();
     const vignette = ctx.createRadialGradient(
       this.w * 0.5,
       this.h * 0.5,
@@ -627,16 +628,19 @@ export class Background {
     );
     vignette.addColorStop(0, "rgba(0,0,0,0)");
     vignette.addColorStop(0.6, "rgba(0,0,0,0)");
-    vignette.addColorStop(0.85, "rgba(0,120,255,0.05)");
-    vignette.addColorStop(1, "rgba(185,0,255,0.08)");
+    vignette.addColorStop(0.78, "rgba(0,0,0,0.06)");
+    vignette.addColorStop(0.9, "rgba(0,110,255,0.03)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.2)");
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, this.w, this.h);
+    ctx.restore();
     this.#resetLayerState(ctx);
   }
 
   #drawNoiseTile(ctx, img, alpha) {
     if (!this.#isImageReady(img)) return;
 
+    ctx.save();
     this.#resetLayerState(ctx);
     ctx.globalCompositeOperation = "overlay";
     ctx.globalAlpha = alpha;
@@ -652,6 +656,7 @@ export class Background {
         });
       }
     }
+    ctx.restore();
     this.#resetLayerState(ctx);
   }
 
@@ -703,9 +708,9 @@ export class Background {
     this.#resetLayerState(ctx);
     this.#setTextureSmoothing(ctx);
     const bg = ctx.createLinearGradient(0, 0, this.w, this.h);
-    bg.addColorStop(0, "hsl(224, 72%, 6%)");
-    bg.addColorStop(0.5, "hsl(238, 70%, 5%)");
-    bg.addColorStop(1, "hsl(258, 78%, 4%)");
+    bg.addColorStop(0, "hsl(224, 72%, 4.8%)");
+    bg.addColorStop(0.5, "hsl(238, 70%, 4%)");
+    bg.addColorStop(1, "hsl(258, 78%, 3.2%)");
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, this.w, this.h);
 
