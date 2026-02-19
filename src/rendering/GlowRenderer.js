@@ -36,6 +36,15 @@ function normalizeTier(tier, intensity) {
 }
 
 function parseColor(color) {
+  if (color && typeof color === "object") {
+    return {
+      r: clamp(Number.isFinite(color.r) ? color.r : 255, 0, 255),
+      g: clamp(Number.isFinite(color.g) ? color.g : 255, 0, 255),
+      b: clamp(Number.isFinite(color.b) ? color.b : 255, 0, 255),
+      a: clamp(Number.isFinite(color.a) ? color.a : 1, 0, 1),
+    };
+  }
+
   if (typeof color !== "string") {
     return { r: 255, g: 255, b: 255, a: 1 };
   }

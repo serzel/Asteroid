@@ -1145,7 +1145,13 @@ export class Game {
     for (const e of this.explosions) e.drawGlow(ctx);
     for (const d of this.debris) d.drawGlow(ctx);
     for (const p of this.particles) p.drawGlow(ctx);
-    for (const b of this.bullets) b.drawGlow(ctx);
+    for (const b of this.bullets) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "lighter";
+      b.drawGlow(ctx);
+      ctx.restore();
+    }
   }
 
   #drawUI(uiModel) {
